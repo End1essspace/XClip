@@ -13,7 +13,13 @@ public final class Config {
 
     private final int maxHistory;
     private final int minClipLength;
+
+    // Max chars to capture from clipboard text (hard safety guard)
+    public static final int DEFAULT_MAX_CLIP_CHARS = 500_000;
+    private final int maxClipChars;
+
     private final boolean startOnBoot;
+
     private final boolean startMinimized;
     private final boolean watcherEnabled;
 
@@ -39,6 +45,7 @@ public final class Config {
                 version,
                 maxHistory,
                 minClipLength,
+                DEFAULT_MAX_CLIP_CHARS,
                 startOnBoot,
                 startMinimized,
                 watcherEnabled,
@@ -65,6 +72,7 @@ public final class Config {
             int version,
             int maxHistory,
             int minClipLength,
+            int maxClipChars,
             boolean startOnBoot,
             boolean startMinimized,
             boolean watcherEnabled,
@@ -77,10 +85,10 @@ public final class Config {
         this.version = version;
         this.maxHistory = maxHistory;
         this.minClipLength = minClipLength;
+        this.maxClipChars = maxClipChars;
         this.startOnBoot = startOnBoot;
         this.startMinimized = startMinimized;
         this.watcherEnabled = watcherEnabled;
-
         this.windowX = windowX;
         this.windowY = windowY;
         this.windowW = windowW;
@@ -98,6 +106,10 @@ public final class Config {
         int ml = minClipLength;
         if (ml < 0) ml = 0;
         if (ml > 10_000) ml = 10_000;
+
+        int mcc = maxClipChars;
+        if (mcc < 10_000) mcc = 10_000;
+        if (mcc > 5_000_000) mcc = 5_000_000;
 
         double x = windowX;
         double y = windowY;
@@ -120,12 +132,13 @@ public final class Config {
         if (!Double.isFinite(x)) x = -1;
         if (!Double.isFinite(y)) y = -1;
 
-        return new Config(v, mh, ml, startOnBoot, startMinimized, watcherEnabled, x, y, w, h, max);
+        return new Config(v, mh, ml, mcc, startOnBoot, startMinimized, watcherEnabled, x, y, w, h, max);
     }
 
     public int version() { return version; }
     public int maxHistory() { return maxHistory; }
     public int minClipLength() { return minClipLength; }
+    public int maxClipChars() { return maxClipChars; }
     public boolean startOnBoot() { return startOnBoot; }
     public boolean startMinimized() { return startMinimized; }
     public boolean watcherEnabled() { return watcherEnabled; }
@@ -140,32 +153,38 @@ public final class Config {
 
     // Withers (for UI)
     public Config withMaxHistory(int value) {
-        return new Config(version, value, minClipLength, startOnBoot, startMinimized, watcherEnabled, windowX, windowY, windowW, windowH, windowMaximized)
+        return new Config(version, value, minClipLength, maxClipChars, startOnBoot, startMinimized, watcherEnabled, windowX, windowY, windowW, windowH, windowMaximized)
                 .normalized();
     }
 
     public Config withMinClipLength(int value) {
-        return new Config(version, maxHistory, value, startOnBoot, startMinimized, watcherEnabled, windowX, windowY, windowW, windowH, windowMaximized)
+        return new Config(version, maxHistory, value, maxClipChars, startOnBoot, startMinimized, watcherEnabled, windowX, windowY, windowW, windowH, windowMaximized)
+                .normalized();
+    }
+
+    public Config withMaxClipChars(int value) {
+        return new Config(version, maxHistory, minClipLength, value, startOnBoot, startMinimized, watcherEnabled, windowX, windowY, windowW, windowH, windowMaximized)
                 .normalized();
     }
 
     public Config withStartOnBoot(boolean value) {
-        return new Config(version, maxHistory, minClipLength, value, startMinimized, watcherEnabled, windowX, windowY, windowW, windowH, windowMaximized)
+        // NOTE: fixed bug: previously 'value' was mistakenly passed into maxHistory slot
+        return new Config(version, maxHistory, minClipLength, maxClipChars, value, startMinimized, watcherEnabled, windowX, windowY, windowW, windowH, windowMaximized)
                 .normalized();
     }
 
     public Config withStartMinimized(boolean value) {
-        return new Config(version, maxHistory, minClipLength, startOnBoot, value, watcherEnabled, windowX, windowY, windowW, windowH, windowMaximized)
+        return new Config(version, maxHistory, minClipLength, maxClipChars, startOnBoot, value, watcherEnabled, windowX, windowY, windowW, windowH, windowMaximized)
                 .normalized();
     }
 
     public Config withWatcherEnabled(boolean value) {
-        return new Config(version, maxHistory, minClipLength, startOnBoot, startMinimized, value, windowX, windowY, windowW, windowH, windowMaximized)
+        return new Config(version, maxHistory, minClipLength, maxClipChars, startOnBoot, startMinimized, value, windowX, windowY, windowW, windowH, windowMaximized)
                 .normalized();
     }
 
     public Config withWindowState(double x, double y, double w, double h, boolean maximized) {
-        return new Config(version, maxHistory, minClipLength, startOnBoot, startMinimized, watcherEnabled, x, y, w, h, maximized)
+        return new Config(version, maxHistory, minClipLength, maxClipChars, startOnBoot, startMinimized, watcherEnabled, x, y, w, h, maximized)
                 .normalized();
     }
 

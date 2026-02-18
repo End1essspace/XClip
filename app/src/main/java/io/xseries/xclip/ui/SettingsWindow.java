@@ -41,6 +41,7 @@ public final class SettingsWindow {
 
     private final Spinner<Integer> maxHistory;
     private final Spinner<Integer> minClipLength;
+    private final Spinner<Integer> maxClipChars;
     private final CheckBox watcherEnabled;
     private final CheckBox startMinimized;
     private final CheckBox startOnBoot;
@@ -79,6 +80,11 @@ public final class SettingsWindow {
         // Controls
         maxHistory = new Spinner<>(100, 50_000, current.maxHistory(), 50);
         maxHistory.setEditable(true);
+        maxHistory.getEditor().setTextFormatter(
+                new javafx.scene.control.TextFormatter<>(change ->
+                        change.getControlNewText().matches("\\d*") ? change : null
+                )
+        );
 
         // SAFE CONVERTER FOR maxHistory
         maxHistory.getValueFactory().setConverter(new javafx.util.StringConverter<>() {
@@ -101,6 +107,11 @@ public final class SettingsWindow {
 
         minClipLength = new Spinner<>(0, 10_000, current.minClipLength(), 1);
         minClipLength.setEditable(true);
+        minClipLength.getEditor().setTextFormatter(
+                new javafx.scene.control.TextFormatter<>(change ->
+                        change.getControlNewText().matches("\\d*") ? change : null
+                )
+        );
 
         // SAFE CONVERTER FOR minClipLength
         minClipLength.getValueFactory().setConverter(new javafx.util.StringConverter<>() {
@@ -117,6 +128,32 @@ public final class SettingsWindow {
                 } catch (Exception e) {
                     minClipLength.getEditor().getStyleClass().add("input-error");
                     return minClipLength.getValue();
+                }
+            }
+        });
+        maxClipChars = new Spinner<>(10_000, 5_000_000, current.maxClipChars(), 10_000);
+        maxClipChars.setEditable(true);
+        maxClipChars.getEditor().setTextFormatter(
+                new javafx.scene.control.TextFormatter<>(change ->
+                        change.getControlNewText().matches("\\d*") ? change : null
+                )
+        );
+
+        // SAFE CONVERTER FOR maxClipChars
+        maxClipChars.getValueFactory().setConverter(new javafx.util.StringConverter<>() {
+            @Override
+            public String toString(Integer value) {
+                return value == null ? "" : value.toString();
+            }
+
+            @Override
+            public Integer fromString(String text) {
+                try {
+                    maxClipChars.getEditor().getStyleClass().remove("input-error");
+                    return Integer.parseInt(text.trim());
+                } catch (Exception e) {
+                    maxClipChars.getEditor().getStyleClass().add("input-error");
+                    return maxClipChars.getValue();
                 }
             }
         });
@@ -141,6 +178,10 @@ public final class SettingsWindow {
 
         grid.add(new Label("Min clip length:"), 0, r);
         grid.add(minClipLength, 1, r++);
+
+        grid.add(new Label("Max clip chars:"), 0, r);
+        grid.add(maxClipChars, 1, r++);
+
 
         grid.add(watcherEnabled, 1, r++);
         grid.add(startMinimized, 1, r++);
@@ -269,6 +310,7 @@ public final class SettingsWindow {
         // Dirty listeners (ignore internal sync updates)
         wireDirtyForIntSpinner(maxHistory);
         wireDirtyForIntSpinner(minClipLength);
+        wireDirtyForIntSpinner(maxClipChars);
         watcherEnabled.selectedProperty().addListener((obs, o, n) -> { if (!internalSync) markDirty(); });
         startMinimized.selectedProperty().addListener((obs, o, n) -> { if (!internalSync) markDirty(); });
         startOnBoot.selectedProperty().addListener((obs, o, n) -> { if (!internalSync) markDirty(); });
@@ -319,10 +361,13 @@ public final class SettingsWindow {
         }
         if (!validateIntSpinner(maxHistory, 100, 50_000, "Max history")) return;
         if (!validateIntSpinner(minClipLength, 0, 10_000, "Min clip length")) return;
+        if (!validateIntSpinner(maxClipChars, 10_000, 5_000_000, "Max clip chars")) return;
+
 
         Config next = current
                 .withMaxHistory(maxHistory.getValue())
                 .withMinClipLength(minClipLength.getValue())
+                .withMaxClipChars(maxClipChars.getValue())
                 .withWatcherEnabled(watcherEnabled.isSelected())
                 .withStartMinimized(startMinimized.isSelected())
                 .withStartOnBoot(startOnBoot.isSelected());
@@ -518,9 +563,11 @@ public final class SettingsWindow {
         // переписываем текст в editor из value (иначе "ффф" останется)
         maxHistory.getEditor().setText(String.valueOf(maxHistory.getValue()));
         minClipLength.getEditor().setText(String.valueOf(minClipLength.getValue()));
+        maxClipChars.getEditor().setText(String.valueOf(maxClipChars.getValue()));
 
         // убрать красную рамку
         maxHistory.getEditor().getStyleClass().remove("input-error");
         minClipLength.getEditor().getStyleClass().remove("input-error");
+        maxClipChars.getEditor().getStyleClass().remove("input-error");
     }
 }

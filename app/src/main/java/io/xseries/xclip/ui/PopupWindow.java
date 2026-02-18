@@ -68,6 +68,10 @@ public final class PopupWindow {
     private static final int PREVIEW_LINES = 3;
     private static final int PREVIEW_CHAR_LIMIT = 320;
 
+    // Expanded preview (still bounded to protect UI)
+    private static final int EXPANDED_LINES = 200;
+    private static final int EXPANDED_CHAR_LIMIT = 100_000;
+
     private final Stage stage;
     private final TextField searchField = new TextField();
     private final ListView<Row> listView = new ListView<>();
@@ -285,6 +289,7 @@ public final class PopupWindow {
         • Enter          Copy selection
         • Ctrl+C         Copy selection
         • Ctrl+P         Pin / Unpin selection
+        • E              Expand / Collapse selected clip (bounded preview)
         • Delete         Delete selection
         • Double-click   Copy single item
         • Right-click    Context menu (Copy / Pin / Delete)
@@ -447,7 +452,17 @@ public final class PopupWindow {
             }
             if (e.isControlDown() && e.getCode() == KeyCode.COMMA) {
                 e.consume();
+
                 openSettings();
+                return;
+            }
+            // Expand/Collapse selected clip (UI-only, bounded)
+            if (!e.isControlDown() && !e.isAltDown() && !e.isMetaDown() && e.getCode() == KeyCode.E) {
+                // do not hijack typing in search/inputs
+                if (e.getTarget() instanceof TextInputControl) return;
+
+                e.consume();
+                toggleExpandSelected();
                 return;
             }
             if (e.getCode() == KeyCode.ESCAPE) {
@@ -859,6 +874,38 @@ public final class PopupWindow {
             });
         });
     }
+    
+    private void toggleExpandSelected() {
+        // toggle selected clips; if nothing selected -> toggle first clip in list
+        java.util.List<Long> ids = new java.util.ArrayList<>();
+
+        for (Row r : listView.getSelectionModel().getSelectedItems()) {
+            if (r instanceof ClipRow cr) ids.add(cr.entry().id());
+        }
+
+        if (ids.isEmpty()) {
+            int first = findFirstClipIndex();
+            if (first < 0) return;
+            Row r = items.get(first);
+            if (r instanceof ClipRow cr) ids.add(cr.entry().id());
+            else return;
+        }
+
+        // If any is collapsed -> expand all. Else collapse all.
+        boolean expand = false;
+        for (Long id : ids) {
+            if (!expandedById.getOrDefault(id, false)) {
+                expand = true;
+                break;
+            }
+        }
+
+        for (Long id : ids) {
+            expandedById.put(id, expand);
+        }
+
+        listView.refresh();
+    }
 
     private void deleteSelected() {
         List<ClipEntry> selected = getSelectedClipsOrdered();
@@ -923,6 +970,38 @@ public final class PopupWindow {
         PreviewData pd = computePreviewData(full);
         previewCache.put(id, pd);
         return pd;
+    }
+
+    private String buildExpandedPreview(String s) {
+        if (s == null || s.isEmpty()) return "";
+
+        int len = s.length();
+        StringBuilder sb = new StringBuilder(Math.min(len, EXPANDED_CHAR_LIMIT + 8));
+
+        int lines = 1;
+        boolean truncated = false;
+
+        for (int i = 0; i < len; i++) {
+            char ch = s.charAt(i);
+
+            if (sb.length() < EXPANDED_CHAR_LIMIT) {
+                sb.append(ch);
+            } else {
+                truncated = true;
+            }
+
+            if (ch == '\n') {
+                lines++;
+                if (lines > EXPANDED_LINES) {
+                    truncated = true;
+                    break;
+                }
+            }
+        }
+
+        String out = sb.toString().trim();
+        if (truncated && !out.endsWith("…")) out = out + "…";
+        return out;
     }
 
     private PreviewData computePreviewData(String s) {
@@ -1166,7 +1245,7 @@ public final class PopupWindow {
 
             PreviewData pd = getPreviewData(id, full);
             boolean needsToggle = pd.needsToggle();
-            String shown = expanded ? full : pd.preview();
+            String shown = expanded ? buildExpandedPreview(full) : pd.preview();
 
             // Left content (with optional highlight)
             String q = currentQueryLower;

@@ -14,7 +14,9 @@ public final class ClipService {
 
     // Config-driven, can change at runtime (Settings -> Apply)
     private volatile int retentionLimit;
-    private volatile int minClipLength;
+    private volatile int minClipLength = 0;
+    private volatile int maxClipChars = Config.DEFAULT_MAX_CLIP_CHARS;
+
 
     // Fast in-memory duplicate filter for back-to-back clipboard reads
     private final AtomicReference<String> lastNorm = new AtomicReference<>("");
@@ -55,6 +57,7 @@ public final class ClipService {
         if (cfg == null) return;
         this.retentionLimit = clampRetention(cfg.maxHistory());
         this.minClipLength = clampMinLen(cfg.minClipLength());
+        this.maxClipChars  = clampMaxClipChars(cfg.maxClipChars());
     }
 
     public void ingestText(String text) {
@@ -66,8 +69,11 @@ public final class ClipService {
         int minLen = this.minClipLength;
         if (minLen > 0 && trimmed.length() < minLen) return;
 
-        // hard cap to avoid memory spikes
-        if (trimmed.length() > 50_000) return;
+        // hard cap to avoid memory spikes (truncate, not drop)
+        int cap = this.maxClipChars;
+        if (cap > 0 && trimmed.length() > cap) {
+            trimmed = trimmed.substring(0, cap);
+        }
 
         // whitespace normalization
         String norm = normalize(trimmed);
@@ -169,6 +175,11 @@ public final class ClipService {
     private static int clampMinLen(int v) {
         if (v < 0) return 0;
         if (v > 10_000) return 10_000;
+        return v;
+    }
+    private static int clampMaxClipChars(int v) {
+        if (v < 10_000) return 10_000;
+        if (v > 5_000_000) return 5_000_000;
         return v;
     }
 }
