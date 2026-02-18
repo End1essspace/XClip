@@ -1,0 +1,399 @@
+/* ==============================
+   XClip v1.0 – Refined Styling
+   ============================== */
+
+.root {
+    -fx-font-family: "Segoe UI", "System";
+    -fx-font-size: 13px;
+    -fx-background-color: #f4f6f8;
+}
+
+/* ==============================
+   Top Bar
+   ============================== */
+
+.top-bar {
+    -fx-padding: 10 12 10 12;
+    -fx-spacing: 8;
+    -fx-background-color: white;
+    -fx-border-color: rgba(0,0,0,0.08);
+    -fx-border-width: 0 0 1 0;
+}
+
+.topbar-status {
+    -fx-text-fill: rgba(0,0,0,0.55);
+    -fx-font-size: 12px;
+    -fx-padding: 0 2 0 2;
+}
+
+.top-bar .button {
+    -fx-min-height: 28px;
+}
+
+.topbar-btn {
+    -fx-min-height: 28px;
+    -fx-padding: 0 12 0 12;
+}
+
+.topbar-help {
+    -fx-font-weight: bold;
+    -fx-padding: 0 10 0 10;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-border-color: rgba(0,0,0,0.18);
+    -fx-background-color: rgba(0,0,0,0.03);
+}
+
+.topbar-help:hover {
+    -fx-border-color: rgba(0,0,0,0.28);
+    -fx-background-color: rgba(0,0,0,0.06);
+}
+
+/* ==============================
+   Search
+   ============================== */
+
+.search-field {
+    -fx-background-radius: 8;
+    -fx-border-radius: 8;
+    -fx-padding: 6 10 6 10;
+    -fx-background-color: #eef1f5;
+    -fx-border-color: transparent;
+}
+
+.search-field:focused {
+    -fx-border-color: #5c8df6;
+}
+
+/* ==============================
+   List
+   ============================== */
+
+.list-view {
+    -fx-background-color: transparent;
+}
+
+/* Base row */
+.list-cell {
+    -fx-padding: 10 14 10 14;
+
+    /* IMPORTANT: remove default layered backgrounds */
+    -fx-background-insets: 0;
+    -fx-background-radius: 0;
+
+    -fx-background-color: white;
+    -fx-border-color: rgba(0,0,0,0.07);
+    -fx-border-width: 0 0 1 0;
+}
+
+/* Hover (very subtle) */
+.list-cell:hover {
+    -fx-background-color: #f3f6ff;
+}
+
+/* Selected (mild) */
+.list-cell:selected {
+    -fx-background-color: #e3ecff;
+}
+
+/* Selected while list is focused (slightly stronger) */
+.list-view:focused .list-cell:selected {
+    -fx-background-color: #d7e4ff;
+}
+
+/* Remove default focus visuals */
+.list-cell:focused {
+    -fx-border-insets: 0;
+    -fx-background-insets: 0;
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent;
+}
+
+/* Section cells (headers) */
+.list-cell:section,
+.list-cell:disabled:section {
+    -fx-background-color: #f0f2f5;
+    -fx-border-color: rgba(0,0,0,0.08);
+    -fx-border-width: 0 0 1 0;
+    -fx-padding: 8 14 6 14;
+
+    /* reset layers */
+    -fx-background-insets: 0;
+}
+
+/* section never reacts like a normal row */
+.list-cell:section:hover,
+.list-cell:section:selected,
+.list-view:focused .list-cell:section:selected,
+.list-cell:disabled:section:hover,
+.list-cell:disabled:section:selected,
+.list-view:focused .list-cell:disabled:section:selected {
+    -fx-background-color: #f0f2f5;
+}
+
+/* ==============================
+   Section headers
+   ============================== */
+
+.section-row {
+    -fx-padding: 3 14 3 14;
+    -fx-font-size: 10px;
+    -fx-font-weight: bold;
+    -fx-text-fill: rgba(0,0,0,0.45);
+    -fx-background-color: #f0f2f5;
+}
+
+/* ==============================
+   Content
+   ============================== */
+
+.clip-content {
+    -fx-line-spacing: 2px;
+    -fx-text-fill: rgba(0,0,0,0.88);
+}
+
+.clip-time {
+    -fx-font-size: 11px;
+    -fx-text-fill: rgba(0,0,0,0.50);
+}
+
+.clip-toggle {
+    -fx-font-size: 11px;
+    -fx-text-fill: #3b6edc;
+    -fx-padding: 0;
+}
+
+.clip-toggle:hover {
+    -fx-underline: true;
+}
+
+/* ==============================
+   Buttons
+   ============================== */
+
+.button {
+    -fx-background-radius: 8;
+    -fx-padding: 6 12 6 12;
+    -fx-background-color: #eef1f5;
+    -fx-border-color: transparent;
+}
+
+.button:hover {
+    -fx-background-color: #e3e7ec;
+}
+
+.button:focused {
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent;
+
+    -fx-border-color: rgba(92,141,246,0.55);
+    -fx-border-width: 1;
+    -fx-border-radius: 8;
+}
+
+.button-danger {
+    -fx-background-color: #fce8e6;
+    -fx-text-fill: #c0392b;
+}
+
+.button-danger:hover {
+    -fx-background-color: #f8d7da;
+}
+
+/* ==============================
+   Toast
+   ============================== */
+
+.toast {
+    -fx-background-color: rgba(0,0,0,0.85);
+    -fx-text-fill: white;
+    -fx-background-radius: 10;
+    -fx-padding: 6 12 6 12;
+    -fx-font-weight: bold;
+}
+
+/* ==============================
+   Search Clear Button
+   ============================== */
+
+.search-wrap {
+    -fx-background-radius: 8;
+}
+
+.search-clear {
+    -fx-background-color: transparent;
+    -fx-padding: 0 8 0 8;
+    -fx-font-size: 14px;
+    -fx-text-fill: rgba(0,0,0,0.45);
+}
+
+.search-clear:hover {
+    -fx-text-fill: rgba(0,0,0,0.75);
+}
+
+/* ==============================
+   Settings extras
+   ============================== */
+
+.data-path {
+    -fx-background-radius: 8;
+    -fx-border-radius: 8;
+    -fx-background-color: #eef1f5;
+    -fx-border-color: rgba(0,0,0,0.08);
+    -fx-padding: 6 10 6 10;
+    -fx-opacity: 0.85;
+}
+
+.danger-title {
+    -fx-font-weight: bold;
+    -fx-text-fill: rgba(0,0,0,0.65);
+}
+
+.danger-box {
+    -fx-background-color: rgba(255, 0, 0, 0.03);
+    -fx-border-color: rgba(255, 0, 0, 0.10);
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-padding: 10 12 10 12;
+}
+
+.btn-subtle {
+    -fx-background-color: transparent;
+    -fx-border-color: rgba(0,0,0,0.12);
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-padding: 6 10 6 10;
+    -fx-text-fill: rgba(0,0,0,0.70);
+}
+
+.btn-subtle:hover {
+    -fx-background-color: rgba(0,0,0,0.04);
+}
+
+.status-text {
+    -fx-text-fill: rgba(0,0,0,0.60);
+    -fx-font-size: 11px;
+    -fx-padding: 0 2 0 2;
+}
+
+.input-error {
+    -fx-border-color: rgba(220, 38, 38, 0.55);
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+}
+
+/* ==============================
+   Highlight / icons
+   ============================== */
+
+.clip-highlight {
+    -fx-fill: #ffcc66;
+    -fx-font-weight: bold;
+}
+
+.clip-star {
+    -fx-fill: gold;
+}
+
+/* ==============================
+   Scrollbar (ListView VirtualFlow)
+   ============================== */
+
+.list-view .scroll-bar:vertical,
+.list-view .scroll-bar:horizontal {
+    -fx-background-color: transparent;
+}
+
+.list-view .scroll-bar:vertical {
+    -fx-pref-width: 12px;
+}
+
+.list-view .scroll-bar .track {
+    -fx-background-color: rgba(0,0,0,0.06);
+    -fx-background-radius: 10;
+}
+
+.list-view .scroll-bar .thumb {
+    -fx-background-insets: 2;              /* делает thumb “толще” визуально */
+    -fx-background-color: rgba(0,0,0,0.45);/* заметно */
+    -fx-background-radius: 10;
+}
+
+.list-view .scroll-bar .thumb:hover {
+    -fx-background-color: rgba(0,0,0,0.62);
+}
+
+.list-view .scroll-bar .increment-button,
+.list-view .scroll-bar .decrement-button {
+    -fx-padding: 0;
+    -fx-background-color: transparent;
+}
+
+.list-view .scroll-bar .increment-arrow,
+.list-view .scroll-bar .decrement-arrow {
+    -fx-shape: "";
+    -fx-padding: 0;
+}
+
+/* ==============================
+   Bottom Actions Bar
+   ============================== */
+
+.actions-bar {
+    -fx-background-color: white;
+    -fx-border-color: rgba(0,0,0,0.08);
+    -fx-border-width: 1 0 0 0;
+    -fx-padding: 10 12 10 12;
+}
+
+.action-btn {
+    -fx-min-height: 30px;
+    -fx-padding: 0 14 0 14;
+    -fx-background-radius: 8;
+    -fx-border-radius: 8;
+}
+
+.action-primary {
+    -fx-background-color: rgba(92,141,246,0.18);
+    -fx-text-fill: rgba(20,40,90,0.95);
+}
+
+.action-primary:hover {
+    -fx-background-color: rgba(92,141,246,0.26);
+}
+
+.action-neutral {
+    -fx-background-color: #eef1f5;
+    -fx-text-fill: rgba(0,0,0,0.82);
+}
+
+.action-neutral:hover {
+    -fx-background-color: #e3e7ec;
+}
+
+.action-danger {
+    -fx-background-color: rgba(220,38,38,0.12);
+    -fx-text-fill: rgba(140,20,20,0.95);
+}
+
+.action-danger:hover {
+    -fx-background-color: rgba(220,38,38,0.18);
+}
+
+/* ==============================
+   Empty state (ListView placeholder)
+   ============================== */
+
+.empty-state {
+    -fx-text-fill: rgba(0,0,0,0.55);
+    -fx-font-size: 12px;
+
+    -fx-background-color: rgba(255,255,255,0.75);
+    -fx-border-color: rgba(0,0,0,0.08);
+    -fx-border-radius: 10;
+    -fx-background-radius: 10;
+
+    -fx-padding: 14 16 14 16;
+    -fx-max-width: 360px;
+    -fx-alignment: center;
+}

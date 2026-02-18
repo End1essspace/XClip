@@ -1,0 +1,80 @@
+# ==============================
+# Gradle
+# ==============================
+.gradle/
+build/
+**/build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Runtime image (jlink)
+app/build/runtime/
+**/runtime/
+
+# Installer output (MSI)
+app/build/installer/
+**/*.msi
+
+# ==============================
+# IDE
+# ==============================
+
+# IntelliJ IDEA
+.idea/
+*.iml
+out/
+
+# VS Code
+.vscode/
+
+# ==============================
+# OS files
+# ==============================
+.DS_Store
+Thumbs.db
+
+# ==============================
+# Logs & profiling
+# ==============================
+*.log
+*.jfr
+hs_err_pid*
+replay_pid*
+
+# ==============================
+# Local user data (НЕ должно попадать в git)
+# ==============================
+
+# SQLite runtime files
+*.db
+*.sqlite
+*.sqlite3
+
+# User config (если создаётся рядом)
+config.json
+
+# Windows user app data (если случайно окажется в repo)
+AppData/
+.xclip/
+
+# ==============================
+# Temp / cache
+# ==============================
+*.tmp
+*.cache
+*.bak
+
+# ==============================
+# Java compiled artifacts
+# ==============================
+*.class
+*.jar
+*.war
+*.ear
+
+# ==============================
+# Gradle wrapper (оставляем jar!)
+# ==============================
+!gradle-wrapper.jar
+
+app/bin/
+**/bin/
