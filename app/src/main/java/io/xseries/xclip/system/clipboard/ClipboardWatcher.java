@@ -11,7 +11,9 @@ public final class ClipboardWatcher implements AutoCloseable {
     private static final long MIN_POLL_MS  = 200;
     private static final long MAX_POLL_MS  = 3000;
 
-    private static final int MAX_TEXT_LEN = 50_000;
+    private static final int DEFAULT_MAX_TEXT_LEN = 500_000;
+
+    private final java.util.function.IntSupplier maxTextLen;
 
     private final ScheduledExecutorService exec =
             Executors.newSingleThreadScheduledExecutor(r -> {
@@ -43,9 +45,19 @@ public final class ClipboardWatcher implements AutoCloseable {
             Consumer<String> onText,
             BooleanSupplier isPaused
     ) {
-        this.access   = Objects.requireNonNull(access);
-        this.onText   = Objects.requireNonNull(onText);
-        this.isPaused = Objects.requireNonNull(isPaused);
+        this(access, onText, isPaused, () -> DEFAULT_MAX_TEXT_LEN);
+    }
+
+    public ClipboardWatcher(
+            ClipboardAccess access,
+            Consumer<String> onText,
+            BooleanSupplier isPaused,
+            java.util.function.IntSupplier maxTextLen
+    ) {
+        this.access     = Objects.requireNonNull(access);
+        this.onText     = Objects.requireNonNull(onText);
+        this.isPaused   = Objects.requireNonNull(isPaused);
+        this.maxTextLen = Objects.requireNonNull(maxTextLen);
     }
 
     public void start() {
@@ -116,11 +128,9 @@ public final class ClipboardWatcher implements AutoCloseable {
                 return;
             }
 
-            if (trimmed.length() > MAX_TEXT_LEN) {
-                consecutiveFailures = 0;
-                consecutiveNoChange++;
-                scheduleNext(idleDelayMs());
-                return;
+            int cap = maxTextLen.getAsInt();
+            if (cap > 0 && trimmed.length() > cap) {
+                trimmed = trimmed.substring(0, cap);
             }
 
             String norm = normalize(trimmed);
@@ -165,7 +175,10 @@ public final class ClipboardWatcher implements AutoCloseable {
 
             String trimmed = raw.trim();
             if (trimmed.isEmpty()) return;
-            if (trimmed.length() > MAX_TEXT_LEN) return;
+            int cap2 = maxTextLen.getAsInt();
+            if (cap2 > 0 && trimmed.length() > cap2) {
+                trimmed = trimmed.substring(0, cap2);
+            }
 
             lastSeenNorm = normalize(trimmed);
         } catch (Exception ignored) {
