@@ -1,3 +1,8 @@
+/*
+ * XClip — Windows Clipboard Manager
+ * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
 package io.xseries.xclip.ui;
 
 import io.xseries.xclip.config.AppPaths;
@@ -72,8 +77,11 @@ public final class SettingsWindow {
 
         this.current = (initial == null ? Config.defaults() : initial).normalized();
 
-        this.stage = new Stage(StageStyle.UTILITY);
+        this.stage = new Stage(StageStyle.DECORATED);
         stage.setTitle("XClip Settings");
+        stage.getIcons().add(new javafx.scene.image.Image(
+                SettingsWindow.class.getResourceAsStream("/icons/icon.png")
+        ));
         stage.initModality(Modality.APPLICATION_MODAL);
         stage.setResizable(false);
 

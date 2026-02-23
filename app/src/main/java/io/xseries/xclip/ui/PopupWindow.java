@@ -1,3 +1,8 @@
+/*
+ * XClip — Windows Clipboard Manager
+ * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
 package io.xseries.xclip.ui;
 
 import io.xseries.xclip.data.dao.ClipEntryDao;
@@ -167,8 +172,11 @@ public final class PopupWindow {
         this.clipService = clipService;
         this.onOpenSettings = (onOpenSettings != null) ? onOpenSettings : (() -> {});
 
-        stage = new Stage(StageStyle.UTILITY);
-        stage.setTitle("XClip " + io.xseries.xclip.AppVersion.VERSION);
+        stage = new Stage(StageStyle.DECORATED);
+        stage.setTitle("XClip");
+        stage.getIcons().add(new javafx.scene.image.Image(
+                PopupWindow.class.getResourceAsStream("/icons/icon.png")
+        ));
         stage.setAlwaysOnTop(true);
         stage.setResizable(true);
         stage.setMinWidth(420);
@@ -657,6 +665,11 @@ public final class PopupWindow {
             stage.show();
         }
 
+        // IMPORTANT: if user minimized via native title bar, we must restore it
+        if (stage.isIconified()) {
+            stage.setIconified(false);
+        }
+
         if (first) {
             applyWindowStateOrFallback();
 
@@ -671,7 +684,6 @@ public final class PopupWindow {
         searchField.requestFocus();
         reloadNow(searchField.getText());
     }
-
 
     private void openSettings() {
         this.onOpenSettings.run();

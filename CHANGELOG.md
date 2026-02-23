@@ -2,6 +2,43 @@
 
 All notable changes to this project will be documented in this file.
 
+
+## [1.1.0] — Window System & Licensing Update — 2026-02-24
+
+### Window & UI Improvements
+
+* Switched from `StageStyle.UTILITY` to `StageStyle.DECORATED`
+* Restored native Windows title bar buttons:
+
+  * Minimize
+  * Maximize / Restore
+  * Close
+* Enabled proper window resizing for popup window
+* Added application icon to window title bar
+* Fixed tray reopening issue after native minimize (de-iconify fix)
+* Improved window state restoration behavior
+
+### Stability Improvements
+
+* Fixed bug where popup could not reopen after native minimize
+* Improved stage focus behavior when restored from tray
+* Ensured consistent window state handling (iconified/maximized)
+
+### Licensing
+
+* License changed from **MIT** to **GNU General Public License v3.0**
+* Added proper GPL v3 license file
+* Updated README license section
+
+### Internal
+
+* Refined window initialization logic
+* Improved stage lifecycle handling
+* Cleaned up title bar behavior for production-grade experience
+
+
+
+
 ## [1.0.1] — 2026-02-18
 
 ### Fixed

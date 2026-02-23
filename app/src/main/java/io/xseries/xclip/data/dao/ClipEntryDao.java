@@ -1,3 +1,8 @@
+/*
+ * XClip — Windows Clipboard Manager
+ * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
 package io.xseries.xclip.data.dao;
 
 import io.xseries.xclip.data.model.ClipEntry;

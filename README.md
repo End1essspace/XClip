@@ -152,8 +152,15 @@ GitHub: [End1essspace](https://github.com/End1essspace)
 
 🧾 **License**
 
-This project is distributed under the [MIT License](LICENSE).
+XClip is licensed under the GNU General Public License v3.0 (GPL-3.0).
 
+You are free to use, modify, and distribute this software under the terms of the GPL v3.
+Any distributed modifications must also be licensed under GPL v3 and include source code.
+
+
+🧾 **Copyright**
+
+Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
 
 
 
@@ -280,4 +287,13 @@ GitHub: [End1essspace](https://github.com/End1essspace)
 
 🧾 **Лицензия**
 
-Проект распространяется под лицензией [MIT](LICENSE).
+XClip распространяется под лицензией GNU General Public License версии 3.0 (GPL-3.0).
+
+Вы имеете право использовать, изменять и распространять данное программное обеспечение в соответствии с условиями GPL v3.
+Любые распространяемые модифицированные версии также должны быть лицензированы по GPL v3 и сопровождаться исходным кодом.
+
+
+
+🧾 **Copyright**
+
+Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
