@@ -144,7 +144,7 @@ Any distributed modifications must also be licensed under GPL v3 and include sou
 
 Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
 
-
+---------------------------------------------------------------
 
 [RUS]
 
