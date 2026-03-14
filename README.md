@@ -64,24 +64,6 @@ layered architecture, SQLite WAL mode, single-instance control, MSI packaging, a
 - Start Menu integration
 
 
-💎 **Engineering Strengths**
-
-What makes XClip strong technically:
-
-✔ Clean layered architecture
-✔ Strict separation of system/domain/data/ui
-✔ SQLite WAL mode for concurrent stability
-✔ Thread-local database connection reuse
-✔ Adaptive clipboard polling
-✔ Preview caching to reduce GC pressure
-✔ Optimized ListView cell rendering
-✔ MSI upgrade-safe packaging
-✔ Production-grade release process
-
-This is not a “student demo project” —
-it is a properly engineered desktop utility.
-
-
 🏗 **Architecture Overview**
 
 Layered design:
@@ -227,24 +209,6 @@ Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
 - Поддержка обновлений (Upgrade UUID)
 - Корректное удаление
 - Интеграция в меню Пуск
-
-
-💎 **Инженерные сильные стороны**
-
-Почему XClip технически сильный проект:
-
-✔ Чёткая слоистая архитектура
-✔ Разделение system/domain/data/ui
-✔ SQLite в режиме WAL
-✔ Переиспользование соединений
-✔ Адаптивный polling буфера
-✔ Кэширование preview
-✔ Оптимизированный ListView
-✔ MSI с поддержкой обновлений
-✔ Production-подход к релизу
-
-Это не демо-проект,
-а полноценно спроектированная desktop-утилита.
 
 
 🏗 **Архитектура**
