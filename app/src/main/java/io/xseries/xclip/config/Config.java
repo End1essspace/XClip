@@ -3,6 +3,8 @@
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
  * SPDX-License-Identifier: GPL-3.0-only
  */
+
+//Config.java
 package io.xseries.xclip.config;
 
 /**
@@ -22,6 +24,10 @@ public final class Config {
     // Max chars to capture from clipboard text (hard safety guard)
     public static final int DEFAULT_MAX_CLIP_CHARS = 500_000;
     private final int maxClipChars;
+
+    // Max clips shown in popup UI
+    public static final int DEFAULT_UI_CLIP_LIMIT = 200;
+    private final int uiClipLimit;
 
     private final boolean startOnBoot;
 
@@ -51,6 +57,7 @@ public final class Config {
                 maxHistory,
                 minClipLength,
                 DEFAULT_MAX_CLIP_CHARS,
+                DEFAULT_UI_CLIP_LIMIT,
                 startOnBoot,
                 startMinimized,
                 watcherEnabled,
@@ -78,6 +85,7 @@ public final class Config {
             int maxHistory,
             int minClipLength,
             int maxClipChars,
+            int uiClipLimit,
             boolean startOnBoot,
             boolean startMinimized,
             boolean watcherEnabled,
@@ -91,6 +99,7 @@ public final class Config {
         this.maxHistory = maxHistory;
         this.minClipLength = minClipLength;
         this.maxClipChars = maxClipChars;
+        this.uiClipLimit = uiClipLimit;
         this.startOnBoot = startOnBoot;
         this.startMinimized = startMinimized;
         this.watcherEnabled = watcherEnabled;
@@ -116,6 +125,11 @@ public final class Config {
         if (mcc < 10_000) mcc = 10_000;
         if (mcc > 5_000_000) mcc = 5_000_000;
 
+        int ucl = uiClipLimit;
+        if (ucl <= 0) ucl = DEFAULT_UI_CLIP_LIMIT;
+        if (ucl < 50) ucl = 50;
+        if (ucl > 5_000) ucl = 5_000;
+
         double x = windowX;
         double y = windowY;
         double w = windowW;
@@ -137,13 +151,14 @@ public final class Config {
         if (!Double.isFinite(x)) x = -1;
         if (!Double.isFinite(y)) y = -1;
 
-        return new Config(v, mh, ml, mcc, startOnBoot, startMinimized, watcherEnabled, x, y, w, h, max);
+        return new Config(v, mh, ml, mcc, ucl, startOnBoot, startMinimized, watcherEnabled, x, y, w, h, max);
     }
 
     public int version() { return version; }
     public int maxHistory() { return maxHistory; }
     public int minClipLength() { return minClipLength; }
     public int maxClipChars() { return maxClipChars; }
+    public int uiClipLimit() { return uiClipLimit; }
     public boolean startOnBoot() { return startOnBoot; }
     public boolean startMinimized() { return startMinimized; }
     public boolean watcherEnabled() { return watcherEnabled; }
@@ -158,38 +173,42 @@ public final class Config {
 
     // Withers (for UI)
     public Config withMaxHistory(int value) {
-        return new Config(version, value, minClipLength, maxClipChars, startOnBoot, startMinimized, watcherEnabled, windowX, windowY, windowW, windowH, windowMaximized)
+        return new Config(version, value, minClipLength, maxClipChars, uiClipLimit, startOnBoot, startMinimized, watcherEnabled, windowX, windowY, windowW, windowH, windowMaximized)
                 .normalized();
     }
 
     public Config withMinClipLength(int value) {
-        return new Config(version, maxHistory, value, maxClipChars, startOnBoot, startMinimized, watcherEnabled, windowX, windowY, windowW, windowH, windowMaximized)
+        return new Config(version, maxHistory, value, maxClipChars, uiClipLimit, startOnBoot, startMinimized, watcherEnabled, windowX, windowY, windowW, windowH, windowMaximized)
                 .normalized();
     }
 
     public Config withMaxClipChars(int value) {
-        return new Config(version, maxHistory, minClipLength, value, startOnBoot, startMinimized, watcherEnabled, windowX, windowY, windowW, windowH, windowMaximized)
+        return new Config(version, maxHistory, minClipLength, value, uiClipLimit, startOnBoot, startMinimized, watcherEnabled, windowX, windowY, windowW, windowH, windowMaximized)
+                .normalized();
+    }
+
+    public Config withUiClipLimit(int value) {
+        return new Config(version, maxHistory, minClipLength, maxClipChars, value, startOnBoot, startMinimized, watcherEnabled, windowX, windowY, windowW, windowH, windowMaximized)
                 .normalized();
     }
 
     public Config withStartOnBoot(boolean value) {
-        // NOTE: fixed bug: previously 'value' was mistakenly passed into maxHistory slot
-        return new Config(version, maxHistory, minClipLength, maxClipChars, value, startMinimized, watcherEnabled, windowX, windowY, windowW, windowH, windowMaximized)
+        return new Config(version, maxHistory, minClipLength, maxClipChars, uiClipLimit, value, startMinimized, watcherEnabled, windowX, windowY, windowW, windowH, windowMaximized)
                 .normalized();
     }
 
     public Config withStartMinimized(boolean value) {
-        return new Config(version, maxHistory, minClipLength, maxClipChars, startOnBoot, value, watcherEnabled, windowX, windowY, windowW, windowH, windowMaximized)
+        return new Config(version, maxHistory, minClipLength, maxClipChars, uiClipLimit, startOnBoot, value, watcherEnabled, windowX, windowY, windowW, windowH, windowMaximized)
                 .normalized();
     }
 
     public Config withWatcherEnabled(boolean value) {
-        return new Config(version, maxHistory, minClipLength, maxClipChars, startOnBoot, startMinimized, value, windowX, windowY, windowW, windowH, windowMaximized)
+        return new Config(version, maxHistory, minClipLength, maxClipChars, uiClipLimit, startOnBoot, startMinimized, value, windowX, windowY, windowW, windowH, windowMaximized)
                 .normalized();
     }
 
     public Config withWindowState(double x, double y, double w, double h, boolean maximized) {
-        return new Config(version, maxHistory, minClipLength, maxClipChars, startOnBoot, startMinimized, watcherEnabled, x, y, w, h, maximized)
+        return new Config(version, maxHistory, minClipLength, maxClipChars, uiClipLimit, startOnBoot, startMinimized, watcherEnabled, x, y, w, h, maximized)
                 .normalized();
     }
 

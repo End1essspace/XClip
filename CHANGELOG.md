@@ -3,6 +3,34 @@
 All notable changes to this project will be documented in this file.
 
 
+## [1.2.0] — Clipboard Safety & UI Limit Update — 2026-03-15
+
+### Behavior Changes
+
+* Redesigned **Clear** button behavior to prevent accidental history loss.
+* Clear now removes **only clips currently visible in the popup** instead of wiping the entire database.
+* Pinned clips remain protected during Clear operations.
+
+### Added
+
+* New configurable **UI clip limit** setting (default: `200`).
+* Allows adjusting how many recent clips are loaded into the popup interface.
+* Setting available directly in **Settings → UI clip limit**.
+
+### Improvements
+
+* Popup clip loading limit is now driven by configuration instead of hardcoded value.
+* Runtime update of popup limit without restarting the application.
+
+### Internal
+
+* Extended `Config` system with `uiClipLimit` parameter.
+* Updated Settings window with new spinner control.
+* Refactored Clear operation to delete only visible clip IDs.
+
+
+
+
 ## [1.1.0] — Window System & Licensing Update — 2026-02-24
 
 ### Window & UI Improvements

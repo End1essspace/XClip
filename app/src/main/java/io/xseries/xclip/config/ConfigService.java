@@ -3,6 +3,8 @@
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
  * SPDX-License-Identifier: GPL-3.0-only
  */
+
+// ConfigService.java
 package io.xseries.xclip.config;
 
 import com.google.gson.Gson;
@@ -169,6 +171,8 @@ public final class ConfigService {
         return a.version() == b.version()
                 && a.maxHistory() == b.maxHistory()
                 && a.minClipLength() == b.minClipLength()
+                && a.maxClipChars() == b.maxClipChars()
+                && a.uiClipLimit() == b.uiClipLimit()
                 && a.startOnBoot() == b.startOnBoot()
                 && a.startMinimized() == b.startMinimized()
                 && a.watcherEnabled() == b.watcherEnabled()

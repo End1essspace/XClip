@@ -49,7 +49,7 @@ public final class PopupWindow {
 
     private static final int WIDTH = 520;
     private static final int HEIGHT = 420;
-    private static final int LIMIT = 200;
+    private volatile int uiClipLimit = io.xseries.xclip.config.Config.DEFAULT_UI_CLIP_LIMIT;
 
     private double lastNormalX = -1;
     private double lastNormalY = -1;
@@ -513,6 +513,7 @@ public final class PopupWindow {
                                         io.xseries.xclip.config.Config config) {
         this.configService = configService;
         this.config = (config != null) ? config : io.xseries.xclip.config.Config.defaults();
+        this.uiClipLimit = this.config.uiClipLimit();
 
         // initial size from config (до первого show можно поставить)
         stage.setWidth(this.config.windowW());
@@ -543,6 +544,17 @@ public final class PopupWindow {
                     lastNormalH = stage.getHeight();
                 }
                 scheduleWindowPersist();
+            }
+        });
+    }
+    public void applyConfig(io.xseries.xclip.config.Config config) {
+        if (config == null) return;
+        this.config = config.normalized();
+        this.uiClipLimit = this.config.uiClipLimit();
+
+        Platform.runLater(() -> {
+            if (stage.isShowing()) {
+                reloadNow(searchField.getText());
             }
         });
     }
@@ -728,9 +740,11 @@ public final class PopupWindow {
         Platform.runLater(this::updateEmptyStateText);
 
         dbExec.submit(() -> {
+            int limit = Math.max(1, uiClipLimit);
+
             List<ClipEntry> list = query.isBlank()
-                    ? dao.listLatest(LIMIT)
-                    : dao.search(query.trim(), LIMIT);
+                    ? dao.listLatest(limit)
+                    : dao.search(query.trim(), limit);
 
             list.sort(
                     Comparator.comparing(ClipEntry::favorite).reversed()
@@ -937,13 +951,26 @@ public final class PopupWindow {
     }
 
     private void clearHistoryNonFavorites() {
+        java.util.List<Long> visibleNonFavoriteIds = new java.util.ArrayList<>();
+
+        for (Row r : items) {
+            if (r instanceof ClipRow cr && !cr.entry().favorite()) {
+                visibleNonFavoriteIds.add(cr.entry().id());
+            }
+        }
+
+        if (visibleNonFavoriteIds.isEmpty()) {
+            showToast("Nothing to clear");
+            return;
+        }
+
         suppressAutoHide = true;
         autoHideDelay.stop();
 
         Alert a = new Alert(Alert.AlertType.CONFIRMATION);
-        a.setTitle("Clear history");
-        a.setHeaderText("Delete non-favorites?");
-        a.setContentText("This will delete all clips except pinned (favorites).");
+        a.setTitle("Clear visible history");
+        a.setHeaderText("Delete visible non-pinned clips?");
+        a.setContentText("This will delete only the clips currently shown in the popup.\nPinned clips are kept.");
         a.initOwner(stage);
         a.initModality(Modality.WINDOW_MODAL);
         a.setOnHidden(ev -> suppressAutoHide = false);
@@ -951,14 +978,16 @@ public final class PopupWindow {
         a.showAndWait().ifPresent(btn -> {
             if (btn != ButtonType.OK) return;
 
-            // Clear expand state (safe)
-            expandedById.clear();
+            java.util.Set<Long> removed = new java.util.HashSet<>(visibleNonFavoriteIds);
+            expandedById.keySet().removeIf(removed::contains);
+            previewCache.keySet().removeIf(removed::contains);
 
             dbExec.submit(() -> {
-                dao.deleteAllNonFavorites();
+                dao.deleteByIds(visibleNonFavoriteIds);
                 Platform.runLater(() -> {
+                    clearSelection();
                     reloadNow(searchField.getText());
-                    showToast("Cleared");
+                    showToast("Cleared visible clips (" + visibleNonFavoriteIds.size() + ")");
                 });
             });
         });

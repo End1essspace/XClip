@@ -123,7 +123,7 @@ gradlew clean packageMsi
 
 🔄 **Versioning**
 
-Current version: **v1.1.0**
+Current version: **v1.2.0**
 
 
 👨‍💻 **Author**
@@ -144,13 +144,13 @@ Any distributed modifications must also be licensed under GPL v3 and include sou
 
 Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
 
----------------------------------------------------------------
+
 
 [RUS]
 
 📋 **XClip**
 
-**XClip** — это production-grade менеджер буфера обмена для Windows,  
+**XClip** — это production-grade менеджер буфера обмена для Windows,
 написанный на **Java 17 + JavaFX 21**, с акцентом на производительность, стабильность и чистую архитектуру.
 
 В отличие от простых clipboard-утилит, XClip построен как инженерный продукт:
@@ -241,7 +241,7 @@ config  → управление конфигурацией
 
 🔄 **Версионирование**
 
-Текущая версия: **v1.1.0**
+Текущая версия: **v1.2.0**
 
 👨‍💻 **Автор**
 
