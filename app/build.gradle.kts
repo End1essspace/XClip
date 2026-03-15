@@ -17,7 +17,7 @@ fun toolchainJavaHome(): File {
 }
 
 group = "io.xseries"
-version = "1.1.0"
+version = "1.2.0"
 
 repositories {
     mavenCentral()

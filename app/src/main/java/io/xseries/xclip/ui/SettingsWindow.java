@@ -47,6 +47,7 @@ public final class SettingsWindow {
     private final Spinner<Integer> maxHistory;
     private final Spinner<Integer> minClipLength;
     private final Spinner<Integer> maxClipChars;
+    private final Spinner<Integer> uiClipLimit;
     private final CheckBox watcherEnabled;
     private final CheckBox startMinimized;
     private final CheckBox startOnBoot;
@@ -62,13 +63,15 @@ public final class SettingsWindow {
     // Status (toast-like) label shown in bottom bar
     private final Label statusLabel = new Label();
     private PauseTransition statusHide;
+    private final java.util.function.Consumer<Config> onConfigApplied;
 
     public SettingsWindow(
             ConfigService configService,
             ClipService clipService,
             WatcherController watcherController,
             DataOwnershipService dataOwnershipService,
-            Config initial
+            Config initial,
+            java.util.function.Consumer<Config> onConfigApplied
     ) {
         this.configService = Objects.requireNonNull(configService);
         this.clipService = Objects.requireNonNull(clipService);
@@ -76,6 +79,7 @@ public final class SettingsWindow {
         this.dataOwnershipService = Objects.requireNonNull(dataOwnershipService);
 
         this.current = (initial == null ? Config.defaults() : initial).normalized();
+        this.onConfigApplied = (onConfigApplied != null) ? onConfigApplied : (cfg -> {});
 
         this.stage = new Stage(StageStyle.DECORATED);
         stage.setTitle("XClip Settings");
@@ -165,6 +169,32 @@ public final class SettingsWindow {
                 }
             }
         });
+        
+        uiClipLimit = new Spinner<>(50, 5_000, current.uiClipLimit(), 50);
+        uiClipLimit.setEditable(true);
+        uiClipLimit.getEditor().setTextFormatter(
+                new javafx.scene.control.TextFormatter<>(change ->
+                        change.getControlNewText().matches("\\d*") ? change : null
+                )
+        );
+
+        uiClipLimit.getValueFactory().setConverter(new javafx.util.StringConverter<>() {
+            @Override
+            public String toString(Integer value) {
+                return value == null ? "" : value.toString();
+            }
+
+            @Override
+            public Integer fromString(String text) {
+                try {
+                    uiClipLimit.getEditor().getStyleClass().remove("input-error");
+                    return Integer.parseInt(text.trim());
+                } catch (Exception e) {
+                    uiClipLimit.getEditor().getStyleClass().add("input-error");
+                    return uiClipLimit.getValue();
+                }
+            }
+        });
 
         watcherEnabled = new CheckBox("Enable clipboard capture");
         watcherEnabled.setSelected(current.watcherEnabled());
@@ -190,6 +220,8 @@ public final class SettingsWindow {
         grid.add(new Label("Max clip chars:"), 0, r);
         grid.add(maxClipChars, 1, r++);
 
+        grid.add(new Label("UI clip limit:"), 0, r);
+        grid.add(uiClipLimit, 1, r++);
 
         grid.add(watcherEnabled, 1, r++);
         grid.add(startMinimized, 1, r++);
@@ -295,6 +327,8 @@ public final class SettingsWindow {
                 watcherEnabled.setSelected(current.watcherEnabled());
                 startMinimized.setSelected(current.startMinimized());
                 startOnBoot.setSelected(current.startOnBoot());
+                maxClipChars.getValueFactory().setValue(current.maxClipChars());
+                uiClipLimit.getValueFactory().setValue(current.uiClipLimit());
 
                 syncAutostartCheckbox();
                 forceSyncSpinnerEditors();
@@ -319,6 +353,7 @@ public final class SettingsWindow {
         wireDirtyForIntSpinner(maxHistory);
         wireDirtyForIntSpinner(minClipLength);
         wireDirtyForIntSpinner(maxClipChars);
+        wireDirtyForIntSpinner(uiClipLimit);
         watcherEnabled.selectedProperty().addListener((obs, o, n) -> { if (!internalSync) markDirty(); });
         startMinimized.selectedProperty().addListener((obs, o, n) -> { if (!internalSync) markDirty(); });
         startOnBoot.selectedProperty().addListener((obs, o, n) -> { if (!internalSync) markDirty(); });
@@ -350,6 +385,8 @@ public final class SettingsWindow {
         current = configService.loadOrCreate();
         maxHistory.getValueFactory().setValue(current.maxHistory());
         minClipLength.getValueFactory().setValue(current.minClipLength());
+        maxClipChars.getValueFactory().setValue(current.maxClipChars());
+        uiClipLimit.getValueFactory().setValue(current.uiClipLimit());
         watcherEnabled.setSelected(current.watcherEnabled());
         startMinimized.setSelected(current.startMinimized());
         startOnBoot.setSelected(current.startOnBoot());
@@ -370,12 +407,13 @@ public final class SettingsWindow {
         if (!validateIntSpinner(maxHistory, 100, 50_000, "Max history")) return;
         if (!validateIntSpinner(minClipLength, 0, 10_000, "Min clip length")) return;
         if (!validateIntSpinner(maxClipChars, 10_000, 5_000_000, "Max clip chars")) return;
-
+        if (!validateIntSpinner(uiClipLimit, 50, 5_000, "UI clip limit")) return;
 
         Config next = current
                 .withMaxHistory(maxHistory.getValue())
                 .withMinClipLength(minClipLength.getValue())
                 .withMaxClipChars(maxClipChars.getValue())
+                .withUiClipLimit(uiClipLimit.getValue())
                 .withWatcherEnabled(watcherEnabled.isSelected())
                 .withStartMinimized(startMinimized.isSelected())
                 .withStartOnBoot(startOnBoot.isSelected());
@@ -394,6 +432,11 @@ public final class SettingsWindow {
 
         if (next.watcherEnabled()) watcherController.enable();
         else watcherController.disable();
+        
+        try {
+            onConfigApplied.accept(next);
+        } catch (Throwable ignored) {
+        }
 
         // Status message: autostart text only if the flag changed
         if (autoStartChanged) {
@@ -482,6 +525,8 @@ public final class SettingsWindow {
 
         maxHistory.getValueFactory().setValue(current.maxHistory());
         minClipLength.getValueFactory().setValue(current.minClipLength());
+        maxClipChars.getValueFactory().setValue(current.maxClipChars());
+        uiClipLimit.getValueFactory().setValue(current.uiClipLimit());
         watcherEnabled.setSelected(current.watcherEnabled());
         startMinimized.setSelected(current.startMinimized());
         startOnBoot.setSelected(current.startOnBoot());
@@ -568,14 +613,14 @@ public final class SettingsWindow {
     }
 
     private void forceSyncSpinnerEditors() {
-        // переписываем текст в editor из value (иначе "ффф" останется)
         maxHistory.getEditor().setText(String.valueOf(maxHistory.getValue()));
         minClipLength.getEditor().setText(String.valueOf(minClipLength.getValue()));
         maxClipChars.getEditor().setText(String.valueOf(maxClipChars.getValue()));
+        uiClipLimit.getEditor().setText(String.valueOf(uiClipLimit.getValue()));
 
-        // убрать красную рамку
         maxHistory.getEditor().getStyleClass().remove("input-error");
         minClipLength.getEditor().getStyleClass().remove("input-error");
         maxClipChars.getEditor().getStyleClass().remove("input-error");
+        uiClipLimit.getEditor().getStyleClass().remove("input-error");
     }
 }

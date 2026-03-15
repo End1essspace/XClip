@@ -192,4 +192,25 @@ public final class ClipEntryDao {
             tlConn.remove();
         }
     }
+
+    public void deleteByIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) return;
+
+        StringBuilder sql = new StringBuilder("DELETE FROM clip_entries WHERE id IN (");
+        for (int i = 0; i < ids.size(); i++) {
+            if (i > 0) sql.append(", ");
+            sql.append("?");
+        }
+        sql.append(")");
+
+        Connection c = conn();
+        try (PreparedStatement ps = c.prepareStatement(sql.toString())) {
+            for (int i = 0; i < ids.size(); i++) {
+                ps.setLong(i + 1, ids.get(i));
+            }
+            ps.executeUpdate();
+        } catch (Exception e) {
+            throw new RuntimeException("deleteByIds failed", e);
+        }
+    }
 }

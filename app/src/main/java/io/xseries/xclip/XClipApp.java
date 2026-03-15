@@ -76,19 +76,25 @@ public final class XClipApp extends Application {
         // data ownership service (needs instance Database)
         DataOwnershipService dataOwnershipService = new DataOwnershipService(db);
 
-        // Settings window (USED)
+        final Runnable[] openSettingsRef = new Runnable[1];
+
+        this.popup = new PopupWindow(dao, clipboard, clipService, () -> {
+            Runnable r = openSettingsRef[0];
+            if (r != null) r.run();
+        });
+        popup.enableWindowPersistence(configService, config);
+        popup.applyConfig(config);
+
         SettingsWindow settingsWindow = new SettingsWindow(
                 configService,
                 clipService,
                 watcherController,
                 dataOwnershipService,
-                config
+                config,
+                popup::applyConfig
         );
 
-        // Popup (USED settings open action)
-        Runnable openSettings = settingsWindow::show;
-        this.popup = new PopupWindow(dao, clipboard, clipService, openSettings);
-        popup.enableWindowPersistence(configService, config);
+        openSettingsRef[0] = settingsWindow::show;
         
         tray.install(
                 popup::showOrFocus,
