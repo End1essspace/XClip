@@ -2,17 +2,15 @@
 
 📋 **XClip**
 
-**XClip** is a production-grade Windows clipboard manager  
-built with **Java 17 + JavaFX 21**, designed for performance, reliability, and clean architecture.
+**XClip** is a production-grade Windows clipboard manager built with **Java 17 + JavaFX 21**, designed for performance, reliability, and clean architecture.
 
-Unlike simple clipboard utilities, XClip focuses on engineering quality:
-layered architecture, SQLite WAL mode, single-instance control, MSI packaging, and Windows integration.
+Unlike simple clipboard utilities, XClip focuses on engineering quality: layered architecture, SQLite WAL mode, single-instance control, MSI packaging, and Windows integration.
 
 
 🚀 **Core Features**
 
 🔄 **Real-Time Clipboard Monitoring**
-- Adaptive polling strategy (idle backoff)
+- Adaptive polling strategy with idle backoff
 - Smart deduplication using SHA-256 hashing
 - Protection against clipboard lock issues
 - Safe background execution
@@ -20,7 +18,7 @@ layered architecture, SQLite WAL mode, single-instance control, MSI packaging, a
 🔍 **Instant Search with Highlighting**
 - Live search across full clipboard history
 - Highlighted matching substrings
-- Optimized rendering (preview caching)
+- Optimized rendering with preview caching
 - Smooth scrolling without UI stutter
 
 📌 **Pin Important Clips**
@@ -35,7 +33,7 @@ layered architecture, SQLite WAL mode, single-instance control, MSI packaging, a
 - Batch operations ready
 
 🗂 **Persistent Local Storage**
-- SQLite database (WAL mode enabled)
+- SQLite database with WAL mode enabled
 - Indexed queries
 - Connection reuse for performance
 - Automatic history limit pruning
@@ -48,7 +46,7 @@ layered architecture, SQLite WAL mode, single-instance control, MSI packaging, a
 
 🚫 **Single-Instance Protection**
 - Prevents multiple instances
-- Secondary launch signals primary process
+- Secondary launch signals the primary process
 - No duplicate tray icons
 
 ⚡ **Windows Autostart**
@@ -57,7 +55,7 @@ layered architecture, SQLite WAL mode, single-instance control, MSI packaging, a
 - Clean enable/disable logic
 
 📦 **Professional MSI Installer**
-- Built with `jlink` (bundled runtime)
+- Built with `jlink` and a bundled runtime
 - Packaged via `jpackage` + WiX
 - Fixed Upgrade UUID
 - Proper uninstall support
@@ -75,13 +73,12 @@ layered architecture, SQLite WAL mode, single-instance control, MSI packaging, a
 
 Layered design:
 
-```
+```text
 system  → Windows integration (tray, hotkeys, autostart)
 domain  → business logic (ingest, filtering, limits)
 data    → SQLite persistence (DAO layer)
 ui      → JavaFX presentation
 config  → runtime configuration management
-
 ```
 
 Designed for maintainability and scalability.
@@ -93,18 +90,16 @@ All data is stored locally.
 
 Default location:
 
+```text
+%USERPROFILE%\.xclip\
 ```
-
-%USERPROFILE%.xclip\
-
-````
 
 Files:
 
-|     Purpose     |    File     |
-|-----------------|-------------|
-| Database        | xclip.db    |
-| Configuration   | config.json |
+| Purpose       | File        |
+|---------------|-------------|
+| Database      | xclip.db    |
+| Configuration | config.json |
 
 
 🧩 **Build from Source**
@@ -136,85 +131,86 @@ Current version: **v1.3.0**
 👨‍💻 **Author**
 
 **XCON | RX**
+
 Telegram: [@End1essspace](https://t.me/End1essspace)
+
 GitHub: [End1essspace](https://github.com/End1essspace)
+
 
 🧾 **License**
 
 XClip is licensed under the GNU General Public License v3.0 (GPL-3.0).
 
-You are free to use, modify, and distribute this software under the terms of the GPL v3.
-Any distributed modifications must also be licensed under GPL v3 and include source code.
+You are free to use, modify, and distribute this software under the terms of the GPL v3. Any distributed modifications must also be licensed under GPL v3 and include source code.
 
 
 🧾 **Copyright**
 
 Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
 
------------------------------------------------------------------------------------
+---
 
 [RUS]
 
 📋 **XClip**
 
-**XClip** — это production-grade менеджер буфера обмена для Windows,
-написанный на **Java 17 + JavaFX 21**, с акцентом на производительность, стабильность и чистую архитектуру.
+**XClip** — это production-grade менеджер буфера обмена для Windows, написанный на **Java 17 + JavaFX 21**, с акцентом на производительность, надёжность и чистую архитектуру.
 
-В отличие от простых clipboard-утилит, XClip построен как инженерный продукт:
-слоистая архитектура, SQLite в режиме WAL, защита от двойного запуска, MSI-упаковка и глубокая интеграция с Windows.
+В отличие от простых clipboard-утилит, XClip построен как инженерный продукт: слоистая архитектура, SQLite в режиме WAL, защита от двойного запуска, MSI-упаковка и интеграция с Windows.
 
 
 🚀 **Основные возможности**
 
 🔄 **Мониторинг буфера обмена в реальном времени**
-- Адаптивный polling (умное снижение нагрузки в простое)
+- Адаптивный polling с умным снижением нагрузки в простое
 - Дедупликация через SHA-256
-- Защита от блокировки буфера
+- Защита от проблем с блокировкой буфера обмена
 - Безопасная работа в фоне
 
 🔍 **Мгновенный поиск с подсветкой**
-- Поиск по всей истории
-- Подсветка совпадений
-- Кэширование preview
-- Плавный скролл без лагов
+- Живой поиск по всей истории буфера обмена
+- Подсветка найденных совпадений
+- Оптимизированный рендеринг с кэшированием preview
+- Плавный скролл без подвисаний интерфейса
 
-📌 **Закрепление записей**
-- Возможность отметить запись как избранную
-- Избранные не удаляются при очистке истории
-- Визуальное разделение
+📌 **Закрепление важных клипов**
+- Возможность отмечать записи как избранные
+- Избранные записи сохраняются при очистке и ограничении истории
+- Чёткое визуальное разделение закреплённых элементов
 
-🧠 **Множественный выбор**
-- **Shift** — диапазон
-- **Ctrl** — переключение
-- Синхронизация состояния выделения
+🧠 **Поддержка множественного выбора**
+- **Shift** — выбор диапазона
+- **Ctrl** — переключение выбора отдельной записи
+- Синхронизированное состояние выделения
+- Основа для пакетных операций
 
-🗂 **Постоянное хранение данных**
-- SQLite (режим WAL)
+🗂 **Постоянное локальное хранение**
+- SQLite database с включённым WAL mode
 - Индексированные запросы
-- Переиспользование соединения
-- Автоматическое ограничение истории
+- Переиспользование соединений для производительности
+- Автоматическое ограничение размера истории
 
-🖥 **Системный трей**
+🖥 **Интеграция с системным треем**
 - Работа в фоне
-- ЛКМ — открыть окно
-- ПКМ — меню
-- Корректный жизненный цикл
+- ЛКМ — открыть popup
+- ПКМ — контекстное меню
+- Корректное управление жизненным циклом приложения
 
 🚫 **Защита от двойного запуска**
-- Разрешён только один экземпляр
-- Второй запуск активирует первый
+- Запрещает запуск нескольких экземпляров
+- Повторный запуск активирует уже работающий процесс
 - Нет дублирующихся иконок в трее
 
 ⚡ **Автозапуск Windows**
-- Регистрация в HKCU Run
-- Корректное определение EXE в режиме MSI
-- Чистое включение/отключение
+- Опциональный автозапуск через Registry (HKCU Run)
+- Корректное определение EXE в packaged mode
+- Чистая логика включения и отключения
 
 📦 **Профессиональный MSI-установщик**
-- Встроенный runtime (jlink)
-- Сборка через jpackage + WiX
-- Поддержка обновлений (Upgrade UUID)
-- Корректное удаление
+- Сборка через `jlink` со встроенным runtime
+- Упаковка через `jpackage` + WiX
+- Фиксированный Upgrade UUID
+- Корректное удаление приложения
 - Интеграция в меню Пуск
 
 🎨 **Тёмный production UI**
@@ -225,51 +221,79 @@ Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
 - Кастомное тёмное меню системного трея
 
 
-🏗 **Архитектура**
+🏗 **Обзор архитектуры**
 
+Слоистая структура:
 
+```text
+system  → интеграция с Windows (tray, hotkeys, autostart)
+domain  → бизнес-логика (ingest, filtering, limits)
+data    → SQLite-хранение (DAO layer)
+ui      → JavaFX presentation
+config  → управление runtime-конфигурацией
 ```
-system  → интеграция с Windows
-domain  → бизнес-логика
-data    → SQLite
-ui      → JavaFX
-config  → управление конфигурацией
 
-```
+Архитектура рассчитана на поддерживаемость и дальнейшее развитие.
+
 
 🗃 **Хранение данных**
 
-По умолчанию:
+Все данные хранятся локально.
 
-```
+Путь по умолчанию:
 
-%USERPROFILE%.xclip\
-
+```text
+%USERPROFILE%\.xclip\
 ```
 
 Файлы:
 
-- xclip.db
-- config.json
+| Назначение   | Файл        |
+|--------------|-------------|
+| База данных  | xclip.db    |
+| Конфигурация | config.json |
+
+
+🧩 **Сборка из исходников**
+
+```bash
+git clone https://github.com/End1essspace/XClip.git
+cd XClip
+gradlew build
+```
+
+Сборка MSI-установщика:
+
+```bash
+gradlew clean packageMsi
+```
+
+
+🖥 **Системные требования**
+
+* Windows 10 / 11 (64-bit)
+* Внешняя установка Java не требуется
 
 
 🔄 **Версионирование**
 
 Текущая версия: **v1.3.0**
 
+
 👨‍💻 **Автор**
 
 **XCON | RX**
-TG: [@End1essspace](https://t.me/End1essspace)
+
+Telegram: [@End1essspace](https://t.me/End1essspace)
+
 GitHub: [End1essspace](https://github.com/End1essspace)
+
 
 🧾 **Лицензия**
 
-XClip распространяется под лицензией GNU General Public License версии 3.0 (GPL-3.0).
+XClip распространяется под лицензией GNU General Public License v3.0 (GPL-3.0).
 
-Вы имеете право использовать, изменять и распространять данное программное обеспечение в соответствии с условиями GPL v3.
-Любые распространяемые модифицированные версии также должны быть лицензированы по GPL v3 и сопровождаться исходным кодом.
-
+Вы можете использовать, изменять и распространять это программное обеспечение в соответствии с условиями GPL v3. Любые распространяемые модифицированные версии также должны быть лицензированы под GPL v3 и сопровождаться исходным кодом.
 
 
 🧾 **Copyright**
