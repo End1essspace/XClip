@@ -63,6 +63,13 @@ layered architecture, SQLite WAL mode, single-instance control, MSI packaging, a
 - Proper uninstall support
 - Start Menu integration
 
+🎨 **Dark Production UI**
+- Full dark JavaFX theme
+- Native dark Windows title bars
+- Dark confirmation dialogs
+- Polished popup rows, section headers, and action footer
+- Custom dark tray context menu
+
 
 🏗 **Architecture Overview**
 
@@ -123,7 +130,7 @@ gradlew clean packageMsi
 
 🔄 **Versioning**
 
-Current version: **v1.2.0**
+Current version: **v1.3.0**
 
 
 👨‍💻 **Author**
@@ -210,6 +217,13 @@ Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
 - Корректное удаление
 - Интеграция в меню Пуск
 
+🎨 **Тёмный production UI**
+- Полная тёмная JavaFX-тема
+- Нативные тёмные Windows-заголовки окон
+- Тёмные окна подтверждения
+- Полировка строк popup, заголовков секций и нижней панели действий
+- Кастомное тёмное меню системного трея
+
 
 🏗 **Архитектура**
 
@@ -241,7 +255,7 @@ config  → управление конфигурацией
 
 🔄 **Версионирование**
 
-Текущая версия: **v1.2.0**
+Текущая версия: **v1.3.0**
 
 👨‍💻 **Автор**
 

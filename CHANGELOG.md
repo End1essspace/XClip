@@ -3,6 +3,42 @@
 All notable changes to this project will be documented in this file.
 
 
+## [1.3.0] — Dark UI & Tray Polish Update — 2026-06-05
+
+### Added
+
+* Added full dark production UI theme for Popup and Settings windows.
+* Added native dark Windows title bar support through DWM integration.
+* Added dark styling for confirmation, information, and error dialogs.
+* Added custom dark tray context menu instead of the default native white AWT menu.
+* Added tray menu outside-click handling for more natural context menu behavior.
+
+### Improvements
+
+* Improved popup visual hierarchy with clearer `PINNED` and `RECENT` section headers.
+* Improved pinned clip row styling with subtle amber accent indication.
+* Improved selected row styling to avoid heavy yellow/brown selection blocks.
+* Improved popup footer spacing and action button sizing.
+* Improved Settings window visual consistency with the rest of the application.
+* Improved tray menu hover, separator, and accent styling.
+
+### Fixed
+
+* Fixed white Windows title bars breaking the dark UI appearance.
+* Fixed Settings confirmation dialogs remaining light-themed.
+* Fixed tray menu staying open after clicking outside.
+* Fixed tray menu item interaction issues caused by unstable `JPopupMenu` anchoring.
+* Fixed muted section headers caused by disabled section cells.
+
+### Internal
+
+* Added `WindowsTitleBar` helper for Windows DWM title bar styling.
+* Reworked tray menu implementation to use a custom Swing `JWindow` menu.
+* Added native mouse-state watcher for reliable outside-click tray menu closing.
+* Kept database schema unchanged.
+* Kept config schema version unchanged.
+
+
 ## [1.2.0] — Clipboard Safety & UI Limit Update — 2026-03-15
 
 ### Behavior Changes

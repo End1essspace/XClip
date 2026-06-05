@@ -5,6 +5,7 @@
  */
 package io.xseries.xclip.ui;
 
+import io.xseries.xclip.system.window.WindowsTitleBar;
 import io.xseries.xclip.config.AppPaths;
 import io.xseries.xclip.config.Config;
 import io.xseries.xclip.config.ConfigService;
@@ -265,6 +266,7 @@ public final class SettingsWindow {
 
         // Data ownership buttons
         openDataFolderBtn = new Button("Open data folder");
+        openDataFolderBtn.getStyleClass().add("btn-subtle");
         openDataFolderBtn.setOnAction(e -> dataOwnershipService.openDataFolder());
 
         clearAllDataBtn = new Button("Clear ALL data");
@@ -289,8 +291,10 @@ public final class SettingsWindow {
 
         // Bottom buttons
         Button closeBtn = new Button("Close");
+        closeBtn.getStyleClass().add("btn-subtle");
 
         applyBtn.setDefaultButton(true);
+        applyBtn.getStyleClass().add("btn-apply");
         applyBtn.setDisable(true); // disabled until something changes
         closeBtn.setCancelButton(true);
 
@@ -371,9 +375,12 @@ public final class SettingsWindow {
         if (!stage.isShowing()) {
             stage.centerOnScreen();
             stage.show();
+            WindowsTitleBar.applyDarkTitleBar(stage);
         }
+
         stage.toFront();
         stage.requestFocus();
+        WindowsTitleBar.applyDarkTitleBar(stage);
     }
 
     /**
@@ -452,6 +459,8 @@ public final class SettingsWindow {
 
     private void clearAllDataFlow() {
         Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        styleAlert(confirm);
+
         confirm.setTitle("Clear ALL data");
         confirm.setHeaderText("This will permanently delete all XClip data");
         confirm.setContentText("Clipboard history (database) and settings (config.json) will be removed.\nContinue?");
@@ -465,6 +474,8 @@ public final class SettingsWindow {
                 dataOwnershipService.clearAllData();
             } catch (Throwable ex) {
                 Alert err = new Alert(Alert.AlertType.ERROR);
+                styleAlert(err);
+
                 err.setTitle("Failed to clear data");
                 err.setHeaderText("XClip couldn't delete its data files");
                 err.setContentText(
@@ -476,6 +487,8 @@ public final class SettingsWindow {
             }
 
             Alert done = new Alert(Alert.AlertType.INFORMATION);
+            styleAlert(done);
+
             done.setTitle("Data cleared");
             done.setHeaderText("All data removed");
             done.setContentText("XClip will exit now. Restart it to continue.");
@@ -483,6 +496,26 @@ public final class SettingsWindow {
 
             Platform.exit();
             System.exit(0);
+        });
+    }
+
+    private void styleAlert(Alert alert) {
+        if (alert == null) return;
+
+        alert.initOwner(stage);
+        alert.initModality(Modality.WINDOW_MODAL);
+        alert.setResizable(false);
+
+        alert.getDialogPane().getStylesheets().add(
+                getClass().getResource("/ui/styles.css").toExternalForm()
+        );
+        alert.getDialogPane().getStyleClass().add("x-dialog");
+
+        alert.setOnShown(e -> {
+            Object window = alert.getDialogPane().getScene().getWindow();
+            if (window instanceof Stage dialogStage) {
+                WindowsTitleBar.applyDarkTitleBar(dialogStage);
+            }
         });
     }
 

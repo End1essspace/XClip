@@ -5,6 +5,7 @@
  */
 package io.xseries.xclip.ui;
 
+import io.xseries.xclip.system.window.WindowsTitleBar;
 import io.xseries.xclip.data.dao.ClipEntryDao;
 import io.xseries.xclip.data.model.ClipEntry;
 import io.xseries.xclip.domain.service.ClipService;
@@ -203,13 +204,7 @@ public final class PopupWindow {
         pausedBadge.setVisible(false);
         pausedBadge.setManaged(false);
         pausedBadge.setPadding(new Insets(2, 8, 2, 8));
-        pausedBadge.setStyle("""
-                -fx-background-color: rgba(255,153,0,0.20);
-                -fx-text-fill: #ff9900;
-                -fx-background-radius: 999;
-                -fx-border-radius: 999;
-                -fx-border-color: rgba(255,153,0,0.35);
-                """);
+        pausedBadge.getStyleClass().add("paused-badge");
 
         // Clip count indicator (counts only real clips, not section rows)
         countLabel.getStyleClass().add("topbar-status");
@@ -294,6 +289,7 @@ public final class PopupWindow {
         • Ctrl+D         Clear selection
 
         Actions:
+        • Ctrl+Shift+V   Open Popup Window
         • Enter          Copy selection
         • Ctrl+C         Copy selection
         • Ctrl+P         Pin / Unpin selection
@@ -342,8 +338,23 @@ public final class PopupWindow {
         StackPane.setMargin(clearSearchBtn, new Insets(0, 8, 0, 0));
         HBox.setHgrow(searchWrap, Priority.ALWAYS);
 
-        HBox topBar = new HBox(8, searchWrap, pausedBadge, countLabel, selectedLabel, help, settingsBtn, clearBtn);
+        searchWrap.setMinWidth(520);
+        searchWrap.setPrefWidth(760);
+        searchWrap.setMaxWidth(980);
+        HBox.setHgrow(searchWrap, Priority.ALWAYS);
 
+        Region headerSpacer = new Region();
+        HBox.setHgrow(headerSpacer, Priority.ALWAYS);
+
+        HBox statusGroup = new HBox(10, pausedBadge, countLabel, selectedLabel);
+        statusGroup.setAlignment(Pos.CENTER_RIGHT);
+        statusGroup.getStyleClass().add("popup-status-group");
+
+        HBox controlGroup = new HBox(8, help, settingsBtn, clearBtn);
+        controlGroup.setAlignment(Pos.CENTER_RIGHT);
+        controlGroup.getStyleClass().add("popup-control-group");
+
+        HBox topBar = new HBox(12, searchWrap, headerSpacer, statusGroup, controlGroup);
         topBar.getStyleClass().add("top-bar");
         topBar.setAlignment(Pos.CENTER_LEFT);
 
@@ -675,9 +686,9 @@ public final class PopupWindow {
 
         if (!stage.isShowing()) {
             stage.show();
+            WindowsTitleBar.applyDarkTitleBar(stage);
         }
 
-        // IMPORTANT: if user minimized via native title bar, we must restore it
         if (stage.isIconified()) {
             stage.setIconified(false);
         }
@@ -692,6 +703,7 @@ public final class PopupWindow {
 
         stage.toFront();
         stage.requestFocus();
+        WindowsTitleBar.applyDarkTitleBar(stage);
 
         searchField.requestFocus();
         reloadNow(searchField.getText());
@@ -968,12 +980,22 @@ public final class PopupWindow {
         autoHideDelay.stop();
 
         Alert a = new Alert(Alert.AlertType.CONFIRMATION);
+        a.getDialogPane().getStylesheets().add(
+                getClass().getResource("/ui/styles.css").toExternalForm()
+        );
+        a.getDialogPane().getStyleClass().add("x-dialog");
         a.setTitle("Clear visible history");
         a.setHeaderText("Delete visible non-pinned clips?");
         a.setContentText("This will delete only the clips currently shown in the popup.\nPinned clips are kept.");
         a.initOwner(stage);
         a.initModality(Modality.WINDOW_MODAL);
         a.setOnHidden(ev -> suppressAutoHide = false);
+        a.setOnShown(ev -> {
+            Object window = a.getDialogPane().getScene().getWindow();
+            if (window instanceof Stage dialogStage) {
+                WindowsTitleBar.applyDarkTitleBar(dialogStage);
+            }
+        });
 
         a.showAndWait().ifPresent(btn -> {
             if (btn != ButtonType.OK) return;
@@ -1126,6 +1148,7 @@ public final class PopupWindow {
         private final Label timeLabel = new Label();
         private final Hyperlink toggleLink = new Hyperlink();
         private static final PseudoClass SECTION_PC = PseudoClass.getPseudoClass("section");
+        private static final PseudoClass FAVORITE_PC = PseudoClass.getPseudoClass("favorite");
 
 
         RowCell() {
@@ -1161,7 +1184,10 @@ public final class PopupWindow {
                 if (ev.getButton() != MouseButton.PRIMARY) return;
 
                 Row r = getItem();
-                if (!(r instanceof ClipRow)) return;
+                if (!(r instanceof ClipRow)) {
+                    ev.consume();
+                    return;
+                }
 
                 // Don't hijack clicks on inner controls (e.g., "More/Less" hyperlink)
                 if (ev.getTarget() instanceof javafx.scene.Node n) {
@@ -1243,10 +1269,12 @@ public final class PopupWindow {
             });
         }
 
+
         @Override
         protected void updateItem(Row item, boolean empty) {
             super.updateItem(item, empty);
             pseudoClassStateChanged(SECTION_PC, false);
+            pseudoClassStateChanged(FAVORITE_PC, false);
 
             if (empty || item == null) {
                 setText(null);
@@ -1261,11 +1289,24 @@ public final class PopupWindow {
 
                 Label lbl = new Label(sr.title());
                 lbl.getStyleClass().add("section-row");
+                lbl.setMaxWidth(Double.MAX_VALUE);
 
-                setText(null);
-                setGraphic(lbl);
+                if ("RECENT".equalsIgnoreCase(sr.title())) {
+                    Separator sep = new Separator();
+                    sep.getStyleClass().add("section-separator");
 
-                setDisable(true);          // важно
+                    VBox box = new VBox(8, sep, lbl);
+                    box.setFillWidth(true);
+                    box.setMaxWidth(Double.MAX_VALUE);
+
+                    setText(null);
+                    setGraphic(box);
+                } else {
+                    setText(null);
+                    setGraphic(lbl);
+                }
+
+                setDisable(false);
                 setMouseTransparent(false);
                 setFocusTraversable(false);
                 return;
@@ -1277,6 +1318,7 @@ public final class PopupWindow {
             setMouseTransparent(false);
 
             ClipEntry ce = ((ClipRow) item).entry();
+            pseudoClassStateChanged(FAVORITE_PC, ce.favorite());
 
             long id = ce.id();
             boolean expanded = expandedById.getOrDefault(id, false);
