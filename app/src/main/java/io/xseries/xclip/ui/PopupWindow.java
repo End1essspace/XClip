@@ -1396,8 +1396,24 @@ public final class PopupWindow {
         private TextFlow buildHighlightedText(String prefix, String content, String queryLower) {
             TextFlow flow = new TextFlow();
 
+            flow.setMaxWidth(Double.MAX_VALUE);
+            flow.setPrefWidth(0);
+            flow.setMinWidth(0);
+            flow.setLineSpacing(2);
+
+            if (prefix != null && !prefix.isEmpty()) {
+                Text p = new Text(prefix);
+                p.getStyleClass().add("clip-star");
+                p.setFill(javafx.scene.paint.Color.web("#F5C542"));
+                flow.getChildren().add(p);
+            }
+
             if (content == null || content.isEmpty()) {
-                flow.getChildren().add(new Text(prefix));
+                return flow;
+            }
+
+            if (queryLower == null || queryLower.isEmpty()) {
+                flow.getChildren().add(normalClipText(content));
                 return flow;
             }
 
@@ -1405,32 +1421,33 @@ public final class PopupWindow {
             int idx = lower.indexOf(queryLower);
 
             if (idx < 0) {
-                flow.getChildren().add(new Text(prefix + content));
+                flow.getChildren().add(normalClipText(content));
                 return flow;
             }
 
-            if (prefix != null && !prefix.isEmpty()) {
-                Text p = new Text(prefix);
-                p.getStyleClass().add("clip-star");
-                flow.getChildren().add(p);
+            if (idx > 0) {
+                flow.getChildren().add(normalClipText(content.substring(0, idx)));
             }
 
-            if (idx > 0) flow.getChildren().add(new Text(content.substring(0, idx)));
-
             int end = Math.min(idx + queryLower.length(), content.length());
+
             Text match = new Text(content.substring(idx, end));
-            // keep highlight subtle; exact color can be tuned later in CSS if desired
             match.getStyleClass().add("clip-highlight");
+            match.setFill(javafx.scene.paint.Color.web("#F5C542"));
             flow.getChildren().add(match);
 
-            if (end < content.length()) flow.getChildren().add(new Text(content.substring(end)));
-
-            flow.setMaxWidth(Double.MAX_VALUE);
-            flow.setPrefWidth(0);
-            flow.setMinWidth(0);
-            flow.setLineSpacing(2);
+            if (end < content.length()) {
+                flow.getChildren().add(normalClipText(content.substring(end)));
+            }
 
             return flow;
+        }
+
+        private Text normalClipText(String text) {
+            Text t = new Text(text == null ? "" : text);
+            t.getStyleClass().add("clip-text");
+            t.setFill(javafx.scene.paint.Color.web("#EEF2F8"));
+            return t;
         }
     }
     private void selectAndReveal(int index) {

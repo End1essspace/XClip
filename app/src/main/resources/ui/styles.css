@@ -255,6 +255,10 @@
     -fx-border-width: 1 0 0 0;
 }
 
+.clip-text {
+    -fx-fill: #EEF2F8;
+}
+
 .clip-content {
     -fx-text-fill: #EEF2F8;
     -fx-fill: #EEF2F8;
