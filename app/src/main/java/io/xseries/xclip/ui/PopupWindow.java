@@ -9,6 +9,8 @@ package io.xseries.xclip.ui;
 import io.xseries.xclip.system.window.WindowsTitleBar;
 import io.xseries.xclip.data.dao.ClipEntryDao;
 import io.xseries.xclip.data.model.ClipEntry;
+import io.xseries.xclip.domain.model.ClipContentType;
+import io.xseries.xclip.domain.service.ClipContentClassifier;
 import io.xseries.xclip.domain.service.ClipService;
 import io.xseries.xclip.domain.service.PasteService;
 import io.xseries.xclip.system.clipboard.ClipboardAccess;
@@ -103,6 +105,9 @@ public final class PopupWindow {
     // Cache for preview/needsToggle to avoid split("\\R") per cell repaint
     private record PreviewData(boolean needsToggle, String preview) {}
     private final Map<Long, PreviewData> previewCache = new HashMap<>();
+
+    private record ContentTypeCache(String content, ClipContentType type) {}
+    private final Map<Long, ContentTypeCache> contentTypeCache = new HashMap<>();
 
     // v1.1 UX state
     private final Label pausedBadge = new Label("PAUSED");
@@ -1248,7 +1253,11 @@ public final class PopupWindow {
         List<ClipEntry> selected = getSelectedClipsOrdered();
         if (selected.isEmpty()) return;
 
-        for (ClipEntry e : selected) expandedById.remove(e.id());
+        for (ClipEntry e : selected) {
+            expandedById.remove(e.id());
+            previewCache.remove(e.id());
+            contentTypeCache.remove(e.id());
+        }
 
         dbExec.submit(() -> {
             for (ClipEntry e : selected) {
@@ -1302,6 +1311,7 @@ public final class PopupWindow {
             java.util.Set<Long> removed = new java.util.HashSet<>(visibleNonFavoriteIds);
             expandedById.keySet().removeIf(removed::contains);
             previewCache.keySet().removeIf(removed::contains);
+            contentTypeCache.keySet().removeIf(removed::contains);
 
             dbExec.submit(() -> {
                 dao.deleteByIds(visibleNonFavoriteIds);
@@ -1332,6 +1342,21 @@ public final class PopupWindow {
         PreviewData pd = computePreviewData(full);
         previewCache.put(id, pd);
         return pd;
+    }
+
+    private ClipContentType contentTypeFor(ClipEntry entry) {
+        if (entry == null) return ClipContentType.TEXT;
+
+        String content = entry.content() == null ? "" : entry.content();
+        ContentTypeCache cached = contentTypeCache.get(entry.id());
+
+        if (cached != null && java.util.Objects.equals(cached.content(), content)) {
+            return cached.type();
+        }
+
+        ClipContentType type = ClipContentClassifier.classify(content);
+        contentTypeCache.put(entry.id(), new ContentTypeCache(content, type));
+        return type;
     }
 
     private String buildExpandedPreview(String s) {
@@ -1445,6 +1470,8 @@ public final class PopupWindow {
         private final HBox clipRoot = new HBox(12);
         private final VBox clipLeft = new VBox(2);
         private final Label timeLabel = new Label();
+        private final Label typeBadge = new Label();
+        private final Tooltip typeTooltip = new Tooltip();
         private final Label pinnedTitleLabel = new Label();
         private final Label pinnedPreviewLabel = new Label();
         private final Tooltip clipTooltip = new Tooltip();
@@ -1485,12 +1512,20 @@ public final class PopupWindow {
             clipTooltip.setShowDuration(Duration.seconds(30));
             Tooltip.install(clipRoot, clipTooltip);
 
-            // Right column (fixed width)
-            VBox right = new VBox(timeLabel);
+            // Right column (fixed width): derived content type + timestamp.
+            VBox right = new VBox(5, typeBadge, timeLabel);
             right.setAlignment(Pos.TOP_RIGHT);
-            right.setMinWidth(86);
-            right.setPrefWidth(86);
-            right.setMaxWidth(86);
+            right.setMinWidth(92);
+            right.setPrefWidth(92);
+            right.setMaxWidth(92);
+
+            typeBadge.getStyleClass().add("clip-type-badge");
+            typeBadge.setAlignment(Pos.CENTER);
+            typeBadge.setMinWidth(Region.USE_PREF_SIZE);
+            typeBadge.setMaxWidth(Region.USE_PREF_SIZE);
+            typeTooltip.setShowDelay(Duration.millis(250));
+            Tooltip.install(typeBadge, typeTooltip);
+
             timeLabel.getStyleClass().add("clip-time");
             timeLabel.setAlignment(Pos.TOP_RIGHT);
             timeLabel.setMaxWidth(Double.MAX_VALUE);
@@ -1653,6 +1688,14 @@ public final class PopupWindow {
             long id = ce.id();
             String full = (ce.content() == null) ? "" : ce.content();
             clipTooltip.setText(buildTooltipText(ce));
+
+            ClipContentType contentType = contentTypeFor(ce);
+            typeBadge.setText(contentType.label());
+            typeBadge.getStyleClass().setAll(
+                    "clip-type-badge",
+                    "clip-type-" + contentType.cssClass()
+            );
+            typeTooltip.setText("Detected content type: " + contentType.label());
 
             pinnedTitleLabel.getStyleClass().remove("pinned-title-match");
             pinnedPreviewLabel.getStyleClass().remove("pinned-preview-match");
