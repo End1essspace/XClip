@@ -22,7 +22,7 @@ import java.util.stream.Collectors;
 
 public final class Database {
 
-    private static final int CURRENT_SCHEMA_VERSION = 4;
+    private static final int CURRENT_SCHEMA_VERSION = 5;
 
     private final Path dbPath;
     private final String jdbcUrl;
@@ -182,6 +182,41 @@ public final class Database {
                         CREATE INDEX IF NOT EXISTS idx_clip_pinned_order
                         ON clip_entries(is_favorite, pin_order, last_copied_at DESC)
                         """);
+
+                // v5 tag foundation. These statements are intentionally
+                // idempotent because applyBaseSchema also creates them for new DBs.
+                st.execute("""
+                        CREATE TABLE IF NOT EXISTS tags (
+                          id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                          name       TEXT    NOT NULL,
+                          name_norm  TEXT    NOT NULL,
+                          created_at INTEGER NOT NULL,
+                          CONSTRAINT ck_tags_name_length
+                            CHECK (length(name) BETWEEN 1 AND 64),
+                          CONSTRAINT uq_tags_name_norm UNIQUE (name_norm)
+                        )
+                        """);
+                st.execute("""
+                        CREATE TABLE IF NOT EXISTS clip_tags (
+                          clip_id     INTEGER NOT NULL,
+                          tag_id      INTEGER NOT NULL,
+                          assigned_at INTEGER NOT NULL,
+                          PRIMARY KEY (clip_id, tag_id),
+                          FOREIGN KEY (clip_id)
+                            REFERENCES clip_entries(id) ON DELETE CASCADE,
+                          FOREIGN KEY (tag_id)
+                            REFERENCES tags(id) ON DELETE CASCADE
+                        )
+                        """);
+                st.execute("""
+                        CREATE INDEX IF NOT EXISTS idx_tags_name
+                        ON tags(name COLLATE NOCASE, id)
+                        """);
+                st.execute("""
+                        CREATE INDEX IF NOT EXISTS idx_clip_tags_tag_id
+                        ON clip_tags(tag_id, clip_id)
+                        """);
+
                 st.execute("PRAGMA user_version = " + CURRENT_SCHEMA_VERSION + ";");
             }
 

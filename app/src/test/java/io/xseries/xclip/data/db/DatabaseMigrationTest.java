@@ -29,7 +29,7 @@ class DatabaseMigrationTest {
     Path tempDir;
 
     @Test
-    void migratesLegacySchemaAndBackfillsRecencyAndPinnedOrder() throws Exception {
+    void migratesLegacySchemaAndCreatesTagFoundation() throws Exception {
         Path dbPath = tempDir.resolve("legacy.db");
         String jdbcUrl = "jdbc:sqlite:" + dbPath.toAbsolutePath();
 
@@ -67,7 +67,7 @@ class DatabaseMigrationTest {
                     "created_at",
                     "last_copied_at",
                     "use_count"
-            ), tableColumns(c));
+            ), tableColumns(c, "clip_entries"));
 
             try (Statement st = c.createStatement();
                  ResultSet rs = st.executeQuery("""
@@ -87,14 +87,28 @@ class DatabaseMigrationTest {
             assertEquals(1, pinOrders.get("older pinned").intValue());
             assertNull(pinOrders.get("recent"));
 
+            assertEquals(Set.of("id", "name", "name_norm", "created_at"),
+                    tableColumns(c, "tags"));
+            assertEquals(Set.of("clip_id", "tag_id", "assigned_at"),
+                    tableColumns(c, "clip_tags"));
+
             try (Statement st = c.createStatement();
                  ResultSet rs = st.executeQuery("PRAGMA user_version")) {
                 assertTrue(rs.next());
-                assertEquals(4, rs.getInt(1));
+                assertEquals(5, rs.getInt(1));
             }
 
-            assertTrue(hasIndex(c, "idx_clip_hash_unique", true));
-            assertTrue(hasIndex(c, "idx_clip_pinned_order", false));
+            assertTrue(hasIndex(c, "clip_entries", "idx_clip_hash_unique", true));
+            assertTrue(hasIndex(c, "clip_entries", "idx_clip_pinned_order", false));
+            assertTrue(hasIndex(c, "tags", "idx_tags_name", false));
+            assertTrue(hasIndex(c, "clip_tags", "idx_clip_tags_tag_id", false));
+
+            assertTrue(hasCascadeForeignKey(
+                    c, "clip_tags", "clip_id", "clip_entries", "id"
+            ));
+            assertTrue(hasCascadeForeignKey(
+                    c, "clip_tags", "tag_id", "tags", "id"
+            ));
         }
     }
 
@@ -134,10 +148,10 @@ class DatabaseMigrationTest {
         return values;
     }
 
-    private Set<String> tableColumns(Connection c) throws Exception {
+    private Set<String> tableColumns(Connection c, String tableName) throws Exception {
         Set<String> columns = new HashSet<>();
         try (Statement st = c.createStatement();
-             ResultSet rs = st.executeQuery("PRAGMA table_info(clip_entries)")) {
+             ResultSet rs = st.executeQuery("PRAGMA table_info(" + tableName + ")")) {
             while (rs.next()) {
                 columns.add(rs.getString("name"));
             }
@@ -145,12 +159,38 @@ class DatabaseMigrationTest {
         return columns;
     }
 
-    private boolean hasIndex(Connection c, String name, boolean unique) throws Exception {
+    private boolean hasIndex(
+            Connection c,
+            String tableName,
+            String name,
+            boolean unique
+    ) throws Exception {
         try (Statement st = c.createStatement();
-             ResultSet rs = st.executeQuery("PRAGMA index_list(clip_entries)")) {
+             ResultSet rs = st.executeQuery("PRAGMA index_list(" + tableName + ")")) {
             while (rs.next()) {
                 if (name.equals(rs.getString("name"))
                         && (rs.getInt("unique") == 1) == unique) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private boolean hasCascadeForeignKey(
+            Connection c,
+            String tableName,
+            String fromColumn,
+            String targetTable,
+            String targetColumn
+    ) throws Exception {
+        try (Statement st = c.createStatement();
+             ResultSet rs = st.executeQuery("PRAGMA foreign_key_list(" + tableName + ")")) {
+            while (rs.next()) {
+                if (fromColumn.equals(rs.getString("from"))
+                        && targetTable.equals(rs.getString("table"))
+                        && targetColumn.equals(rs.getString("to"))
+                        && "CASCADE".equalsIgnoreCase(rs.getString("on_delete"))) {
                     return true;
                 }
             }
