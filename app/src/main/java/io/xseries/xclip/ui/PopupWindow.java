@@ -1,4 +1,5 @@
 
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -10,7 +11,9 @@ import io.xseries.xclip.system.window.WindowsTitleBar;
 import io.xseries.xclip.data.dao.ClipEntryDao;
 import io.xseries.xclip.data.model.ClipEntry;
 import io.xseries.xclip.domain.model.ClipContentType;
+import io.xseries.xclip.domain.model.ClipViewScope;
 import io.xseries.xclip.domain.service.ClipContentClassifier;
+import io.xseries.xclip.domain.service.ClipFilterEngine;
 import io.xseries.xclip.domain.service.ClipService;
 import io.xseries.xclip.domain.service.PasteService;
 import io.xseries.xclip.system.clipboard.ClipboardAccess;
@@ -19,6 +22,7 @@ import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
+import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
 import javafx.geometry.Rectangle2D;
 import javafx.scene.Scene;
@@ -83,6 +87,7 @@ public final class PopupWindow {
     private static final int PINNED_TITLE_MAX_LENGTH = 120;
     private static final int PINNED_COMPACT_CHAR_LIMIT = 220;
     private static final int TOOLTIP_CHAR_LIMIT = 2_000;
+    private static final int TYPE_FILTER_SCAN_LIMIT = 5_000;
 
     // Expanded preview (still bounded to protect UI)
     private static final int EXPANDED_LINES = 200;
@@ -92,6 +97,17 @@ public final class PopupWindow {
     private final TextField searchField = new TextField();
     private final ListView<Row> listView = new ListView<>();
     private final ObservableList<Row> items = FXCollections.observableArrayList();
+
+    private final ToggleGroup scopeFilterGroup = new ToggleGroup();
+    private final ToggleButton filterAllBtn = new ToggleButton("All");
+    private final ToggleButton filterPinnedBtn = new ToggleButton("Pinned");
+    private final ToggleButton filterRecentBtn = new ToggleButton("Recent");
+    private final ComboBox<ContentTypeOption> typeFilterCombo = new ComboBox<>();
+    private final Button resetFiltersBtn = new Button("Reset filters");
+
+    private volatile ClipViewScope currentScope = ClipViewScope.ALL;
+    private volatile ClipContentType currentTypeFilter = null;
+    private boolean filterUiSync = false;
 
     private final ClipEntryDao dao;
     private final ClipboardAccess clipboard;
@@ -107,7 +123,7 @@ public final class PopupWindow {
     private final Map<Long, PreviewData> previewCache = new HashMap<>();
 
     private record ContentTypeCache(String content, ClipContentType type) {}
-    private final Map<Long, ContentTypeCache> contentTypeCache = new HashMap<>();
+    private final Map<Long, ContentTypeCache> contentTypeCache = new ConcurrentHashMap<>();
 
     // v1.1 UX state
     private final Label pausedBadge = new Label("PAUSED");
@@ -139,6 +155,8 @@ public final class PopupWindow {
     });
 
     private volatile ScheduledFuture<?> pendingSearch;
+    private final java.util.concurrent.atomic.AtomicLong reloadGeneration =
+            new java.util.concurrent.atomic.AtomicLong();
 
     private final PauseTransition autoHideDelay = new PauseTransition(Duration.millis(160));
 
@@ -150,6 +168,13 @@ public final class PopupWindow {
     private record SectionRow(String title) implements Row {}
 
     private record ClipRow(ClipEntry entry) implements Row {}
+
+    private record ContentTypeOption(ClipContentType type, String label) {
+        @Override
+        public String toString() {
+            return label;
+        }
+    }
 
     private enum PinnedMoveAction {
         UP,
@@ -325,6 +350,12 @@ public final class PopupWindow {
         • Esc            Clear search (if not empty) / Hide popup (if empty)
         • Tab            Focus list
 
+        Filters:
+        • All / Pinned / Recent restrict the visible section
+        • Type filters by TEXT, CODE, URL, PATH, JSON, or COMMAND
+        • Reset filters returns to the complete view
+        • Search and filters can be combined
+
         Selection:
         • Ctrl+Click     Toggle item selection
         • Shift+Click    Select range
@@ -406,6 +437,39 @@ public final class PopupWindow {
         topBar.getStyleClass().add("top-bar");
         topBar.setAlignment(Pos.CENTER_LEFT);
 
+        configureFilterControls();
+
+        Label showFilterLabel = new Label("Show");
+        showFilterLabel.getStyleClass().add("filter-label");
+
+        HBox scopeButtons = new HBox(filterAllBtn, filterPinnedBtn, filterRecentBtn);
+        scopeButtons.getStyleClass().add("filter-segment");
+
+        Separator filterSeparator = new Separator(Orientation.VERTICAL);
+        filterSeparator.getStyleClass().add("filter-separator");
+
+        Label typeFilterLabel = new Label("Type");
+        typeFilterLabel.getStyleClass().add("filter-label");
+
+        Region filterSpacer = new Region();
+        HBox.setHgrow(filterSpacer, Priority.ALWAYS);
+
+        HBox filterBar = new HBox(
+                10,
+                showFilterLabel,
+                scopeButtons,
+                filterSeparator,
+                typeFilterLabel,
+                typeFilterCombo,
+                filterSpacer,
+                resetFiltersBtn
+        );
+        filterBar.setAlignment(Pos.CENTER_LEFT);
+        filterBar.getStyleClass().add("filter-bar");
+
+        VBox popupHeader = new VBox(topBar, filterBar);
+        popupHeader.getStyleClass().add("popup-header");
+
 
         Button pasteBtn = new Button("Paste");
         pasteBtn.setOnAction(e -> pasteSelectedOrFirst());
@@ -439,7 +503,7 @@ public final class PopupWindow {
         toast.getStyleClass().add("toast");
 
         BorderPane root = new BorderPane();
-        root.setTop(topBar);
+        root.setTop(popupHeader);
 
         BorderPane centerPane = new BorderPane();
         centerPane.setCenter(listView);
@@ -616,6 +680,102 @@ public final class PopupWindow {
 
         reloadNow("");
     }
+
+    private void configureFilterControls() {
+        configureScopeToggle(filterAllBtn, ClipViewScope.ALL);
+        configureScopeToggle(filterPinnedBtn, ClipViewScope.PINNED);
+        configureScopeToggle(filterRecentBtn, ClipViewScope.RECENT);
+
+        scopeFilterGroup.selectToggle(filterAllBtn);
+        scopeFilterGroup.selectedToggleProperty().addListener((obs, oldToggle, newToggle) -> {
+            if (filterUiSync) return;
+
+            if (newToggle == null) {
+                filterUiSync = true;
+                if (oldToggle != null) oldToggle.setSelected(true);
+                filterUiSync = false;
+                return;
+            }
+
+            Object value = newToggle.getUserData();
+            ClipViewScope scope = value instanceof ClipViewScope s ? s : ClipViewScope.ALL;
+            setFilterState(scope, currentTypeFilter, true);
+        });
+
+        ObservableList<ContentTypeOption> typeOptions = FXCollections.observableArrayList();
+        typeOptions.add(new ContentTypeOption(null, "All types"));
+        for (ClipContentType type : ClipContentType.values()) {
+            typeOptions.add(new ContentTypeOption(type, type.label()));
+        }
+
+        typeFilterCombo.setItems(typeOptions);
+        typeFilterCombo.getSelectionModel().selectFirst();
+        typeFilterCombo.setFocusTraversable(false);
+        typeFilterCombo.setPrefWidth(126);
+        typeFilterCombo.setMinWidth(126);
+        typeFilterCombo.getStyleClass().add("filter-type-combo");
+        typeFilterCombo.valueProperty().addListener((obs, oldValue, newValue) -> {
+            if (filterUiSync) return;
+            ClipContentType type = newValue == null ? null : newValue.type();
+            setFilterState(currentScope, type, true);
+        });
+
+        resetFiltersBtn.setFocusTraversable(false);
+        resetFiltersBtn.getStyleClass().add("filter-reset");
+        resetFiltersBtn.setOnAction(e -> setFilterState(ClipViewScope.ALL, null, true));
+
+        updateFilterControlState();
+    }
+
+    private void configureScopeToggle(ToggleButton button, ClipViewScope scope) {
+        button.setToggleGroup(scopeFilterGroup);
+        button.setUserData(scope);
+        button.setFocusTraversable(false);
+        button.getStyleClass().add("filter-toggle");
+    }
+
+    private void setFilterState(
+            ClipViewScope scope,
+            ClipContentType contentType,
+            boolean reload
+    ) {
+        ClipViewScope effectiveScope = scope == null ? ClipViewScope.ALL : scope;
+        boolean changed = currentScope != effectiveScope || currentTypeFilter != contentType;
+
+        currentScope = effectiveScope;
+        currentTypeFilter = contentType;
+
+        filterUiSync = true;
+        Toggle target = switch (effectiveScope) {
+            case ALL -> filterAllBtn;
+            case PINNED -> filterPinnedBtn;
+            case RECENT -> filterRecentBtn;
+        };
+        scopeFilterGroup.selectToggle(target);
+
+        ContentTypeOption targetType = typeFilterCombo.getItems().stream()
+                .filter(option -> option.type() == contentType)
+                .findFirst()
+                .orElseGet(() -> typeFilterCombo.getItems().isEmpty()
+                        ? null
+                        : typeFilterCombo.getItems().get(0));
+        typeFilterCombo.getSelectionModel().select(targetType);
+        filterUiSync = false;
+
+        updateFilterControlState();
+        updateEmptyStateText();
+
+        if (reload && changed) {
+            reloadNow(searchField.getText());
+        }
+    }
+
+    private void updateFilterControlState() {
+        boolean active = currentScope != ClipViewScope.ALL || currentTypeFilter != null;
+        resetFiltersBtn.setVisible(active);
+        resetFiltersBtn.setManaged(active);
+    }
+
     public void enableWindowPersistence(io.xseries.xclip.config.ConfigService configService,
                                         io.xseries.xclip.config.Config config) {
         this.configService = configService;
@@ -767,8 +927,17 @@ public final class PopupWindow {
         }
 
         String q = currentQueryRaw == null ? "" : currentQueryRaw.trim();
+        boolean filtersActive = currentScope != ClipViewScope.ALL || currentTypeFilter != null;
+
         if (!q.isEmpty()) {
-            emptyStateLabel.setText("No results for \"" + q + "\".\nPress Ctrl+L to clear search.");
+            emptyStateLabel.setText(filtersActive
+                    ? "No results for \"" + q + "\" with the current filters.\nReset filters or press Ctrl+L to clear search."
+                    : "No results for \"" + q + "\".\nPress Ctrl+L to clear search.");
+            return;
+        }
+
+        if (filtersActive) {
+            emptyStateLabel.setText("No clips match the current filters.\nReset filters to show all clips.");
             return;
         }
 
@@ -873,8 +1042,12 @@ public final class PopupWindow {
 
     private void reloadNow(String q, MultiSelectionSnapshot snap) {
         String query = q == null ? "" : q;
-
         String normQuery = query.trim();
+
+        ClipViewScope scopeSnapshot = currentScope;
+        ClipContentType typeSnapshot = currentTypeFilter;
+        long requestGeneration = reloadGeneration.incrementAndGet();
+
         currentQueryRaw = normQuery;
         currentQueryLower = normQuery.isEmpty() ? "" : normQuery.toLowerCase(Locale.ROOT);
 
@@ -882,10 +1055,21 @@ public final class PopupWindow {
 
         dbExec.submit(() -> {
             int limit = Math.max(1, uiClipLimit);
+            int candidateLimit = typeSnapshot == null
+                    ? limit
+                    : Math.max(limit, TYPE_FILTER_SCAN_LIMIT);
 
-            List<ClipEntry> list = query.isBlank()
-                    ? dao.listLatest(limit)
-                    : dao.search(query.trim(), limit);
+            List<ClipEntry> candidates = normQuery.isBlank()
+                    ? dao.listLatest(candidateLimit, scopeSnapshot.favoriteFilter())
+                    : dao.search(normQuery, candidateLimit, scopeSnapshot.favoriteFilter());
+
+            List<ClipEntry> list = new java.util.ArrayList<>(ClipFilterEngine.apply(
+                    candidates,
+                    scopeSnapshot,
+                    typeSnapshot,
+                    limit,
+                    this::contentTypeFor
+            ));
 
             list.sort(
                     Comparator.comparing(ClipEntry::favorite).reversed()
@@ -894,12 +1078,20 @@ public final class PopupWindow {
             );
 
             Platform.runLater(() -> {
+                if (requestGeneration != reloadGeneration.get()) return;
+
                 items.setAll(buildRows(list));
                 countLabel.setText("Clips: " + countClips(items));
 
                 updateEmptyStateText();
 
-                if (items.isEmpty()) return;
+                if (items.isEmpty()) {
+                    listView.getSelectionModel().clearSelection();
+                    selectionAnchorIndex = -1;
+                    updateSelectionUi();
+                    return;
+                }
+
                 // --- restore multi-selection by ids ---
                 listView.getSelectionModel().clearSelection();
 
@@ -926,6 +1118,7 @@ public final class PopupWindow {
                         }
                     }
                 }
+
                 // if nothing restored -> select first clip
                 if (!restoredAny) {
                     int firstClip = findFirstClipIndex();

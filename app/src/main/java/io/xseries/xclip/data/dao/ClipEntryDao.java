@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -84,10 +85,23 @@ public final class ClipEntryDao {
     }
 
     public List<ClipEntry> listLatest(int limit) {
+        return listLatest(limit, null);
+    }
+
+    /**
+     * Lists clips with an optional pinned-state restriction.
+     *
+     * favoriteFilter meanings:
+     * - null  -> all clips;
+     * - true  -> pinned clips only;
+     * - false -> recent clips only.
+     */
+    public List<ClipEntry> listLatest(int limit, Boolean favoriteFilter) {
         String sql = """
             SELECT id, content, title, is_favorite, pin_order,
                    last_copied_at AS created_at
             FROM clip_entries
+            WHERE (? IS NULL OR is_favorite = ?)
             ORDER BY is_favorite DESC,
                      CASE
                          WHEN is_favorite = 1 THEN COALESCE(pin_order, 2147483647)
@@ -99,7 +113,8 @@ public final class ClipEntryDao {
             """;
         Connection c = conn();
         try (PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setInt(1, limit);
+            bindOptionalFavorite(ps, 1, favoriteFilter);
+            ps.setInt(3, Math.max(1, limit));
             try (ResultSet rs = ps.executeQuery()) {
                 return map(rs);
             }
@@ -109,12 +124,22 @@ public final class ClipEntryDao {
     }
 
     public List<ClipEntry> search(String q, int limit) {
+        return search(q, limit, null);
+    }
+
+    /**
+     * Searches content and pinned titles with an optional pinned-state restriction.
+     */
+    public List<ClipEntry> search(String q, int limit, Boolean favoriteFilter) {
         String sql = """
             SELECT id, content, title, is_favorite, pin_order,
                    last_copied_at AS created_at
             FROM clip_entries
-            WHERE content LIKE ? ESCAPE '\\'
-               OR (is_favorite = 1 AND COALESCE(title, '') LIKE ? ESCAPE '\\')
+            WHERE (
+                    content LIKE ? ESCAPE '\\'
+                    OR (is_favorite = 1 AND COALESCE(title, '') LIKE ? ESCAPE '\\')
+                  )
+              AND (? IS NULL OR is_favorite = ?)
             ORDER BY is_favorite DESC,
                      CASE
                          WHEN is_favorite = 1 THEN COALESCE(pin_order, 2147483647)
@@ -124,12 +149,13 @@ public final class ClipEntryDao {
                      id DESC
             LIMIT ?
             """;
-        String like = "%" + escapeLike(q) + "%";
+        String like = "%" + escapeLike(q == null ? "" : q) + "%";
         Connection c = conn();
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, like);
             ps.setString(2, like);
-            ps.setInt(3, limit);
+            bindOptionalFavorite(ps, 3, favoriteFilter);
+            ps.setInt(5, Math.max(1, limit));
             try (ResultSet rs = ps.executeQuery()) {
                 return map(rs);
             }
@@ -398,6 +424,18 @@ public final class ClipEntryDao {
             list.add(new ClipEntry(id, content, title, fav, pinOrder, createdAt));
         }
         return list;
+    }
+
+    private void bindOptionalFavorite(PreparedStatement ps, int firstIndex, Boolean favoriteFilter)
+            throws SQLException {
+        if (favoriteFilter == null) {
+            ps.setNull(firstIndex, Types.INTEGER);
+            ps.setNull(firstIndex + 1, Types.INTEGER);
+        } else {
+            int value = favoriteFilter ? 1 : 0;
+            ps.setInt(firstIndex, value);
+            ps.setInt(firstIndex + 1, value);
+        }
     }
 
     private String escapeLike(String s) {

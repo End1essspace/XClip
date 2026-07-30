@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -173,6 +174,44 @@ class ClipEntryDaoTest {
             dao.setFavorite(secondId, true);
             assertEquals(List.of("second", "third", "first"), pinnedContents(dao));
             assertEquals(List.of(0, 1, 2), pinnedOrders(dao));
+        } finally {
+            dao.closeForCurrentThread();
+            db.close();
+        }
+    }
+
+
+    @Test
+    void canRestrictListingAndSearchByPinnedState() {
+        Path dbPath = tempDir.resolve("scope-filter.db");
+        Database db = new Database(dbPath);
+        db.init();
+
+        ClipEntryDao dao = new ClipEntryDao(db.jdbcUrl());
+        try {
+            dao.insert("shared pinned text", "shared pinned text", "hash-pinned-scope", 1_000L);
+            dao.insert("shared recent text", "shared recent text", "hash-recent-scope", 2_000L);
+
+            long pinnedId = idFor(dao, "shared pinned text");
+            dao.setFavorite(pinnedId, true);
+            dao.setTitle(pinnedId, "Pinned scope title");
+
+            List<ClipEntry> pinnedOnly = dao.listLatest(10, true);
+            List<ClipEntry> recentOnly = dao.listLatest(10, false);
+
+            assertEquals(List.of("shared pinned text"),
+                    pinnedOnly.stream().map(ClipEntry::content).toList());
+            assertEquals(List.of("shared recent text"),
+                    recentOnly.stream().map(ClipEntry::content).toList());
+
+            assertEquals(List.of("shared pinned text"),
+                    dao.search("shared", 10, true).stream().map(ClipEntry::content).toList());
+            assertEquals(List.of("shared recent text"),
+                    dao.search("shared", 10, false).stream().map(ClipEntry::content).toList());
+
+            // Title matching is still available only for pinned entries.
+            assertEquals(1, dao.search("scope title", 10, true).size());
+            assertTrue(dao.search("scope title", 10, false).isEmpty());
         } finally {
             dao.closeForCurrentThread();
             db.close();

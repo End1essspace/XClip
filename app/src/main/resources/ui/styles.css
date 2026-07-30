@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -168,6 +169,100 @@
     -fx-min-width: 34;
     -fx-pref-width: 34;
     -fx-padding: 8 0 8 0;
+}
+
+/* =========================================================
+   Popup filters
+   ========================================================= */
+
+.popup-header {
+    -fx-background-color: -x-surface;
+}
+
+.filter-bar {
+    -fx-background-color: #11151D;
+    -fx-padding: 8 14 9 14;
+    -fx-border-color: transparent transparent -x-border-soft transparent;
+    -fx-border-width: 0 0 1 0;
+}
+
+.filter-label {
+    -fx-text-fill: -x-text-muted;
+    -fx-font-size: 11px;
+    -fx-font-weight: 700;
+}
+
+.filter-segment {
+    -fx-spacing: 0;
+    -fx-background-color: -x-input;
+    -fx-border-color: -x-border;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+}
+
+.filter-toggle {
+    -fx-background-color: transparent;
+    -fx-text-fill: #AAB3C1;
+    -fx-border-color: transparent;
+    -fx-background-radius: 7;
+    -fx-border-radius: 7;
+    -fx-padding: 5 12 5 12;
+    -fx-font-size: 11.5px;
+}
+
+.filter-toggle:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.045);
+    -fx-text-fill: -x-text;
+}
+
+.filter-toggle:selected {
+    -fx-background-color: -x-accent-soft;
+    -fx-text-fill: -x-accent;
+    -fx-font-weight: 800;
+}
+
+.filter-separator {
+    -fx-padding: 2 2 2 2;
+}
+
+.filter-separator .line {
+    -fx-border-color: -x-border;
+    -fx-border-width: 0 0 0 1;
+}
+
+.filter-type-combo {
+    -fx-background-color: -x-input;
+    -fx-border-color: -x-border;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-font-size: 11.5px;
+}
+
+.filter-type-combo:hover,
+.filter-type-combo:focused {
+    -fx-border-color: -x-accent-border;
+}
+
+.filter-type-combo .list-cell {
+    -fx-text-fill: -x-text-secondary;
+    -fx-background-color: transparent;
+    -fx-padding: 4 8 4 8;
+}
+
+.filter-reset {
+    -fx-background-color: transparent;
+    -fx-text-fill: -x-text-muted;
+    -fx-border-color: -x-border;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-padding: 5 10 5 10;
+    -fx-font-size: 11.5px;
+}
+
+.filter-reset:hover {
+    -fx-background-color: -x-surface-3;
+    -fx-text-fill: -x-text;
+    -fx-border-color: -x-accent-border;
 }
 
 /* =========================================================
