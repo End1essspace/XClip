@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -9,6 +10,7 @@ import io.xseries.xclip.system.window.WindowsTitleBar;
 import io.xseries.xclip.data.dao.ClipEntryDao;
 import io.xseries.xclip.data.model.ClipEntry;
 import io.xseries.xclip.domain.service.ClipService;
+import io.xseries.xclip.domain.service.PasteService;
 import io.xseries.xclip.system.clipboard.ClipboardAccess;
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
@@ -66,6 +68,7 @@ public final class PopupWindow {
     private boolean windowStateAppliedOnce = false;
 
     private final Label selectedLabel = new Label(); // "Selected: N"
+    private Button pasteBtnRef;
     private Button copyBtnRef;
     private Button favBtnRef;
     private Button delBtnRef;
@@ -86,6 +89,7 @@ public final class PopupWindow {
     private final ClipEntryDao dao;
     private final ClipboardAccess clipboard;
     private final ClipService clipService;
+    private final PasteService pasteService;
 
     private final Runnable onOpenSettings;
 
@@ -159,6 +163,7 @@ public final class PopupWindow {
 
     // Context menu (created once)
     private final ContextMenu ctxMenu = new ContextMenu();
+    private final MenuItem miPaste = new MenuItem("Paste");
     private final MenuItem miCopy = new MenuItem("Copy");
     private final MenuItem miPin = new MenuItem("Pin / Unpin");
     private final MenuItem miDelete = new MenuItem("Delete");
@@ -166,11 +171,28 @@ public final class PopupWindow {
     public PopupWindow(ClipEntryDao dao, ClipboardAccess clipboard, ClipService clipService) {
         this(dao, clipboard, clipService, () -> {});
     }
-    
+
     public PopupWindow(ClipEntryDao dao, ClipboardAccess clipboard, ClipService clipService, Runnable onOpenSettings) {
+        this(
+                dao,
+                clipboard,
+                clipService,
+                onOpenSettings,
+                PasteService.createDefault(clipboard, clipService)
+        );
+    }
+
+    public PopupWindow(
+            ClipEntryDao dao,
+            ClipboardAccess clipboard,
+            ClipService clipService,
+            Runnable onOpenSettings,
+            PasteService pasteService
+    ) {
         this.dao = dao;
         this.clipboard = clipboard;
         this.clipService = clipService;
+        this.pasteService = java.util.Objects.requireNonNull(pasteService);
         this.onOpenSettings = (onOpenSettings != null) ? onOpenSettings : (() -> {});
 
         stage = new Stage(StageStyle.DECORATED);
@@ -180,7 +202,7 @@ public final class PopupWindow {
         ));
         stage.setAlwaysOnTop(true);
         stage.setResizable(true);
-        stage.setMinWidth(420);
+        stage.setMinWidth(500);
         stage.setMinHeight(300);
 
         listView.setItems(items);
@@ -289,14 +311,14 @@ public final class PopupWindow {
         • Ctrl+D         Clear selection
 
         Actions:
-        • Ctrl+Shift+V   Open Popup Window
-        • Enter          Copy selection
-        • Ctrl+C         Copy selection
+        • Ctrl+Shift+V   Open XClip and remember the active app
+        • Enter          Paste selection into the remembered app
+        • Ctrl+C         Copy selection only
         • Ctrl+P         Pin / Unpin selection
         • E              Expand / Collapse selected clip (bounded preview)
         • Delete         Delete selection
-        • Double-click   Copy single item
-        • Right-click    Context menu (Copy / Pin / Delete)
+        • Double-click   Paste single item
+        • Right-click    Context menu (Paste / Copy / Pin / Delete)
 
         Window:
         • Esc            Clear selection → clear search → hide popup (in this order)
@@ -359,9 +381,13 @@ public final class PopupWindow {
         topBar.setAlignment(Pos.CENTER_LEFT);
 
 
+        Button pasteBtn = new Button("Paste");
+        pasteBtn.setOnAction(e -> pasteSelectedOrFirst());
+        pasteBtn.getStyleClass().addAll("action-btn", "action-primary");
+
         Button copyBtn = new Button("Copy");
         copyBtn.setOnAction(e -> copySelectedOrFirst());
-        copyBtn.getStyleClass().addAll("action-btn", "action-primary");
+        copyBtn.getStyleClass().addAll("action-btn", "action-neutral");
 
         Button favBtn = new Button("★");
         favBtn.setOnAction(e -> toggleFavoriteSelected());
@@ -371,11 +397,12 @@ public final class PopupWindow {
         delBtn.setOnAction(e -> deleteSelected());
         delBtn.getStyleClass().addAll("action-btn", "action-danger");
 
+        this.pasteBtnRef = pasteBtn;
         this.copyBtnRef = copyBtn;
         this.favBtnRef = favBtn;
         this.delBtnRef = delBtn;
 
-        HBox actions = new HBox(8, copyBtn, favBtn, delBtn);
+        HBox actions = new HBox(8, pasteBtn, copyBtn, favBtn, delBtn);
 
         actions.setPadding(new Insets(8));
         actions.getStyleClass().add("actions-bar");
@@ -497,8 +524,10 @@ public final class PopupWindow {
                 return;
             }
             if (e.getCode() == KeyCode.ENTER) {
+                if (e.getTarget() instanceof TextInputControl) return;
+
                 e.consume();
-                copySelectedOrFirst();
+                pasteSelectedOrFirst();
                 return;
             }
             if (e.getCode() == KeyCode.DELETE) {
@@ -508,10 +537,11 @@ public final class PopupWindow {
         });
 
         // Context menu actions
+        miPaste.setOnAction(e -> pasteSelectedOrFirst());
         miCopy.setOnAction(e -> copySelectedOrFirst());
         miPin.setOnAction(e -> toggleFavoriteSelected());
         miDelete.setOnAction(e -> deleteSelected());
-        ctxMenu.getItems().addAll(miCopy, miPin, new SeparatorMenuItem(), miDelete);
+        ctxMenu.getItems().addAll(miPaste, miCopy, miPin, new SeparatorMenuItem(), miDelete);
 
         toastHide.setOnFinished(e -> {
             toast.setVisible(false);
@@ -680,6 +710,22 @@ public final class PopupWindow {
     }
 
     public void showOrFocus() {
+        pasteService.clearTarget();
+        showOrFocusInternal();
+    }
+
+    /**
+     * Used only by the global hotkey path. Captures the currently active
+     * external application before XClip takes focus.
+     */
+    public void showOrFocusForPaste() {
+        pasteService.prepareTargetForPaste();
+        showOrFocusInternal();
+    }
+
+    private void showOrFocusInternal() {
+        suppressAutoHide = false;
+        autoHideDelay.stop();
 
         boolean first = !windowStateAppliedOnce;
         windowStateAppliedOnce = true;
@@ -710,15 +756,32 @@ public final class PopupWindow {
     }
 
     private void openSettings() {
+        pasteService.clearTarget();
         this.onOpenSettings.run();
     }
 
     public void hide() {
+        suppressAutoHide = false;
+        autoHideDelay.stop();
+        pasteService.clearTarget();
+        hideWindowOnly();
+    }
+
+    private void hideForPaste() {
+        // Prevent the normal focus-loss auto-hide callback from clearing
+        // the captured target before the delayed Ctrl+V is sent.
+        suppressAutoHide = true;
+        autoHideDelay.stop();
+        hideWindowOnly();
+    }
+
+    private void hideWindowOnly() {
         ctxMenu.hide();
         stage.hide();
     }
 
     public void shutdown() {
+        pasteService.close();
         dbExec.shutdownNow();
         debounceExec.shutdownNow();
     }
@@ -868,17 +931,39 @@ public final class PopupWindow {
         return null;
     }
 
+    private void pasteSelectedOrFirst() {
+        List<ClipEntry> selected = getSelectedClipsOrdered();
+
+        if (!selected.isEmpty()) {
+            pasteText(joinClipContents(selected));
+            return;
+        }
+
+        int idx = findFirstClipIndex();
+        if (idx >= 0) {
+            listView.getSelectionModel().clearAndSelect(idx);
+            ClipEntry sel = getSelectedClipOrNull();
+            if (sel != null) pasteEntry(sel);
+        }
+    }
+
+    private void pasteEntry(ClipEntry entry) {
+        if (entry == null) return;
+        pasteText(entry.content());
+    }
+
+    private void pasteText(String text) {
+        PasteService.StartResult result = pasteService.paste(text, this::hideForPaste);
+        if (result == PasteService.StartResult.CLIPBOARD_UNAVAILABLE) {
+            showToast("Clipboard unavailable");
+        }
+    }
+
     private void copySelectedOrFirst() {
         List<ClipEntry> selected = getSelectedClipsOrdered();
 
         if (!selected.isEmpty()) {
-            String joined = selected.stream()
-                    .map(e -> e.content() == null ? "" : e.content())
-                    .collect(java.util.stream.Collectors.joining("\n"));
-
-            clipService.markPushedByApp(joined);
-            clipboard.setTextSafely(joined);
-            hide();
+            copyText(joinClipContents(selected));
             return;
         }
 
@@ -890,10 +975,24 @@ public final class PopupWindow {
         }
     }
 
+    private String joinClipContents(List<ClipEntry> clips) {
+        return clips.stream()
+                .map(e -> e.content() == null ? "" : e.content())
+                .collect(java.util.stream.Collectors.joining("\n"));
+    }
+
     private void copyEntry(ClipEntry entry) {
-        clipService.markPushedByApp(entry.content());
-        clipboard.setTextSafely(entry.content());
-        hide();
+        if (entry == null) return;
+        copyText(entry.content());
+    }
+
+    private void copyText(String text) {
+        clipService.markPushedByApp(text);
+        if (clipboard.setTextSafely(text)) {
+            hide();
+        } else {
+            showToast("Clipboard unavailable");
+        }
     }
 
     private void toggleFavoriteSelected() {
@@ -1232,12 +1331,12 @@ public final class PopupWindow {
                 sm.clearAndSelect(idx);
             });
 
-            // Double click -> copy (only clip rows)
+            // Double click -> direct paste (only clip rows)
             setOnMouseClicked(ev -> {
                 if (ev.getButton() == MouseButton.PRIMARY && ev.getClickCount() == 2) {
                     Row r = getItem();
                     if (r instanceof ClipRow cr) {
-                        copyEntry(cr.entry());
+                        pasteEntry(cr.entry());
                         ev.consume();
                     }
                 }
@@ -1260,6 +1359,7 @@ public final class PopupWindow {
                     listView.getSelectionModel().clearAndSelect(idx);
                 }
 
+                miPaste.setDisable(false);
                 miCopy.setDisable(false);
                 miPin.setDisable(false);
                 miDelete.setDisable(false);
@@ -1486,7 +1586,7 @@ public final class PopupWindow {
         Platform.runLater(() -> listView.scrollTo(anchor));
     }
     private void updateSelectionUi() {
-        if (copyBtnRef == null || favBtnRef == null || delBtnRef == null) return;
+        if (pasteBtnRef == null || copyBtnRef == null || favBtnRef == null || delBtnRef == null) return;
 
         List<ClipEntry> selected = getSelectedClipsOrdered();
         int n = selected.size();
@@ -1497,6 +1597,7 @@ public final class PopupWindow {
         selectedLabel.setText(has ? ("Selected: " + n) : "");
 
         // Buttons
+        pasteBtnRef.setText(has ? ("Paste (" + n + ")") : "Paste");
         copyBtnRef.setText(has ? ("Copy (" + n + ")") : "Copy");
         delBtnRef.setText(has ? ("Delete (" + n + ")") : "Delete");
 

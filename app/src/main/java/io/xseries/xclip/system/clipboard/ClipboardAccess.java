@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -28,10 +29,15 @@ public final class ClipboardAccess {
         }
     }
 
-    public void setTextSafely(String text) {
+    public boolean setTextSafely(String text) {
+        if (text == null) return false;
+
         try {
             var clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
             clipboard.setContents(new StringSelection(text), null);
-        } catch (Exception ignored) {}
+            return true;
+        } catch (Exception ignored) {
+            return false;
+        }
     }
 }

@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -80,6 +81,10 @@ public final class TrayController {
     private Thread hotkeyThread;
 
     public void install(Runnable onOpen, Runnable onExit) {
+        install(onOpen, onOpen, onExit);
+    }
+
+    public void install(Runnable onOpen, Runnable onHotkeyOpen, Runnable onExit) {
         if (!SystemTray.isSupported()) return;
         if (trayIcon != null) return;
 
@@ -106,7 +111,7 @@ public final class TrayController {
                 tray.add(trayIcon);
 
                 updateIcon(paused.get());
-                startGlobalHotkey(onOpen);
+                startGlobalHotkey(onHotkeyOpen);
 
             } catch (Exception ex) {
                 ex.printStackTrace();
