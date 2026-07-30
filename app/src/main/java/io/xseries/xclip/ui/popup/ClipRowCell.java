@@ -50,6 +50,9 @@ import java.util.Locale;
  * The cell keeps one stable node tree per ListCell so ListView virtualization
  * remains intact while exposing the stronger visual hierarchy used by the new
  * XClip reference: selection, pin state, content, type, time, and overflow.
+ *
+ * Clipboard content is never shown in an automatic row-hover tooltip. Long
+ * previews are opened only through explicit More / E interactions.
  */
 public final class ClipRowCell extends ListCell<PopupRow> {
 
@@ -73,12 +76,11 @@ public final class ClipRowCell extends ListCell<PopupRow> {
     }
 
     private static final int PINNED_COMPACT_CHAR_LIMIT = 220;
-    private static final int TOOLTIP_CHAR_LIMIT = 2_000;
-
     private static final PseudoClass SECTION_PC = PseudoClass.getPseudoClass("section");
     private static final PseudoClass FAVORITE_PC = PseudoClass.getPseudoClass("favorite");
     private static final PseudoClass COMPACT_PC = PseudoClass.getPseudoClass("compact");
     private static final PseudoClass TWO_LINE_PC = PseudoClass.getPseudoClass("two-line");
+    private static final PseudoClass EXPANDED_PC = PseudoClass.getPseudoClass("expanded");
 
     private final Controller controller;
 
@@ -99,10 +101,10 @@ public final class ClipRowCell extends ListCell<PopupRow> {
     private final Label timeLabel = new Label();
     private final Label typeBadge = new Label();
     private final Tooltip typeTooltip = new Tooltip();
+    private final Button collapseButton = new Button("Collapse");
     private final Button moreButton = new Button();
     private final Label pinnedTitleLabel = new Label();
     private final Label pinnedPreviewLabel = new Label();
-    private final Tooltip clipTooltip = new Tooltip();
     private final Hyperlink toggleLink = new Hyperlink();
 
     public ClipRowCell(Controller controller) {
@@ -183,11 +185,6 @@ public final class ClipRowCell extends ListCell<PopupRow> {
         pinnedPreviewLabel.setMinWidth(0);
         pinnedPreviewLabel.setPrefWidth(0);
 
-        clipTooltip.setWrapText(true);
-        clipTooltip.setMaxWidth(560);
-        clipTooltip.setShowDelay(Duration.millis(350));
-        clipTooltip.setShowDuration(Duration.seconds(20));
-
         typeBadge.getStyleClass().add("clip-type-badge");
         typeBadge.setAlignment(Pos.CENTER);
         typeBadge.setMinWidth(Region.USE_PREF_SIZE);
@@ -200,6 +197,18 @@ public final class ClipRowCell extends ListCell<PopupRow> {
         timeLabel.setWrapText(false);
         timeLabel.setMinWidth(76);
 
+        SvgIcon collapseIcon = SvgIcon.of("chevron-down", 12, "row-collapse-icon");
+        collapseIcon.setRotate(180);
+        collapseButton.setGraphic(collapseIcon);
+        collapseButton.setContentDisplay(javafx.scene.control.ContentDisplay.LEFT);
+        collapseButton.setFocusTraversable(false);
+        collapseButton.setAccessibleText("Collapse expanded preview");
+        collapseButton.setTooltip(new Tooltip("Collapse preview (E or Esc)"));
+        collapseButton.getStyleClass().add("row-collapse-button");
+        collapseButton.setManaged(false);
+        collapseButton.setVisible(false);
+        collapseButton.setOnAction(event -> collapseCurrentPreview(event));
+
         moreButton.setGraphic(SvgIcon.of("ellipsis-vertical", 13, "row-more-icon"));
         moreButton.setFocusTraversable(false);
         moreButton.setAccessibleText("More actions");
@@ -211,15 +220,17 @@ public final class ClipRowCell extends ListCell<PopupRow> {
         metadata.setMinWidth(208);
         metadata.setPrefWidth(208);
         metadata.setMaxWidth(208);
-        metadata.getChildren().setAll(typeBadge, timeLabel, moreButton);
+        metadata.getChildren().setAll(collapseButton, typeBadge, timeLabel, moreButton);
 
         clipRoot.getChildren().setAll(pinAccent, leading, clipLeft, metadata);
     }
 
     private void configurePointerBehavior() {
         addEventFilter(MouseEvent.MOUSE_PRESSED, ev -> {
-            if (isEmpty()) return;
             if (ev.getButton() != MouseButton.PRIMARY) return;
+
+            controller.hideContextMenu();
+            if (isEmpty()) return;
 
             PopupRow row = getItem();
             if (!(row instanceof ClipRow)) {
@@ -278,10 +289,10 @@ public final class ClipRowCell extends ListCell<PopupRow> {
         pseudoClassStateChanged(FAVORITE_PC, false);
         pseudoClassStateChanged(COMPACT_PC, false);
         pseudoClassStateChanged(TWO_LINE_PC, false);
+        pseudoClassStateChanged(EXPANDED_PC, false);
+        setCollapseButtonVisible(false);
 
         if (empty || item == null) {
-            Tooltip.uninstall(clipRoot, clipTooltip);
-            clipTooltip.setText("");
             setText(null);
             setGraphic(null);
             setDisable(false);
@@ -298,8 +309,6 @@ public final class ClipRowCell extends ListCell<PopupRow> {
     }
 
     private void renderSection(SectionRow row) {
-        Tooltip.uninstall(clipRoot, clipTooltip);
-        clipTooltip.setText("");
         pseudoClassStateChanged(SECTION_PC, true);
 
         boolean pinned = "PINNED".equalsIgnoreCase(row.title());
@@ -333,8 +342,6 @@ public final class ClipRowCell extends ListCell<PopupRow> {
 
         long id = entry.id();
         String full = entry.content() == null ? "" : entry.content();
-        updateClipTooltip(entry, full);
-
         ClipContentType contentType = controller.contentTypeFor(entry);
         typeBadge.setText(contentType.label());
         typeBadge.getStyleClass().setAll(
@@ -419,6 +426,7 @@ public final class ClipRowCell extends ListCell<PopupRow> {
         toggleLink.setManaged(false);
         toggleLink.setVisible(false);
         toggleLink.setOnAction(null);
+        setCollapseButtonVisible(false);
     }
 
     private void renderRecent(ClipEntry entry, String full, long id) {
@@ -433,6 +441,8 @@ public final class ClipRowCell extends ListCell<PopupRow> {
                 && full.indexOf('\r') < 0;
         pseudoClassStateChanged(COMPACT_PC, compact);
         pseudoClassStateChanged(TWO_LINE_PC, !compact);
+        pseudoClassStateChanged(EXPANDED_PC, expanded);
+        setCollapseButtonVisible(expanded);
 
         String query = controller.currentQueryLower();
         Node contentNode;
@@ -453,18 +463,41 @@ public final class ClipRowCell extends ListCell<PopupRow> {
 
         clipLeft.getChildren().setAll(contentNode, toggleLink);
 
-        toggleLink.setManaged(needsToggle);
-        toggleLink.setVisible(needsToggle);
-        if (needsToggle) {
-            toggleLink.setText(expanded ? "Less" : "More");
+        boolean showExpandLink = needsToggle && !expanded;
+        toggleLink.setManaged(showExpandLink);
+        toggleLink.setVisible(showExpandLink);
+        if (showExpandLink) {
+            toggleLink.setText("More");
             toggleLink.setOnAction(event -> {
-                controller.setExpanded(id, !expanded);
+                controller.hideContextMenu();
+                controller.setExpanded(id, true);
                 controller.refreshList();
                 event.consume();
             });
         } else {
             toggleLink.setOnAction(null);
         }
+    }
+
+    private void setCollapseButtonVisible(boolean visible) {
+        collapseButton.setManaged(visible);
+        collapseButton.setVisible(visible);
+
+        double width = visible ? 286 : 208;
+        metadata.setMinWidth(width);
+        metadata.setPrefWidth(width);
+        metadata.setMaxWidth(width);
+    }
+
+    private void collapseCurrentPreview(javafx.event.ActionEvent event) {
+        PopupRow row = getItem();
+        if (!(row instanceof ClipRow clipRow)) return;
+
+        controller.hideContextMenu();
+        controller.setExpanded(clipRow.entry().id(), false);
+        controller.refreshList();
+        controller.requestListFocus();
+        event.consume();
     }
 
     private void showMoreMenu() {
@@ -548,39 +581,6 @@ public final class ClipRowCell extends ListCell<PopupRow> {
         String result = out.toString().trim();
         if (truncated && !result.endsWith("…")) result += "…";
         return result;
-    }
-
-    private void updateClipTooltip(ClipEntry entry, String content) {
-        Tooltip.uninstall(clipRoot, clipTooltip);
-
-        boolean shouldShow;
-        if (entry.favorite()) {
-            shouldShow = entry.hasTitle()
-                    || content.length() > PINNED_COMPACT_CHAR_LIMIT
-                    || content.indexOf('\n') >= 0
-                    || content.indexOf('\r') >= 0;
-        } else {
-            shouldShow = controller.previewData(entry.id(), content).needsToggle();
-        }
-
-        if (!shouldShow) {
-            clipTooltip.setText("");
-            return;
-        }
-
-        clipTooltip.setText(buildTooltipText(entry));
-        Tooltip.install(clipRoot, clipTooltip);
-    }
-
-    private String buildTooltipText(ClipEntry entry) {
-        String content = entry.content() == null ? "" : entry.content();
-        boolean truncated = content.length() > TOOLTIP_CHAR_LIMIT;
-        String body = truncated
-                ? content.substring(0, TOOLTIP_CHAR_LIMIT).trim() + "…"
-                : content;
-
-        if (entry.hasTitle()) return entry.title().trim() + "\n\n" + body;
-        return body;
     }
 
     private String formatTime(long epochMs) {

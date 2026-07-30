@@ -10,6 +10,8 @@ import io.xseries.xclip.ui.popup.ClipRowCell.PreviewData;
 import io.xseries.xclip.ui.popup.PopupActionBar;
 import io.xseries.xclip.ui.popup.PopupActionsMenu;
 import io.xseries.xclip.ui.popup.PopupFilterBar;
+import io.xseries.xclip.ui.popup.QuickHelpPopover;
+import io.xseries.xclip.ui.popup.ClipPreviewPolicy;
 import io.xseries.xclip.ui.popup.PopupHeader;
 import io.xseries.xclip.ui.popup.PopupTitleBar;
 import io.xseries.xclip.ui.popup.PopupRow;
@@ -45,6 +47,9 @@ import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
+import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.*;
 import javafx.stage.Modality;
 import javafx.stage.Screen;
@@ -88,10 +93,6 @@ public final class PopupWindow {
     // Pinned clips remain intentionally compact even when their content is large.
     private static final int PINNED_TITLE_MAX_LENGTH = 120;
     private static final int TYPE_FILTER_SCAN_LIMIT = 5_000;
-
-    // Expanded preview (still bounded to protect UI)
-    private static final int EXPANDED_LINES = 200;
-    private static final int EXPANDED_CHAR_LIMIT = 100_000;
 
     private final Stage stage;
     private final WindowChromeController windowChrome;
@@ -138,9 +139,9 @@ public final class PopupWindow {
     // prevent auto-hide while modal dialog is shown (Clear confirmation)
     private volatile boolean suppressAutoHide = false;
 
-    // v1.2: toast (small feedback for power actions)
-    private final Label toast = new Label();
-    private final PauseTransition toastHide = new PauseTransition(Duration.millis(1400));
+    // Footer status zone: keyboard hints by default, transient operation feedback on demand.
+    private PopupActionBar actionBar;
+    private final PauseTransition statusReset = new PauseTransition(Duration.millis(2200));
 
     private final ExecutorService dbExec = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "xclip-db");
@@ -193,8 +194,9 @@ public final class PopupWindow {
         }
     }
 
-    // Shared context menu controller (created once).
+    // Shared popup controllers (created once).
     private final PopupActionsMenu actionsMenu;
+    private final QuickHelpPopover quickHelp;
 
     public PopupWindow(ClipEntryDao dao, ClipboardAccess clipboard, ClipService clipService) {
         this(dao, clipboard, clipService, () -> {});
@@ -236,6 +238,7 @@ public final class PopupWindow {
         this.onOpenSettings = (onOpenSettings != null) ? onOpenSettings : (() -> {});
         this.onTogglePaused = (onTogglePaused != null) ? onTogglePaused : (() -> {});
         this.actionsMenu = createPopupActionsMenu();
+        this.quickHelp = new QuickHelpPopover();
 
         stage = new Stage(StageStyle.UNDECORATED);
         stage.setTitle("XClip");
@@ -337,42 +340,15 @@ public final class PopupWindow {
             }
         });
 
-        // Help
+        // Help is a real, scroll-safe popover instead of a long tooltip that can be clipped.
         Button help = iconButton("circle-question-mark", "Quick help", "topbar-help");
-
-        Tooltip tip = new Tooltip("""
-        XClip — Quick Help
-
-        Search:
-        • Ctrl+K / Ctrl+F Focus search
-        • Ctrl+L          Clear search
-        • Enter           Jump to first result
-        • Esc             Clear search / Hide popup
-        • Tab             Focus list
-
-        Selection:
-        • Ctrl+Click      Toggle selection
-        • Shift+Click     Select range
-        • Ctrl+A          Select all visible clips
-        • Ctrl+D          Clear selection
-
-        Actions:
-        • Enter           Paste
-        • Ctrl+C          Copy only
-        • Ctrl+P          Pin / Unpin
-        • F2              Rename pinned clip
-        • Alt+↑ / Alt+↓   Move pinned clip
-        • Delete          Delete selection
-        • Double-click    Paste single item
-        • Click badge     Safe type action
-        • Right-click     Context actions
-        """);
-        tip.setWrapText(true);
-        tip.setMaxWidth(340);
-        tip.setShowDelay(Duration.millis(60));
-        tip.setHideDelay(Duration.millis(40));
-        tip.setShowDuration(Duration.seconds(30));
-        Tooltip.install(help, tip);
+        help.addEventFilter(MouseEvent.MOUSE_PRESSED, event -> {
+            if (event.getButton() == MouseButton.PRIMARY && quickHelp.isShowing()) {
+                quickHelp.hide();
+                event.consume();
+            }
+        });
+        help.setOnAction(event -> quickHelp.toggle(help));
 
         Button pauseBtn = new Button("Pause");
         pauseBtn.setGraphic(SvgIcon.of("pause", 15, "toolbar-icon", "pause-icon"));
@@ -491,11 +467,7 @@ public final class PopupWindow {
                 favBtn,
                 delBtn
         );
-
-        // Toast (overlay-style feedback inside the window)
-        toast.setVisible(false);
-        toast.setManaged(false);
-        toast.getStyleClass().add("toast");
+        this.actionBar = actions;
 
         BorderPane root = new BorderPane();
         root.getStyleClass().add("popup-root");
@@ -504,17 +476,20 @@ public final class PopupWindow {
         shellHeader.getStyleClass().add("popup-shell-header");
         root.setTop(shellHeader);
 
-        BorderPane centerPane = new BorderPane();
-        centerPane.setCenter(listView);
-
-        BorderPane.setAlignment(toast, Pos.BOTTOM_RIGHT);
-        BorderPane.setMargin(toast, new Insets(0, 10, 10, 0));
-        centerPane.setBottom(toast);
-
-        root.setCenter(centerPane);
+        root.setCenter(listView);
         root.setBottom(actions);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
+
+        // A primary click anywhere in the main scene must dismiss row actions immediately.
+        // ContextMenu normally auto-hides, but explicit dismissal remains reliable when
+        // ListCell mouse handlers consume the pointer event for custom selection.
+        scene.addEventFilter(MouseEvent.MOUSE_PRESSED, event -> {
+            if (event.getButton() == MouseButton.PRIMARY && actionsMenu.isShowing()) {
+                actionsMenu.hide();
+            }
+        });
+        scene.addEventFilter(ScrollEvent.SCROLL, event -> actionsMenu.hide());
 
         // Shared stylesheet (Popup + Settings)
         scene.getStylesheets().add(
@@ -641,7 +616,13 @@ public final class PopupWindow {
             }
             if (e.getCode() == KeyCode.ESCAPE) {
                 e.consume();
-                if (!listView.getSelectionModel().getSelectedIndices().isEmpty()) {
+                if (actionsMenu.isShowing()) {
+                    actionsMenu.hide();
+                } else if (quickHelp.isShowing()) {
+                    quickHelp.hide();
+                } else if (collapseExpandedPreviews()) {
+                    listView.requestFocus();
+                } else if (!listView.getSelectionModel().getSelectedIndices().isEmpty()) {
                     clearSelection();
                 } else if (!searchField.getText().isBlank()) {
                     searchField.clear();
@@ -664,9 +645,8 @@ public final class PopupWindow {
             }
         });
 
-        toastHide.setOnFinished(e -> {
-            toast.setVisible(false);
-            toast.setManaged(false);
+        statusReset.setOnFinished(e -> {
+            if (actionBar != null) actionBar.showHints();
         });
 
         reloadNow("");
@@ -799,7 +779,10 @@ public final class PopupWindow {
 
             @Override
             public void setExpanded(long id, boolean expanded) {
-                expandedById.put(id, expanded);
+                // XClip uses an accordion-style preview: one expanded clip at a time.
+                // This prevents multiple large rows from consuming the entire list.
+                expandedById.clear();
+                if (expanded) expandedById.put(id, true);
             }
 
             @Override
@@ -809,7 +792,7 @@ public final class PopupWindow {
 
             @Override
             public String expandedPreview(String fullContent) {
-                return buildExpandedPreview(fullContent);
+                return ClipPreviewPolicy.expandedPreview(fullContent);
             }
 
             @Override
@@ -826,6 +809,7 @@ public final class PopupWindow {
     ) {
         if (index < 0 || index >= items.size()) return;
 
+        boolean collapsedPreview = collapseExpandedExcept(index);
         MultipleSelectionModel<PopupRow> selection = listView.getSelectionModel();
 
         if (shiftDown) {
@@ -842,6 +826,7 @@ public final class PopupWindow {
                     selection.select(i);
                 }
             }
+            if (collapsedPreview) listView.refresh();
             return;
         }
 
@@ -853,18 +838,33 @@ public final class PopupWindow {
             }
 
             selectionAnchorIndex = index;
+            if (collapsedPreview) listView.refresh();
             return;
         }
 
         selectionAnchorIndex = index;
         selection.clearAndSelect(index);
+        if (collapsedPreview) listView.refresh();
     }
 
     private void selectCellExclusively(int index) {
         if (index < 0 || index >= items.size()) return;
 
+        boolean collapsedPreview = collapseExpandedExcept(index);
         selectionAnchorIndex = index;
         listView.getSelectionModel().clearAndSelect(index);
+        if (collapsedPreview) listView.refresh();
+    }
+
+    private boolean collapseExpandedExcept(int index) {
+        if (expandedById.isEmpty() || index < 0 || index >= items.size()) return false;
+
+        PopupRow row = items.get(index);
+        if (!(row instanceof ClipRow clipRow)) return false;
+
+        long keepId = clipRow.entry().id();
+        boolean changed = expandedById.keySet().removeIf(id -> id != keepId);
+        return changed;
     }
 
     private void showContextMenuForCell(
@@ -888,6 +888,7 @@ public final class PopupWindow {
             selectCellExclusively(index);
         }
 
+        quickHelp.hide();
         actionsMenu.show(
                 owner,
                 screenX,
@@ -1165,6 +1166,7 @@ public final class PopupWindow {
 
     // v1.1: called from TrayController to reflect paused state in UI
     public void setPaused(boolean paused) {
+        boolean changed = this.paused != paused;
         this.paused = paused;
         Platform.runLater(() -> {
             if (pauseBtnRef != null) {
@@ -1181,6 +1183,9 @@ public final class PopupWindow {
                 );
             }
             updateEmptyStateText();
+            if (changed && stage.isShowing()) {
+                showToast(paused ? "Capturing paused" : "Capturing resumed");
+            }
         });
     }
 
@@ -1251,6 +1256,8 @@ public final class PopupWindow {
     }
 
     private void openSettings() {
+        actionsMenu.hide();
+        quickHelp.hide();
         pasteService.clearTarget();
         this.onOpenSettings.run();
     }
@@ -1272,6 +1279,7 @@ public final class PopupWindow {
 
     private void hideWindowOnly() {
         actionsMenu.hide();
+        quickHelp.hide();
         stage.hide();
     }
 
@@ -1282,11 +1290,11 @@ public final class PopupWindow {
     }
 
     private void showToast(String msg) {
-        toastHide.stop();
-        toast.setText(msg);
-        toast.setVisible(true);
-        toast.setManaged(true);
-        toastHide.playFromStart();
+        if (actionBar == null) return;
+
+        statusReset.stop();
+        actionBar.showStatus(msg);
+        statusReset.playFromStart();
     }
 
     private void debounceReload() {
@@ -1596,6 +1604,7 @@ public final class PopupWindow {
         if (selected.isEmpty()) return;
 
         boolean shouldPin = selected.stream().anyMatch(e -> !e.favorite());
+        selected.forEach(entry -> expandedById.remove(entry.id()));
 
         dbExec.submit(() -> {
             List<ClipEntry> processingOrder = new java.util.ArrayList<>(selected);
@@ -1738,44 +1747,49 @@ public final class PopupWindow {
     }
 
     private void toggleExpandSelected() {
-        // Pinned clips intentionally stay compact. Expand applies only to RECENT rows.
-        java.util.List<Long> ids = new java.util.ArrayList<>();
+        ClipEntry target = null;
 
-        for (PopupRow r : listView.getSelectionModel().getSelectedItems()) {
-            if (r instanceof ClipRow cr && !cr.entry().favorite()) {
-                ids.add(cr.entry().id());
+        PopupRow focused = listView.getSelectionModel().getSelectedItem();
+        if (focused instanceof ClipRow clipRow && !clipRow.entry().favorite()) {
+            target = clipRow.entry();
+        }
+
+        if (target == null) {
+            for (PopupRow row : listView.getSelectionModel().getSelectedItems()) {
+                if (row instanceof ClipRow clipRow && !clipRow.entry().favorite()) {
+                    target = clipRow.entry();
+                    break;
+                }
             }
         }
 
-        if (ids.isEmpty()) {
+        if (target == null) {
             int first = findFirstClipIndex();
-            if (first < 0) return;
-
-            PopupRow r = items.get(first);
-            if (r instanceof ClipRow cr && !cr.entry().favorite()) {
-                ids.add(cr.entry().id());
+            if (first >= 0 && items.get(first) instanceof ClipRow clipRow
+                    && !clipRow.entry().favorite()) {
+                target = clipRow.entry();
             }
         }
 
-        if (ids.isEmpty()) {
+        if (target == null) {
             showToast("Pinned clips stay compact");
             return;
         }
 
-        // If any is collapsed -> expand all. Else collapse all.
-        boolean expand = false;
-        for (Long id : ids) {
-            if (!expandedById.getOrDefault(id, false)) {
-                expand = true;
-                break;
-            }
-        }
-
-        for (Long id : ids) {
-            expandedById.put(id, expand);
-        }
-
+        long id = target.id();
+        boolean expand = !expandedById.getOrDefault(id, false);
+        expandedById.clear();
+        if (expand) expandedById.put(id, true);
         listView.refresh();
+    }
+
+    private boolean collapseExpandedPreviews() {
+        if (expandedById.isEmpty()) return false;
+
+        expandedById.clear();
+        listView.refresh();
+        showToast("Preview collapsed");
+        return true;
     }
 
     private void deleteSelected() {
@@ -1886,38 +1900,6 @@ public final class PopupWindow {
         ClipContentType type = ClipContentClassifier.classify(content);
         contentTypeCache.put(entry.id(), new ContentTypeCache(content, type));
         return type;
-    }
-
-    private String buildExpandedPreview(String s) {
-        if (s == null || s.isEmpty()) return "";
-
-        int len = s.length();
-        StringBuilder sb = new StringBuilder(Math.min(len, EXPANDED_CHAR_LIMIT + 8));
-
-        int lines = 1;
-        boolean truncated = false;
-
-        for (int i = 0; i < len; i++) {
-            char ch = s.charAt(i);
-
-            if (sb.length() < EXPANDED_CHAR_LIMIT) {
-                sb.append(ch);
-            } else {
-                truncated = true;
-            }
-
-            if (ch == '\n') {
-                lines++;
-                if (lines > EXPANDED_LINES) {
-                    truncated = true;
-                    break;
-                }
-            }
-        }
-
-        String out = sb.toString().trim();
-        if (truncated && !out.endsWith("…")) out = out + "…";
-        return out;
     }
 
     private PreviewData computePreviewData(String s) {

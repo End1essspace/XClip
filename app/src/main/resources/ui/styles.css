@@ -619,18 +619,6 @@
     -fx-border-color: -x-danger;
 }
 
-/* =========================================================
-   Toast
-   ========================================================= */
-
-.toast {
-    -fx-background-color: -x-surface-3;
-    -fx-text-fill: -x-text;
-    -fx-border-color: -x-border;
-    -fx-border-radius: 999;
-    -fx-background-radius: 999;
-    -fx-padding: 6 12 6 12;
-}
 
 /* =========================================================
    Paused badge
@@ -1451,14 +1439,6 @@
     -fx-text-fill: #FF8B8B;
 }
 
-.actions-hint {
-    -fx-background-color: #09131F;
-    -fx-border-color: #1A293C transparent transparent transparent;
-    -fx-border-width: 1 0 0 0;
-    -fx-text-fill: #718198;
-    -fx-font-size: 11.5px;
-    -fx-padding: 6 12 7 12;
-}
 
 
 /* =========================================================
@@ -1827,12 +1807,6 @@
     -x-icon-color: #FFFFFF;
 }
 
-.actions-hint {
-    -fx-background-color: #08121F;
-    -fx-text-fill: #8495AC;
-    -fx-font-size: 12px;
-    -fx-padding: 7 12 8 12;
-}
 
 .menu-item-icon {
     -x-icon-color: #AEBED1;
@@ -2168,11 +2142,6 @@
     -fx-border-radius: 0 7 7 0;
 }
 
-.actions-hint {
-    -fx-font-size: 10.5px;
-    -fx-text-fill: #8294AC;
-    -fx-padding: 4 10 5 10;
-}
 
 /* Smaller, quieter hover tooltip. It is installed only for truncated content. */
 .tooltip {
@@ -2191,4 +2160,191 @@
 
 .menu-item .label {
     -fx-font-size: 11.5px;
+}
+
+/* R2.2 Fix 4: one-row footer with a responsive center status zone. */
+.actions-row {
+    -fx-padding: 6 16 6 16;
+}
+
+.actions-status {
+    -fx-text-fill: #7F92AA;
+    -fx-font-size: 10.5px;
+    -fx-font-weight: normal;
+    -fx-padding: 0 10 0 10;
+    -fx-alignment: center;
+}
+
+.actions-status:message {
+    -fx-text-fill: #9FC4F2;
+    -fx-font-weight: 600;
+}
+
+/* Final restraint pass: selection leads, pinned state stays secondary. */
+.clip-list .list-cell:selected .clip-row-card,
+.clip-list .list-cell:favorite:selected .clip-row-card {
+    -fx-background-color: #0C1E36;
+    -fx-border-color: rgba(83, 150, 239, 0.42);
+}
+
+.pin-accent {
+    -fx-background-color: rgba(217, 166, 50, 0.56);
+}
+
+.row-pin-indicator {
+    -fx-background-color: rgba(217, 166, 50, 0.025);
+}
+
+.row-pin-icon {
+    -x-icon-color: rgba(217, 166, 50, 0.68);
+}
+
+.clip-list .list-cell:hover .row-pin-icon,
+.clip-list .list-cell:selected .row-pin-icon {
+    -x-icon-color: rgba(217, 166, 50, 0.92);
+}
+
+/* R2.2 Fix 5: bounded preview recovery and complete Quick Help popover. */
+.row-collapse-button {
+    -fx-min-height: 24px;
+    -fx-pref-height: 24px;
+    -fx-max-height: 24px;
+    -fx-padding: 0 7 0 6;
+    -fx-background-color: rgba(83, 150, 239, 0.09);
+    -fx-border-color: rgba(83, 150, 239, 0.24);
+    -fx-border-width: 1;
+    -fx-background-radius: 6;
+    -fx-border-radius: 6;
+    -fx-text-fill: #AFC8E8;
+    -fx-font-size: 10.5px;
+    -fx-cursor: hand;
+    -fx-content-display: left;
+    -fx-graphic-text-gap: 5;
+}
+
+.row-collapse-button:hover {
+    -fx-background-color: rgba(83, 150, 239, 0.16);
+    -fx-border-color: rgba(83, 150, 239, 0.42);
+    -fx-text-fill: #D7E7FA;
+}
+
+.row-collapse-icon {
+    -x-icon-color: #8FB8EB;
+}
+
+.clip-list .list-cell:expanded .clip-row-card {
+    -fx-background-color: #0B1B30;
+    -fx-border-color: rgba(83, 150, 239, 0.30);
+}
+
+.quick-help-menu {
+    -fx-padding: 0;
+    -fx-background-color: transparent;
+}
+
+.quick-help-menu .custom-menu-item,
+.quick-help-menu .custom-menu-item:focused,
+.quick-help-menu .custom-menu-item:hover {
+    -fx-padding: 0;
+    -fx-background-color: transparent;
+}
+
+.quick-help-scroll {
+    -fx-background-color: #0B1727;
+    -fx-background-insets: 0;
+    -fx-border-color: #283A52;
+    -fx-border-width: 1;
+    -fx-background-radius: 9;
+    -fx-border-radius: 9;
+    -fx-padding: 0;
+}
+
+.quick-help-scroll > .viewport {
+    -fx-background-color: #0B1727;
+    -fx-background-radius: 9;
+}
+
+.quick-help-content {
+    -fx-padding: 14 16 14 16;
+    -fx-background-color: #0B1727;
+    -fx-background-radius: 9;
+}
+
+.quick-help-header {
+    -fx-padding: 0 0 4 0;
+}
+
+.quick-help-title {
+    -fx-text-fill: #F2F6FC;
+    -fx-font-size: 14px;
+    -fx-font-weight: 700;
+}
+
+.quick-help-close {
+    -fx-min-width: 26px;
+    -fx-pref-width: 26px;
+    -fx-max-width: 26px;
+    -fx-min-height: 26px;
+    -fx-pref-height: 26px;
+    -fx-max-height: 26px;
+    -fx-padding: 0;
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-background-radius: 6;
+    -fx-border-radius: 6;
+    -fx-cursor: hand;
+}
+
+.quick-help-close:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.07);
+}
+
+.quick-help-close-icon {
+    -x-icon-color: #8FA2BA;
+}
+
+.quick-help-close:hover .quick-help-close-icon {
+    -x-icon-color: #E6EEF8;
+}
+
+.quick-help-section {
+    -fx-padding: 9 0 0 0;
+    -fx-border-color: transparent transparent rgba(65, 86, 113, 0.38) transparent;
+    -fx-border-width: 0 0 1 0;
+}
+
+.quick-help-section-title {
+    -fx-text-fill: #8FB8EB;
+    -fx-font-size: 11.5px;
+    -fx-font-weight: 700;
+    -fx-padding: 0 0 3 0;
+}
+
+.quick-help-row {
+    -fx-min-height: 25px;
+    -fx-padding: 2 0 2 0;
+}
+
+.quick-help-key {
+    -fx-text-fill: #D8E5F5;
+    -fx-font-family: "Consolas";
+    -fx-font-size: 10.5px;
+    -fx-font-weight: 600;
+    -fx-padding: 3 7 3 7;
+    -fx-background-color: #111F32;
+    -fx-border-color: #2B405C;
+    -fx-border-width: 1;
+    -fx-background-radius: 5;
+    -fx-border-radius: 5;
+}
+
+.quick-help-description {
+    -fx-text-fill: #A4B4C8;
+    -fx-font-size: 11px;
+}
+
+.quick-help-footer {
+    -fx-text-fill: #6F829B;
+    -fx-font-size: 10.5px;
+    -fx-padding: 1 0 0 0;
 }

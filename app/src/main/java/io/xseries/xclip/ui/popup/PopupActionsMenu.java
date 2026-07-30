@@ -60,6 +60,10 @@ public final class PopupActionsMenu {
     public PopupActionsMenu(Actions actions) {
         this.actions = Objects.requireNonNull(actions, "actions");
 
+        contextMenu.setAutoHide(true);
+        contextMenu.setHideOnEscape(true);
+        contextMenu.setConsumeAutoHidingEvents(false);
+
         pasteItem.setOnAction(e -> actions.paste());
         copyItem.setOnAction(e -> actions.copy());
 
@@ -103,11 +107,13 @@ public final class PopupActionsMenu {
             double screenY,
             List<ClipEntry> selected
     ) {
+        hide();
         if (!prepare(owner, selected)) return;
         contextMenu.show(owner, screenX, screenY);
     }
 
     public void showAbove(Node owner, List<ClipEntry> selected) {
+        hide();
         if (!prepare(owner, selected)) return;
         contextMenu.show(owner, Side.TOP, 0, -4);
     }
@@ -153,6 +159,10 @@ public final class PopupActionsMenu {
         clearTitleItem.setDisable(!singlePinned || !single.hasTitle());
         movePinnedMenu.setDisable(!singlePinned);
         return true;
+    }
+
+    public boolean isShowing() {
+        return contextMenu.isShowing();
     }
 
     public void hide() {
