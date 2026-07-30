@@ -1,4 +1,3 @@
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -8,6 +7,7 @@ package io.xseries.xclip.ui.popup;
 
 import io.xseries.xclip.data.model.ClipEntry;
 import io.xseries.xclip.domain.model.ClipPrimaryAction;
+import io.xseries.xclip.ui.components.SvgIcon;
 import javafx.geometry.Side;
 import javafx.scene.Node;
 import javafx.scene.control.ContextMenu;
@@ -19,11 +19,7 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * Owns construction, state updates, and dispatch for the popup context menu.
- *
- * PopupWindow remains the source of selection and business actions. This class
- * only translates the current selection into menu visibility/enabled state and
- * forwards user commands through the explicit Actions contract.
+ * Owns construction, visual state, and dispatch for the popup context menu.
  */
 public final class PopupActionsMenu {
 
@@ -45,18 +41,21 @@ public final class PopupActionsMenu {
     private final Actions actions;
     private final ContextMenu contextMenu = new ContextMenu();
 
-    private final MenuItem pasteItem = new MenuItem("Paste");
-    private final MenuItem copyItem = new MenuItem("Copy");
+    private final MenuItem pasteItem = item("Paste", "clipboard-paste");
+    private final MenuItem copyItem = item("Copy", "copy");
     private final MenuItem typeActionItem = new MenuItem();
-    private final MenuItem pinItem = new MenuItem("Pin / Unpin");
-    private final MenuItem renameItem = new MenuItem("Rename pinned clip…");
-    private final MenuItem clearTitleItem = new MenuItem("Clear title");
-    private final Menu movePinnedMenu = new Menu("Move pinned clip");
+    private final MenuItem pinItem = item("Pin selected", "pin");
+    private final MenuItem renameItem = item("Rename pinned clip…", "pencil");
+    private final MenuItem clearTitleItem = item("Clear title", "x");
+    private final Menu movePinnedMenu = new Menu(
+            "Move pinned clip",
+            SvgIcon.of("list", 15, "menu-item-icon")
+    );
     private final MenuItem moveUpItem = new MenuItem("Move up");
     private final MenuItem moveDownItem = new MenuItem("Move down");
     private final MenuItem moveTopItem = new MenuItem("Move to top");
     private final MenuItem moveBottomItem = new MenuItem("Move to bottom");
-    private final MenuItem deleteItem = new MenuItem("Delete");
+    private final MenuItem deleteItem = item("Delete", "trash-2");
 
     public PopupActionsMenu(Actions actions) {
         this.actions = Objects.requireNonNull(actions, "actions");
@@ -136,6 +135,18 @@ public final class PopupActionsMenu {
         typeActionItem.setText(typeActionAvailable
                 ? primaryAction.label()
                 : "Type action");
+        typeActionItem.setGraphic(typeActionAvailable
+                ? SvgIcon.of(iconFor(primaryAction), 15, "menu-item-icon", "menu-type-icon")
+                : null);
+
+        boolean shouldPin = selected.stream().anyMatch(entry -> !entry.favorite());
+        pinItem.setText(shouldPin ? "Pin selected" : "Unpin selected");
+        pinItem.setGraphic(SvgIcon.of(
+                shouldPin ? "pin" : "pin-off",
+                15,
+                "menu-item-icon",
+                shouldPin ? "menu-pin-icon" : "menu-unpin-icon"
+        ));
 
         boolean singlePinned = single != null && single.favorite();
         renameItem.setDisable(!singlePinned);
@@ -146,5 +157,23 @@ public final class PopupActionsMenu {
 
     public void hide() {
         contextMenu.hide();
+    }
+
+    private static MenuItem item(String text, String iconName) {
+        return new MenuItem(
+                text,
+                SvgIcon.of(iconName, 15, "menu-item-icon")
+        );
+    }
+
+    private static String iconFor(ClipPrimaryAction action) {
+        return switch (action) {
+            case OPEN_URL -> "external-link";
+            case REVEAL_PATH -> "folder-open";
+            case COPY_FORMATTED_JSON -> "braces";
+            case COPY_CODE -> "code-xml";
+            case COPY_COMMAND -> "terminal";
+            case NONE -> "zap";
+        };
     }
 }

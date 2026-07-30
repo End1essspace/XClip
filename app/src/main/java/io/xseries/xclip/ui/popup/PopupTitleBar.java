@@ -6,7 +6,7 @@
 package io.xseries.xclip.ui.popup;
 
 import io.xseries.xclip.system.window.WindowChromeController;
-import io.xseries.xclip.ui.components.WindowsGlyphs;
+import io.xseries.xclip.ui.components.SvgIcon;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
@@ -25,13 +25,13 @@ import java.util.Objects;
 /**
  * Custom title bar for the undecorated popup shell.
  *
- * The bar provides normal Windows window controls while leaving the large
- * center area draggable. It deliberately contains only product identity and
- * window management; search and clipboard actions live in PopupHeader.
+ * Product identity remains on the left, while Lucide-based Windows controls
+ * stay optically balanced on the right. The large center area remains the drag
+ * surface and supports double-click maximize/restore.
  */
 public final class PopupTitleBar extends HBox {
 
-    private static final double ICON_SIZE = 20.0;
+    private static final double APP_ICON_SIZE = 24.0;
 
     private final WindowChromeController chrome;
     private final Button maximizeButton;
@@ -47,21 +47,21 @@ public final class PopupTitleBar extends HBox {
         HBox.setHgrow(dragRegion, Priority.ALWAYS);
 
         Button minimizeButton = createWindowButton(
-                WindowsGlyphs.MINIMIZE,
+                "minus",
                 "Minimize",
                 "window-minimize-button"
         );
         minimizeButton.setOnAction(event -> chrome.minimize());
 
         maximizeButton = createWindowButton(
-                WindowsGlyphs.MAXIMIZE,
+                "square",
                 "Maximize",
                 "window-maximize-button"
         );
         maximizeButton.setOnAction(event -> chrome.toggleMaximized());
 
         Button closeButton = createWindowButton(
-                WindowsGlyphs.CLOSE,
+                "x",
                 "Close to tray",
                 "window-close-button"
         );
@@ -80,7 +80,7 @@ public final class PopupTitleBar extends HBox {
     }
 
     private HBox createDragRegion() {
-        HBox dragRegion = new HBox(10.0);
+        HBox dragRegion = new HBox(12.0);
         dragRegion.setAlignment(Pos.CENTER_LEFT);
         dragRegion.setMaxWidth(Double.MAX_VALUE);
         dragRegion.getStyleClass().add("title-drag-region");
@@ -120,9 +120,13 @@ public final class PopupTitleBar extends HBox {
         return dragRegion;
     }
 
-    private Button createWindowButton(String glyph, String tooltip, String extraStyleClass) {
+    private Button createWindowButton(
+            String iconName,
+            String tooltip,
+            String extraStyleClass
+    ) {
         Button button = new Button();
-        button.setGraphic(WindowsGlyphs.icon(glyph, "window-control-glyph"));
+        button.setGraphic(SvgIcon.of(iconName, 15, "window-control-icon"));
         button.setFocusTraversable(false);
         button.setAccessibleText(tooltip);
         button.setTooltip(new Tooltip(tooltip));
@@ -131,10 +135,10 @@ public final class PopupTitleBar extends HBox {
     }
 
     private void updateMaximizeButton(boolean maximized) {
-        String glyph = maximized ? WindowsGlyphs.RESTORE : WindowsGlyphs.MAXIMIZE;
+        String iconName = maximized ? "copy" : "square";
         String label = maximized ? "Restore" : "Maximize";
 
-        maximizeButton.setGraphic(WindowsGlyphs.icon(glyph, "window-control-glyph"));
+        maximizeButton.setGraphic(SvgIcon.of(iconName, 14, "window-control-icon"));
         maximizeButton.setAccessibleText(label);
         maximizeButton.setTooltip(new Tooltip(label));
     }
@@ -144,8 +148,8 @@ public final class PopupTitleBar extends HBox {
             if (stream == null) return null;
 
             ImageView view = new ImageView(new Image(stream));
-            view.setFitWidth(ICON_SIZE);
-            view.setFitHeight(ICON_SIZE);
+            view.setFitWidth(APP_ICON_SIZE);
+            view.setFitHeight(APP_ICON_SIZE);
             view.setPreserveRatio(true);
             view.setSmooth(true);
             view.setMouseTransparent(true);

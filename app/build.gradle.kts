@@ -1,3 +1,4 @@
+
 import java.io.File
 import org.gradle.jvm.tasks.Jar
 import org.gradle.internal.os.OperatingSystem
@@ -158,6 +159,7 @@ tasks.register("createRuntimeImage") {
             "java.logging",
             "java.sql",
             "java.naming",
+            "java.xml",
             "javafx.base",
             "javafx.graphics",
             "javafx.controls"

@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -9,7 +10,7 @@ import io.xseries.xclip.data.model.ClipEntry;
 import io.xseries.xclip.domain.model.ClipContentType;
 import io.xseries.xclip.domain.model.ClipPrimaryAction;
 import io.xseries.xclip.domain.service.ClipContentActionService;
-import io.xseries.xclip.ui.components.WindowsGlyphs;
+import io.xseries.xclip.ui.components.SvgIcon;
 import io.xseries.xclip.ui.popup.PopupRow.ClipRow;
 import io.xseries.xclip.ui.popup.PopupRow.SectionRow;
 import javafx.css.PseudoClass;
@@ -77,12 +78,14 @@ public final class ClipRowCell extends ListCell<PopupRow> {
 
     private static final PseudoClass SECTION_PC = PseudoClass.getPseudoClass("section");
     private static final PseudoClass FAVORITE_PC = PseudoClass.getPseudoClass("favorite");
+    private static final PseudoClass COMPACT_PC = PseudoClass.getPseudoClass("compact");
+    private static final PseudoClass TWO_LINE_PC = PseudoClass.getPseudoClass("two-line");
 
     private final Controller controller;
 
     // Section row UI
     private final HBox sectionRoot = new HBox(8);
-    private final Label sectionIcon = WindowsGlyphs.icon(WindowsGlyphs.PIN, "section-icon");
+    private final StackPane sectionIcon = new StackPane();
     private final Label sectionTitle = new Label();
     private final Label sectionCount = new Label();
 
@@ -134,19 +137,19 @@ public final class ClipRowCell extends ListCell<PopupRow> {
         clipRoot.getStyleClass().add("clip-row-card");
 
         pinAccent.getStyleClass().add("pin-accent");
-        pinAccent.setMinWidth(3);
-        pinAccent.setPrefWidth(3);
-        pinAccent.setMaxWidth(3);
+        pinAccent.setMinWidth(2);
+        pinAccent.setPrefWidth(2);
+        pinAccent.setMaxWidth(2);
         pinAccent.setMaxHeight(Double.MAX_VALUE);
 
-        Label checkGlyph = WindowsGlyphs.icon(WindowsGlyphs.CHECK, "selection-check-glyph");
+        SvgIcon checkGlyph = SvgIcon.of("check", 13, "selection-check-icon");
         selectionIndicator.getChildren().add(checkGlyph);
         selectionIndicator.getStyleClass().add("selection-indicator");
         selectionIndicator.setMinSize(22, 22);
         selectionIndicator.setPrefSize(22, 22);
         selectionIndicator.setMaxSize(22, 22);
 
-        Label pinGlyph = WindowsGlyphs.icon(WindowsGlyphs.PIN, "row-pin-glyph");
+        SvgIcon pinGlyph = SvgIcon.of("pin", 14, "row-pin-icon");
         pinIndicator.getChildren().add(pinGlyph);
         pinIndicator.getStyleClass().add("row-pin-indicator");
         pinIndicator.setMinSize(22, 22);
@@ -154,9 +157,9 @@ public final class ClipRowCell extends ListCell<PopupRow> {
         pinIndicator.setMaxSize(22, 22);
 
         leading.setAlignment(Pos.CENTER_LEFT);
-        leading.setMinWidth(66);
-        leading.setPrefWidth(66);
-        leading.setMaxWidth(66);
+        leading.setMinWidth(60);
+        leading.setPrefWidth(60);
+        leading.setMaxWidth(60);
         leading.getChildren().setAll(selectionIndicator, pinIndicator);
 
         clipLeft.setSpacing(4);
@@ -199,7 +202,7 @@ public final class ClipRowCell extends ListCell<PopupRow> {
         timeLabel.setWrapText(false);
         timeLabel.setMinWidth(84);
 
-        moreButton.setGraphic(WindowsGlyphs.icon(WindowsGlyphs.MORE, "row-more-glyph"));
+        moreButton.setGraphic(SvgIcon.of("ellipsis-vertical", 16, "row-more-icon"));
         moreButton.setFocusTraversable(false);
         moreButton.setAccessibleText("More actions");
         moreButton.setTooltip(new Tooltip("More actions"));
@@ -275,6 +278,8 @@ public final class ClipRowCell extends ListCell<PopupRow> {
         super.updateItem(item, empty);
         pseudoClassStateChanged(SECTION_PC, false);
         pseudoClassStateChanged(FAVORITE_PC, false);
+        pseudoClassStateChanged(COMPACT_PC, false);
+        pseudoClassStateChanged(TWO_LINE_PC, false);
 
         if (empty || item == null) {
             setText(null);
@@ -296,12 +301,12 @@ public final class ClipRowCell extends ListCell<PopupRow> {
         pseudoClassStateChanged(SECTION_PC, true);
 
         boolean pinned = "PINNED".equalsIgnoreCase(row.title());
-        sectionIcon.setText(pinned ? WindowsGlyphs.PIN : WindowsGlyphs.HISTORY);
-        sectionIcon.getStyleClass().setAll(
-                "mdl2-icon",
+        sectionIcon.getChildren().setAll(SvgIcon.of(
+                pinned ? "pin" : "rotate-ccw-clock",
+                15,
                 "section-icon",
                 pinned ? "section-icon-pinned" : "section-icon-recent"
-        );
+        ));
         sectionTitle.setText(row.title());
         sectionCount.setText(Integer.toString(row.count()));
 
@@ -380,6 +385,14 @@ public final class ClipRowCell extends ListCell<PopupRow> {
         pinnedTitleLabel.setText(primary);
 
         boolean hasCustomTitle = customTitle != null;
+        pseudoClassStateChanged(COMPACT_PC, !hasCustomTitle);
+        pseudoClassStateChanged(TWO_LINE_PC, hasCustomTitle);
+
+        pinnedTitleLabel.getStyleClass().remove("pinned-title-plain");
+        if (!hasCustomTitle) {
+            pinnedTitleLabel.getStyleClass().add("pinned-title-plain");
+        }
+
         pinnedPreviewLabel.setManaged(hasCustomTitle);
         pinnedPreviewLabel.setVisible(hasCustomTitle);
         pinnedPreviewLabel.setText(hasCustomTitle ? contentPreview : "");
@@ -411,6 +424,13 @@ public final class ClipRowCell extends ListCell<PopupRow> {
         PreviewData previewData = controller.previewData(id, full);
         boolean needsToggle = previewData.needsToggle();
         String shown = expanded ? controller.expandedPreview(full) : previewData.preview();
+
+        boolean compact = !expanded
+                && !needsToggle
+                && full.indexOf('\n') < 0
+                && full.indexOf('\r') < 0;
+        pseudoClassStateChanged(COMPACT_PC, compact);
+        pseudoClassStateChanged(TWO_LINE_PC, !compact);
 
         String query = controller.currentQueryLower();
         Node contentNode;

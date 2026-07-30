@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -49,7 +50,7 @@ public final class PopupActionBar extends VBox {
         actionRow.setAlignment(Pos.CENTER_LEFT);
         actionRow.getStyleClass().add("actions-row");
 
-        Label hint = new Label("↑↓ Navigate   •   Enter Paste   •   Ctrl+C Copy   •   Del Delete");
+        Label hint = new Label("↑ / ↓ Navigate   •   Enter Paste   •   Ctrl+C Copy   •   Del Delete");
         hint.getStyleClass().add("actions-hint");
         hint.setMaxWidth(Double.MAX_VALUE);
         hint.setAlignment(Pos.CENTER);

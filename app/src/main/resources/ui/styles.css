@@ -1,4 +1,5 @@
 
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -1459,4 +1460,398 @@
     -fx-text-fill: #718198;
     -fx-font-size: 11.5px;
     -fx-padding: 6 12 7 12;
+}
+
+
+/* =========================================================
+   Lucide SVG system + reference polish pass
+   ========================================================= */
+
+.svg-icon {
+    -x-icon-color: #AEBBCD;
+}
+
+.svg-icon-stroke {
+    -fx-stroke: -x-icon-color;
+}
+
+.svg-icon-fill {
+    -fx-fill: -x-icon-color;
+}
+
+.popup-root {
+    -x-app-bg: #07111F;
+    -x-title-surface: #091422;
+    -x-header-surface: #0B1726;
+    -x-filter-surface: #0A1523;
+    -x-list-surface: #07111F;
+    -x-row-surface: #0D1A2A;
+    -x-row-hover: #112238;
+    -x-row-selected: #102744;
+    -x-row-border: rgba(91, 119, 153, 0.22);
+    -x-row-border-hover: rgba(102, 145, 194, 0.40);
+    -x-row-border-selected: rgba(83, 150, 239, 0.66);
+    -x-pinned: #D9A632;
+    -x-pinned-muted: rgba(217, 166, 50, 0.72);
+    -fx-background-color: -x-app-bg;
+    -fx-border-color: #25364C;
+}
+
+.popup-shell-header,
+.popup-header {
+    -fx-background-color: -x-header-surface;
+}
+
+.popup-title-bar {
+    -fx-background-color: -x-title-surface;
+    -fx-min-height: 52px;
+    -fx-pref-height: 52px;
+    -fx-max-height: 52px;
+}
+
+.title-drag-region {
+    -fx-padding: 0 18 0 22;
+}
+
+.title-app-name {
+    -fx-font-size: 17px;
+    -fx-font-weight: 700;
+}
+
+.window-control-button {
+    -fx-min-width: 50px;
+    -fx-pref-width: 50px;
+    -fx-max-width: 50px;
+    -fx-min-height: 51px;
+    -fx-pref-height: 51px;
+    -fx-max-height: 51px;
+}
+
+.window-control-icon {
+    -x-icon-color: #BECADB;
+}
+
+.window-control-button:hover .window-control-icon {
+    -x-icon-color: #FFFFFF;
+}
+
+.window-close-button:hover .window-control-icon,
+.window-close-button:pressed .window-control-icon {
+    -x-icon-color: #FFFFFF;
+}
+
+.top-bar {
+    -fx-background-color: -x-header-surface;
+    -fx-padding: 14 20 14 20;
+}
+
+.search-leading-icon {
+    -x-icon-color: #90A5BE;
+}
+
+.search-clear-icon {
+    -x-icon-color: #8FA2B9;
+}
+
+.search-clear:hover .search-clear-icon {
+    -x-icon-color: #E4EBF5;
+}
+
+.toolbar-icon {
+    -x-icon-color: #C4D0E0;
+}
+
+.topbar-btn:hover .toolbar-icon {
+    -x-icon-color: #FFFFFF;
+}
+
+.pause-button .pause-icon,
+.pause-button .resume-icon {
+    -x-icon-color: #F1BE49;
+}
+
+.clear-history-button:hover .clear-icon {
+    -x-icon-color: #FF8B8B;
+}
+
+.filter-bar {
+    -fx-background-color: -x-filter-surface;
+    -fx-padding: 10 20 10 20;
+}
+
+.filter-icon {
+    -x-icon-color: #9DAEC3;
+}
+
+.filter-toggle:selected .filter-icon {
+    -x-icon-color: #83B7FF;
+}
+
+.filter-type-wrap {
+    -fx-background-color: #0D1929;
+    -fx-border-color: #293B52;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+}
+
+.filter-type-wrap:hover {
+    -fx-border-color: -x-primary-border;
+}
+
+.filter-type-icon {
+    -x-icon-color: #8FA3BA;
+}
+
+.filter-type-combo {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-background-radius: 8;
+    -fx-border-radius: 8;
+}
+
+.filter-type-combo:hover,
+.filter-type-combo:focused {
+    -fx-border-color: transparent;
+}
+
+.filter-type-combo .list-cell {
+    -fx-padding: 0 0 0 38;
+}
+
+.filter-reset-icon {
+    -x-icon-color: #8193AA;
+}
+
+.filter-reset:hover .filter-reset-icon {
+    -x-icon-color: #DCE5F1;
+}
+
+.clip-list {
+    -fx-background-color: -x-list-surface;
+    -fx-control-inner-background: -x-list-surface;
+    -fx-padding: 8 0 10 0;
+}
+
+.clip-list .list-cell,
+.clip-list .list-cell:hover,
+.clip-list .list-cell:selected,
+.clip-list .list-cell:favorite,
+.clip-list .list-cell:favorite:hover,
+.clip-list .list-cell:favorite:selected {
+    -fx-padding: 3 18 3 18;
+}
+
+.clip-row-card {
+    -fx-background-color: -x-row-surface;
+    -fx-border-color: -x-row-border;
+    -fx-border-width: 1;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-padding: 8 12 8 0;
+    -fx-min-height: 52px;
+}
+
+.clip-list .list-cell:compact .clip-row-card {
+    -fx-min-height: 48px;
+    -fx-padding: 6 12 6 0;
+}
+
+.clip-list .list-cell:two-line .clip-row-card {
+    -fx-min-height: 58px;
+    -fx-padding: 8 12 8 0;
+}
+
+.clip-list .list-cell:hover .clip-row-card {
+    -fx-background-color: -x-row-hover;
+    -fx-border-color: -x-row-border-hover;
+}
+
+.clip-list .list-cell:selected .clip-row-card {
+    -fx-background-color: -x-row-selected;
+    -fx-border-color: -x-row-border-selected;
+    -fx-effect: none;
+}
+
+.clip-list .list-cell:favorite .clip-row-card {
+    -fx-background-color: #0D1928;
+}
+
+.clip-list .list-cell:favorite:hover .clip-row-card {
+    -fx-background-color: #102135;
+}
+
+.clip-list .list-cell:favorite:selected .clip-row-card {
+    -fx-background-color: -x-row-selected;
+}
+
+.pin-accent {
+    -fx-background-color: -x-pinned-muted;
+    -fx-background-radius: 8 0 0 8;
+}
+
+.selection-indicator {
+    -fx-border-color: #4C617A;
+    -fx-border-width: 1;
+}
+
+.selection-indicator:checked {
+    -fx-background-color: #347EE3;
+    -fx-border-color: #5A9AF0;
+}
+
+.selection-check-icon {
+    -x-icon-color: #FFFFFF;
+}
+
+.row-pin-indicator {
+    -fx-background-color: rgba(217, 166, 50, 0.075);
+}
+
+.row-pin-icon {
+    -x-icon-color: -x-pinned;
+}
+
+.pinned-title {
+    -fx-font-size: 13.5px;
+    -fx-font-weight: 600;
+}
+
+.pinned-title-plain {
+    -fx-font-weight: normal;
+    -fx-text-fill: #DCE5F1;
+}
+
+.pinned-preview,
+.clip-content {
+    -fx-font-size: 12.5px;
+}
+
+.clip-time {
+    -fx-text-fill: #8293AA;
+}
+
+.row-more-icon {
+    -x-icon-color: #899AB1;
+}
+
+.row-more-button:hover .row-more-icon {
+    -x-icon-color: #D7E1EE;
+}
+
+.section-icon {
+    -x-icon-color: #7FAFF0;
+}
+
+.section-icon-pinned {
+    -x-icon-color: -x-pinned;
+}
+
+.section-icon-recent {
+    -x-icon-color: #67A6FF;
+}
+
+.section-row {
+    -fx-font-weight: 700;
+}
+
+.actions-bar {
+    -fx-background-color: #0A1523;
+}
+
+.actions-row {
+    -fx-padding: 11 20 10 20;
+}
+
+.action-btn {
+    -fx-min-height: 42px;
+    -fx-pref-height: 42px;
+    -fx-min-width: 112px;
+    -fx-padding: 0 16 0 16;
+}
+
+.action-icon {
+    -x-icon-color: #D5DFEC;
+}
+
+.action-chevron-icon {
+    -x-icon-color: #93A4BB;
+}
+
+.action-button-label {
+    -fx-text-fill: #DCE5F1;
+    -fx-font-size: 13.5px;
+}
+
+.action-btn:hover .action-icon,
+.action-btn:hover .action-chevron-icon {
+    -x-icon-color: #FFFFFF;
+}
+
+.action-btn:hover .action-button-label {
+    -fx-text-fill: #FFFFFF;
+}
+
+.action-primary .action-icon,
+.action-primary .split-chevron-icon {
+    -x-icon-color: #FFFFFF;
+}
+
+.favorite-action-icon {
+    -x-icon-color: #D5DFEC;
+}
+
+.danger-action-icon {
+    -x-icon-color: #FF8B8B;
+}
+
+.split-action-button {
+    -fx-spacing: 0;
+}
+
+.split-action-main {
+    -fx-background-radius: 8 0 0 8;
+    -fx-border-radius: 8 0 0 8;
+    -fx-min-width: 104px;
+    -fx-pref-width: 104px;
+}
+
+.split-action-menu {
+    -fx-background-radius: 0 8 8 0;
+    -fx-border-radius: 0 8 8 0;
+    -fx-border-width: 1 1 1 0;
+    -fx-min-width: 38px;
+    -fx-pref-width: 38px;
+    -fx-max-width: 38px;
+    -fx-padding: 0;
+}
+
+.split-chevron-icon {
+    -x-icon-color: #FFFFFF;
+}
+
+.actions-hint {
+    -fx-background-color: #08121F;
+    -fx-text-fill: #8495AC;
+    -fx-font-size: 12px;
+    -fx-padding: 7 12 8 12;
+}
+
+.menu-item-icon {
+    -x-icon-color: #AEBED1;
+}
+
+.menu-pin-icon {
+    -x-icon-color: #D9A632;
+}
+
+.menu-unpin-icon {
+    -x-icon-color: #D9A632;
+}
+
+.menu-type-icon {
+    -x-icon-color: #78AFFF;
+}
+
+.context-menu .menu-item:focused .menu-item-icon {
+    -x-icon-color: #FFFFFF;
 }

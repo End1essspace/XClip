@@ -5,6 +5,8 @@
  */
 package io.xseries.xclip.ui.popup;
 
+import io.xseries.xclip.ui.components.SvgIcon;
+import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
@@ -12,11 +14,13 @@ import javafx.scene.control.ToggleButton;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
 
 import java.util.Objects;
 
 /**
- * Compact filter toolbar matching the redesigned popup hierarchy.
+ * Balanced filter toolbar: scope navigation stays on the left, while the type
+ * filter and conditional reset action form one compact group on the right.
  */
 public final class PopupFilterBar extends HBox {
 
@@ -38,14 +42,30 @@ public final class PopupFilterBar extends HBox {
         HBox scopeButtons = new HBox(allButton, pinnedButton, recentButton);
         scopeButtons.getStyleClass().add("filter-segment");
 
-        HBox filterGroup = new HBox(12, scopeButtons, typeCombo);
-        filterGroup.setAlignment(Pos.CENTER_LEFT);
-        filterGroup.getStyleClass().add("filter-control-group");
+        StackPane typeControl = new StackPane();
+        typeControl.setAlignment(Pos.CENTER_LEFT);
+        typeControl.getStyleClass().add("filter-type-wrap");
+        typeControl.setMinWidth(210);
+        typeControl.setPrefWidth(230);
+        typeControl.setMaxWidth(260);
+
+        typeCombo.setMaxWidth(Double.MAX_VALUE);
+        StackPane.setAlignment(typeCombo, Pos.CENTER_LEFT);
+
+        SvgIcon typeIcon = SvgIcon.of("funnel", 15, "filter-type-icon");
+        StackPane.setAlignment(typeIcon, Pos.CENTER_LEFT);
+        StackPane.setMargin(typeIcon, new Insets(0, 0, 0, 14));
+
+        typeControl.getChildren().setAll(typeCombo, typeIcon);
+
+        HBox rightGroup = new HBox(10, typeControl, resetButton);
+        rightGroup.setAlignment(Pos.CENTER_RIGHT);
+        rightGroup.getStyleClass().add("filter-control-group");
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        getChildren().setAll(filterGroup, spacer, resetButton);
+        getChildren().setAll(scopeButtons, spacer, rightGroup);
         setAlignment(Pos.CENTER_LEFT);
         getStyleClass().add("filter-bar");
     }

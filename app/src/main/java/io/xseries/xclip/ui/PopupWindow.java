@@ -1,6 +1,7 @@
 
 
 
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -19,7 +20,8 @@ import io.xseries.xclip.ui.popup.PopupRow;
 import io.xseries.xclip.ui.popup.PopupRow.ClipRow;
 import io.xseries.xclip.ui.popup.PopupRow.SectionRow;
 import io.xseries.xclip.ui.popup.PopupViewState;
-import io.xseries.xclip.ui.components.WindowsGlyphs;
+import io.xseries.xclip.ui.components.SplitActionButton;
+import io.xseries.xclip.ui.components.SvgIcon;
 import io.xseries.xclip.system.window.WindowChromeController;
 import io.xseries.xclip.system.window.WindowChromeController.WindowBounds;
 import io.xseries.xclip.system.window.WindowsTitleBar;
@@ -284,7 +286,7 @@ public final class PopupWindow {
         searchField.getStyleClass().add("search-field");
 
         Button clearSearchBtn = new Button();
-        clearSearchBtn.setGraphic(WindowsGlyphs.icon(WindowsGlyphs.CLOSE, "search-clear-glyph"));
+        clearSearchBtn.setGraphic(SvgIcon.of("x", 14, "search-clear-icon"));
         clearSearchBtn.setFocusTraversable(false);
         clearSearchBtn.setAccessibleText("Clear search");
         clearSearchBtn.setTooltip(new Tooltip("Clear search"));
@@ -292,7 +294,7 @@ public final class PopupWindow {
         clearSearchBtn.setVisible(false);
         clearSearchBtn.setManaged(false);
 
-        Label searchIcon = WindowsGlyphs.icon(WindowsGlyphs.SEARCH, "search-leading-icon");
+        SvgIcon searchIcon = SvgIcon.of("search", 19, "search-leading-icon");
         Label searchShortcut = new Label("Ctrl + K");
         searchShortcut.getStyleClass().add("search-shortcut");
         searchShortcut.setMouseTransparent(true);
@@ -340,7 +342,7 @@ public final class PopupWindow {
         });
 
         // Help
-        Button help = iconButton(WindowsGlyphs.HELP, "Quick help", "topbar-help");
+        Button help = iconButton("circle-question-mark", "Quick help", "topbar-help");
 
         Tooltip tip = new Tooltip("""
         XClip — Quick Help
@@ -377,18 +379,18 @@ public final class PopupWindow {
         Tooltip.install(help, tip);
 
         Button pauseBtn = new Button("Pause");
-        pauseBtn.setGraphic(WindowsGlyphs.icon(WindowsGlyphs.PAUSE, "toolbar-glyph"));
+        pauseBtn.setGraphic(SvgIcon.of("pause", 17, "toolbar-icon", "pause-icon"));
         pauseBtn.setContentDisplay(ContentDisplay.LEFT);
         pauseBtn.setFocusTraversable(false);
         pauseBtn.setOnAction(e -> onTogglePaused.run());
         pauseBtn.getStyleClass().addAll("topbar-btn", "pause-button");
         this.pauseBtnRef = pauseBtn;
 
-        Button settingsBtn = iconButton(WindowsGlyphs.SETTINGS, "Open settings", "topbar-settings");
+        Button settingsBtn = iconButton("settings", "Open settings", "topbar-settings");
         settingsBtn.setOnAction(e -> openSettings());
 
         Button clearBtn = new Button("Clear");
-        clearBtn.setGraphic(WindowsGlyphs.icon(WindowsGlyphs.DELETE, "toolbar-glyph"));
+        clearBtn.setGraphic(SvgIcon.of("trash-2", 17, "toolbar-icon", "clear-icon"));
         clearBtn.setContentDisplay(ContentDisplay.LEFT);
         clearBtn.setFocusTraversable(false);
         clearBtn.setTooltip(new Tooltip("Clear visible non-pinned clips"));
@@ -436,31 +438,41 @@ public final class PopupWindow {
         PopupTitleBar popupTitleBar = new PopupTitleBar(stage, windowChrome);
 
         Button pasteBtn = new Button("Paste");
-        pasteBtn.setGraphic(WindowsGlyphs.icon(WindowsGlyphs.PASTE, "action-glyph"));
+        pasteBtn.setGraphic(SvgIcon.of("clipboard-paste", 17, "action-icon"));
         pasteBtn.setContentDisplay(ContentDisplay.LEFT);
         pasteBtn.setOnAction(e -> pasteSelectedOrFirst());
         pasteBtn.getStyleClass().addAll("action-btn", "action-primary");
 
         Button copyBtn = new Button("Copy");
-        copyBtn.setGraphic(WindowsGlyphs.icon(WindowsGlyphs.COPY, "action-glyph"));
+        copyBtn.setGraphic(SvgIcon.of("copy", 17, "action-icon"));
         copyBtn.setContentDisplay(ContentDisplay.LEFT);
         copyBtn.setOnAction(e -> copySelectedOrFirst());
         copyBtn.getStyleClass().addAll("action-btn", "action-neutral");
 
-        Button actionsBtn = new Button("Actions");
-        actionsBtn.setGraphic(WindowsGlyphs.icon(WindowsGlyphs.MORE, "action-glyph"));
-        actionsBtn.setContentDisplay(ContentDisplay.LEFT);
+        Button actionsBtn = new Button();
+        Label actionsText = new Label("Actions");
+        actionsText.getStyleClass().add("action-button-label");
+        HBox actionsGraphic = new HBox(
+                8,
+                SvgIcon.of("zap", 17, "action-icon"),
+                actionsText,
+                SvgIcon.of("chevron-down", 14, "action-chevron-icon")
+        );
+        actionsGraphic.setAlignment(Pos.CENTER);
+        actionsBtn.setGraphic(actionsGraphic);
         actionsBtn.setOnAction(e -> showActionsMenu(actionsBtn));
+        actionsBtn.setAccessibleText("Actions");
+        actionsBtn.setTooltip(new Tooltip("Context actions"));
         actionsBtn.getStyleClass().addAll("action-btn", "action-neutral", "actions-menu-button");
 
         Button favBtn = new Button("Pin / Unpin");
-        favBtn.setGraphic(WindowsGlyphs.icon(WindowsGlyphs.PIN, "action-glyph"));
+        favBtn.setGraphic(SvgIcon.of("pin", 17, "action-icon", "favorite-action-icon"));
         favBtn.setContentDisplay(ContentDisplay.LEFT);
         favBtn.setOnAction(e -> toggleFavoriteSelected());
         favBtn.getStyleClass().addAll("action-btn", "action-neutral", "action-state");
 
         Button delBtn = new Button("Delete");
-        delBtn.setGraphic(WindowsGlyphs.icon(WindowsGlyphs.DELETE, "action-glyph"));
+        delBtn.setGraphic(SvgIcon.of("trash-2", 17, "action-icon", "danger-action-icon"));
         delBtn.setContentDisplay(ContentDisplay.LEFT);
         delBtn.setOnAction(e -> deleteSelected());
         delBtn.getStyleClass().addAll("action-btn", "action-danger");
@@ -470,8 +482,14 @@ public final class PopupWindow {
         this.favBtnRef = favBtn;
         this.delBtnRef = delBtn;
 
-        PopupActionBar actions = new PopupActionBar(
+        SplitActionButton pasteControl = new SplitActionButton(
                 pasteBtn,
+                this::pasteSelectedOrFirst,
+                this::copySelectedOrFirst
+        );
+
+        PopupActionBar actions = new PopupActionBar(
+                pasteControl,
                 copyBtn,
                 actionsBtn,
                 favBtn,
@@ -882,9 +900,9 @@ public final class PopupWindow {
         );
     }
 
-    private Button iconButton(String glyph, String accessibleText, String extraStyleClass) {
+    private Button iconButton(String iconName, String accessibleText, String extraStyleClass) {
         Button button = new Button();
-        button.setGraphic(WindowsGlyphs.icon(glyph, "toolbar-glyph"));
+        button.setGraphic(SvgIcon.of(iconName, 17, "toolbar-icon"));
         button.setFocusTraversable(false);
         button.setAccessibleText(accessibleText);
         button.setTooltip(new Tooltip(accessibleText));
@@ -950,7 +968,7 @@ public final class PopupWindow {
             setFilterState(viewState.scope(), type, true);
         });
 
-        resetFiltersBtn.setGraphic(WindowsGlyphs.icon(WindowsGlyphs.RESET, "filter-glyph"));
+        resetFiltersBtn.setGraphic(SvgIcon.of("rotate-ccw", 15, "filter-icon", "filter-reset-icon"));
         resetFiltersBtn.setContentDisplay(ContentDisplay.LEFT);
         resetFiltersBtn.setFocusTraversable(false);
         resetFiltersBtn.getStyleClass().add("filter-reset");
@@ -964,12 +982,12 @@ public final class PopupWindow {
         button.setUserData(scope);
         button.setFocusTraversable(false);
         button.setContentDisplay(ContentDisplay.LEFT);
-        String glyph = switch (scope) {
-            case ALL -> WindowsGlyphs.ALL;
-            case PINNED -> WindowsGlyphs.PIN;
-            case RECENT -> WindowsGlyphs.HISTORY;
+        String iconName = switch (scope) {
+            case ALL -> "list";
+            case PINNED -> "pin";
+            case RECENT -> "rotate-ccw-clock";
         };
-        button.setGraphic(WindowsGlyphs.icon(glyph, "filter-glyph"));
+        button.setGraphic(SvgIcon.of(iconName, 15, "filter-icon"));
         button.getStyleClass().add("filter-toggle");
     }
 
@@ -1155,9 +1173,11 @@ public final class PopupWindow {
         Platform.runLater(() -> {
             if (pauseBtnRef != null) {
                 pauseBtnRef.setText(paused ? "Resume" : "Pause");
-                pauseBtnRef.setGraphic(WindowsGlyphs.icon(
-                        paused ? WindowsGlyphs.RESUME : WindowsGlyphs.PAUSE,
-                        "toolbar-glyph"
+                pauseBtnRef.setGraphic(SvgIcon.of(
+                        paused ? "play" : "pause",
+                        17,
+                        "toolbar-icon",
+                        paused ? "resume-icon" : "pause-icon"
                 ));
                 pauseBtnRef.pseudoClassStateChanged(
                         javafx.css.PseudoClass.getPseudoClass("paused"),
@@ -2018,18 +2038,31 @@ public final class PopupWindow {
         selectedLabel.setManaged(has);
         selectedLabel.setText(has ? ("Selected " + n) : "");
 
-        // Buttons
-        pasteBtnRef.setText(has ? ("Paste (" + n + ")") : "Paste");
-        copyBtnRef.setText(has ? ("Copy (" + n + ")") : "Copy");
-        delBtnRef.setText(has ? ("Delete (" + n + ")") : "Delete");
+        // The header already owns the selection count. Footer actions stay
+        // visually stable and do not repeat "(N)" on every button.
+        pasteBtnRef.setText("Paste");
+        copyBtnRef.setText("Copy");
+        delBtnRef.setText("Delete");
 
         if (!has) {
             favBtnRef.setText("Pin / Unpin");
+            favBtnRef.setGraphic(SvgIcon.of(
+                    "pin",
+                    17,
+                    "action-icon",
+                    "favorite-action-icon"
+            ));
             return;
         }
 
         boolean shouldPin = selected.stream().anyMatch(e -> !e.favorite());
-        favBtnRef.setText(shouldPin ? ("Pin (" + n + ")") : ("Unpin (" + n + ")"));
+        favBtnRef.setText(shouldPin ? "Pin" : "Unpin");
+        favBtnRef.setGraphic(SvgIcon.of(
+                shouldPin ? "pin" : "pin-off",
+                17,
+                "action-icon",
+                "favorite-action-icon"
+        ));
     }
 
     private void selectAllClips() {
