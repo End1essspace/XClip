@@ -1,4 +1,3 @@
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -84,19 +83,19 @@ public final class ClipRowCell extends ListCell<PopupRow> {
     private final Controller controller;
 
     // Section row UI
-    private final HBox sectionRoot = new HBox(8);
+    private final HBox sectionRoot = new HBox(6);
     private final StackPane sectionIcon = new StackPane();
     private final Label sectionTitle = new Label();
     private final Label sectionCount = new Label();
 
     // Clip row UI
-    private final HBox clipRoot = new HBox(12);
-    private final HBox leading = new HBox(8);
+    private final HBox clipRoot = new HBox(9);
+    private final HBox leading = new HBox(6);
     private final StackPane selectionIndicator = new StackPane();
     private final StackPane pinIndicator = new StackPane();
     private final Region pinAccent = new Region();
-    private final VBox clipLeft = new VBox(4);
-    private final HBox metadata = new HBox(14);
+    private final VBox clipLeft = new VBox(3);
+    private final HBox metadata = new HBox(10);
     private final Label timeLabel = new Label();
     private final Label typeBadge = new Label();
     private final Tooltip typeTooltip = new Tooltip();
@@ -142,27 +141,27 @@ public final class ClipRowCell extends ListCell<PopupRow> {
         pinAccent.setMaxWidth(2);
         pinAccent.setMaxHeight(Double.MAX_VALUE);
 
-        SvgIcon checkGlyph = SvgIcon.of("check", 13, "selection-check-icon");
+        SvgIcon checkGlyph = SvgIcon.of("check", 11, "selection-check-icon");
         selectionIndicator.getChildren().add(checkGlyph);
         selectionIndicator.getStyleClass().add("selection-indicator");
-        selectionIndicator.setMinSize(22, 22);
-        selectionIndicator.setPrefSize(22, 22);
-        selectionIndicator.setMaxSize(22, 22);
+        selectionIndicator.setMinSize(18, 18);
+        selectionIndicator.setPrefSize(18, 18);
+        selectionIndicator.setMaxSize(18, 18);
 
-        SvgIcon pinGlyph = SvgIcon.of("pin", 14, "row-pin-icon");
+        SvgIcon pinGlyph = SvgIcon.of("pin", 12, "row-pin-icon");
         pinIndicator.getChildren().add(pinGlyph);
         pinIndicator.getStyleClass().add("row-pin-indicator");
-        pinIndicator.setMinSize(22, 22);
-        pinIndicator.setPrefSize(22, 22);
-        pinIndicator.setMaxSize(22, 22);
+        pinIndicator.setMinSize(18, 18);
+        pinIndicator.setPrefSize(18, 18);
+        pinIndicator.setMaxSize(18, 18);
 
         leading.setAlignment(Pos.CENTER_LEFT);
-        leading.setMinWidth(60);
-        leading.setPrefWidth(60);
-        leading.setMaxWidth(60);
+        leading.setMinWidth(48);
+        leading.setPrefWidth(48);
+        leading.setMaxWidth(48);
         leading.getChildren().setAll(selectionIndicator, pinIndicator);
 
-        clipLeft.setSpacing(4);
+        clipLeft.setSpacing(3);
         clipLeft.setAlignment(Pos.CENTER_LEFT);
         clipLeft.setMaxWidth(Double.MAX_VALUE);
         HBox.setHgrow(clipLeft, Priority.ALWAYS);
@@ -185,10 +184,9 @@ public final class ClipRowCell extends ListCell<PopupRow> {
         pinnedPreviewLabel.setPrefWidth(0);
 
         clipTooltip.setWrapText(true);
-        clipTooltip.setMaxWidth(620);
-        clipTooltip.setShowDelay(Duration.millis(250));
-        clipTooltip.setShowDuration(Duration.seconds(30));
-        Tooltip.install(clipRoot, clipTooltip);
+        clipTooltip.setMaxWidth(560);
+        clipTooltip.setShowDelay(Duration.millis(350));
+        clipTooltip.setShowDuration(Duration.seconds(20));
 
         typeBadge.getStyleClass().add("clip-type-badge");
         typeBadge.setAlignment(Pos.CENTER);
@@ -200,9 +198,9 @@ public final class ClipRowCell extends ListCell<PopupRow> {
         timeLabel.getStyleClass().add("clip-time");
         timeLabel.setAlignment(Pos.CENTER_RIGHT);
         timeLabel.setWrapText(false);
-        timeLabel.setMinWidth(84);
+        timeLabel.setMinWidth(76);
 
-        moreButton.setGraphic(SvgIcon.of("ellipsis-vertical", 16, "row-more-icon"));
+        moreButton.setGraphic(SvgIcon.of("ellipsis-vertical", 13, "row-more-icon"));
         moreButton.setFocusTraversable(false);
         moreButton.setAccessibleText("More actions");
         moreButton.setTooltip(new Tooltip("More actions"));
@@ -210,9 +208,9 @@ public final class ClipRowCell extends ListCell<PopupRow> {
         moreButton.setOnAction(event -> showMoreMenu());
 
         metadata.setAlignment(Pos.CENTER_RIGHT);
-        metadata.setMinWidth(230);
-        metadata.setPrefWidth(230);
-        metadata.setMaxWidth(230);
+        metadata.setMinWidth(208);
+        metadata.setPrefWidth(208);
+        metadata.setMaxWidth(208);
         metadata.getChildren().setAll(typeBadge, timeLabel, moreButton);
 
         clipRoot.getChildren().setAll(pinAccent, leading, clipLeft, metadata);
@@ -282,6 +280,8 @@ public final class ClipRowCell extends ListCell<PopupRow> {
         pseudoClassStateChanged(TWO_LINE_PC, false);
 
         if (empty || item == null) {
+            Tooltip.uninstall(clipRoot, clipTooltip);
+            clipTooltip.setText("");
             setText(null);
             setGraphic(null);
             setDisable(false);
@@ -298,12 +298,14 @@ public final class ClipRowCell extends ListCell<PopupRow> {
     }
 
     private void renderSection(SectionRow row) {
+        Tooltip.uninstall(clipRoot, clipTooltip);
+        clipTooltip.setText("");
         pseudoClassStateChanged(SECTION_PC, true);
 
         boolean pinned = "PINNED".equalsIgnoreCase(row.title());
         sectionIcon.getChildren().setAll(SvgIcon.of(
                 pinned ? "pin" : "rotate-ccw-clock",
-                15,
+                13,
                 "section-icon",
                 pinned ? "section-icon-pinned" : "section-icon-recent"
         ));
@@ -326,12 +328,12 @@ public final class ClipRowCell extends ListCell<PopupRow> {
         pinAccent.setVisible(entry.favorite());
         pinAccent.setManaged(true);
         pinIndicator.setVisible(entry.favorite());
-        pinIndicator.setOpacity(entry.favorite() ? 1.0 : 0.0);
+        pinIndicator.setOpacity(entry.favorite() ? 0.82 : 0.0);
         updateSelectionIndicator();
 
         long id = entry.id();
         String full = entry.content() == null ? "" : entry.content();
-        clipTooltip.setText(buildTooltipText(entry));
+        updateClipTooltip(entry, full);
 
         ClipContentType contentType = controller.contentTypeFor(entry);
         typeBadge.setText(contentType.label());
@@ -546,6 +548,28 @@ public final class ClipRowCell extends ListCell<PopupRow> {
         String result = out.toString().trim();
         if (truncated && !result.endsWith("…")) result += "…";
         return result;
+    }
+
+    private void updateClipTooltip(ClipEntry entry, String content) {
+        Tooltip.uninstall(clipRoot, clipTooltip);
+
+        boolean shouldShow;
+        if (entry.favorite()) {
+            shouldShow = entry.hasTitle()
+                    || content.length() > PINNED_COMPACT_CHAR_LIMIT
+                    || content.indexOf('\n') >= 0
+                    || content.indexOf('\r') >= 0;
+        } else {
+            shouldShow = controller.previewData(entry.id(), content).needsToggle();
+        }
+
+        if (!shouldShow) {
+            clipTooltip.setText("");
+            return;
+        }
+
+        clipTooltip.setText(buildTooltipText(entry));
+        Tooltip.install(clipRoot, clipTooltip);
     }
 
     private String buildTooltipText(ClipEntry entry) {

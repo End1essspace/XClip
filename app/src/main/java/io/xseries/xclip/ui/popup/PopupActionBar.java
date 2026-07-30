@@ -1,4 +1,3 @@
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -35,11 +34,11 @@ public final class PopupActionBar extends VBox {
         Objects.requireNonNull(favorite, "favorite");
         Objects.requireNonNull(delete, "delete");
 
-        HBox left = new HBox(10, paste, copy, actions);
+        HBox left = new HBox(8, paste, copy, actions);
         left.setAlignment(Pos.CENTER_LEFT);
         left.getStyleClass().add("action-group-left");
 
-        HBox right = new HBox(10, favorite, delete);
+        HBox right = new HBox(8, favorite, delete);
         right.setAlignment(Pos.CENTER_RIGHT);
         right.getStyleClass().add("action-group-right");
 
@@ -50,7 +49,7 @@ public final class PopupActionBar extends VBox {
         actionRow.setAlignment(Pos.CENTER_LEFT);
         actionRow.getStyleClass().add("actions-row");
 
-        Label hint = new Label("↑ / ↓ Navigate   •   Enter Paste   •   Ctrl+C Copy   •   Del Delete");
+        Label hint = new Label("↑↓ Navigate   •   Enter Paste   •   Ctrl+C Copy   •   Del Delete");
         hint.getStyleClass().add("actions-hint");
         hint.setMaxWidth(Double.MAX_VALUE);
         hint.setAlignment(Pos.CENTER);

@@ -31,7 +31,7 @@ public final class PopupFilterBar extends HBox {
             ComboBox<?> typeCombo,
             Button resetButton
     ) {
-        super(12);
+        super(8);
 
         Objects.requireNonNull(allButton, "allButton");
         Objects.requireNonNull(pinnedButton, "pinnedButton");
@@ -45,20 +45,20 @@ public final class PopupFilterBar extends HBox {
         StackPane typeControl = new StackPane();
         typeControl.setAlignment(Pos.CENTER_LEFT);
         typeControl.getStyleClass().add("filter-type-wrap");
-        typeControl.setMinWidth(210);
-        typeControl.setPrefWidth(230);
-        typeControl.setMaxWidth(260);
+        typeControl.setMinWidth(190);
+        typeControl.setPrefWidth(210);
+        typeControl.setMaxWidth(235);
 
         typeCombo.setMaxWidth(Double.MAX_VALUE);
         StackPane.setAlignment(typeCombo, Pos.CENTER_LEFT);
 
-        SvgIcon typeIcon = SvgIcon.of("funnel", 15, "filter-type-icon");
+        SvgIcon typeIcon = SvgIcon.of("funnel", 13, "filter-type-icon");
         StackPane.setAlignment(typeIcon, Pos.CENTER_LEFT);
-        StackPane.setMargin(typeIcon, new Insets(0, 0, 0, 14));
+        StackPane.setMargin(typeIcon, new Insets(0, 0, 0, 11));
 
         typeControl.getChildren().setAll(typeCombo, typeIcon);
 
-        HBox rightGroup = new HBox(10, typeControl, resetButton);
+        HBox rightGroup = new HBox(7, typeControl, resetButton);
         rightGroup.setAlignment(Pos.CENTER_RIGHT);
         rightGroup.getStyleClass().add("filter-control-group");
 

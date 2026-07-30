@@ -49,7 +49,7 @@ public final class PopupActionsMenu {
     private final MenuItem clearTitleItem = item("Clear title", "x");
     private final Menu movePinnedMenu = new Menu(
             "Move pinned clip",
-            SvgIcon.of("list", 15, "menu-item-icon")
+            SvgIcon.of("list", 13, "menu-item-icon")
     );
     private final MenuItem moveUpItem = new MenuItem("Move up");
     private final MenuItem moveDownItem = new MenuItem("Move down");
@@ -136,14 +136,14 @@ public final class PopupActionsMenu {
                 ? primaryAction.label()
                 : "Type action");
         typeActionItem.setGraphic(typeActionAvailable
-                ? SvgIcon.of(iconFor(primaryAction), 15, "menu-item-icon", "menu-type-icon")
+                ? SvgIcon.of(iconFor(primaryAction), 13, "menu-item-icon", "menu-type-icon")
                 : null);
 
         boolean shouldPin = selected.stream().anyMatch(entry -> !entry.favorite());
         pinItem.setText(shouldPin ? "Pin selected" : "Unpin selected");
         pinItem.setGraphic(SvgIcon.of(
                 shouldPin ? "pin" : "pin-off",
-                15,
+                13,
                 "menu-item-icon",
                 shouldPin ? "menu-pin-icon" : "menu-unpin-icon"
         ));
@@ -162,7 +162,7 @@ public final class PopupActionsMenu {
     private static MenuItem item(String text, String iconName) {
         return new MenuItem(
                 text,
-                SvgIcon.of(iconName, 15, "menu-item-icon")
+                SvgIcon.of(iconName, 13, "menu-item-icon")
         );
     }
 

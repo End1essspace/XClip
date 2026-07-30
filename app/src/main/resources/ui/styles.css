@@ -1,5 +1,3 @@
-
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -1854,4 +1852,343 @@
 
 .context-menu .menu-item:focused .menu-item-icon {
     -x-icon-color: #FFFFFF;
+}
+
+/* =========================================================
+   Compact density + final micro-polish pass
+   ========================================================= */
+
+/* Window chrome: keep the custom shell, but return vertical space to content. */
+.popup-title-bar {
+    -fx-min-height: 40px;
+    -fx-pref-height: 40px;
+    -fx-max-height: 40px;
+}
+
+.title-drag-region {
+    -fx-padding: 0 13 0 16;
+}
+
+.title-app-name {
+    -fx-font-size: 15px;
+}
+
+.window-control-button {
+    -fx-min-width: 44px;
+    -fx-pref-width: 44px;
+    -fx-max-width: 44px;
+    -fx-min-height: 39px;
+    -fx-pref-height: 39px;
+    -fx-max-height: 39px;
+}
+
+.window-control-icon {
+    -x-icon-color: #C9D4E3;
+}
+
+.window-close-button:hover {
+    -fx-background-color: #C42B1C;
+}
+
+/* Header/search controls. */
+.top-bar {
+    -fx-padding: 8 16 8 16;
+    -fx-spacing: 10;
+}
+
+.search-wrap {
+    -fx-min-height: 36px;
+    -fx-pref-height: 36px;
+    -fx-max-height: 36px;
+}
+
+.search-field {
+    -fx-padding: 7 78 7 40;
+    -fx-font-size: 12.5px;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+}
+
+.search-shortcut {
+    -fx-padding: 3 7 3 7;
+    -fx-font-size: 10.5px;
+    -fx-border-radius: 5;
+    -fx-background-radius: 5;
+}
+
+.search-clear {
+    -fx-padding: 5;
+}
+
+.topbar-status {
+    -fx-font-size: 12px;
+}
+
+.popup-status-group {
+    -fx-padding: 0 0 0 4;
+}
+
+.topbar-btn {
+    -fx-min-height: 34px;
+    -fx-pref-height: 34px;
+    -fx-max-height: 34px;
+    -fx-padding: 0 11 0 11;
+    -fx-font-size: 12px;
+    -fx-border-radius: 7;
+    -fx-background-radius: 7;
+}
+
+.topbar-icon-button {
+    -fx-min-width: 34px;
+    -fx-pref-width: 34px;
+    -fx-max-width: 34px;
+    -fx-padding: 0;
+}
+
+/* Filter toolbar. */
+.filter-bar {
+    -fx-padding: 7 16 7 16;
+}
+
+.filter-segment {
+    -fx-border-radius: 7;
+    -fx-background-radius: 7;
+}
+
+.filter-toggle {
+    -fx-padding: 6 12 6 12;
+    -fx-font-size: 11.5px;
+    -fx-background-radius: 6;
+    -fx-border-radius: 6;
+}
+
+.filter-type-wrap,
+.filter-type-combo {
+    -fx-min-height: 32px;
+    -fx-pref-height: 32px;
+    -fx-max-height: 32px;
+    -fx-border-radius: 7;
+    -fx-background-radius: 7;
+}
+
+.filter-type-combo {
+    -fx-font-size: 11.5px;
+}
+
+.filter-type-combo .list-cell {
+    -fx-padding: 0 0 0 32;
+}
+
+.filter-reset {
+    -fx-padding: 6 8 6 8;
+    -fx-font-size: 11.5px;
+}
+
+/* Content density and quieter row states. */
+.clip-list {
+    -fx-padding: 4 0 6 0;
+}
+
+.clip-list .list-cell,
+.clip-list .list-cell:hover,
+.clip-list .list-cell:selected,
+.clip-list .list-cell:favorite,
+.clip-list .list-cell:favorite:hover,
+.clip-list .list-cell:favorite:selected {
+    -fx-padding: 2 14 2 14;
+}
+
+.clip-row-card {
+    -fx-min-height: 42px;
+    -fx-padding: 5 9 5 0;
+    -fx-border-radius: 7;
+    -fx-background-radius: 7;
+    -fx-border-color: rgba(91, 119, 153, 0.16);
+}
+
+.clip-list .list-cell:compact .clip-row-card {
+    -fx-min-height: 38px;
+    -fx-padding: 4 9 4 0;
+}
+
+.clip-list .list-cell:two-line .clip-row-card {
+    -fx-min-height: 48px;
+    -fx-padding: 5 9 5 0;
+}
+
+.clip-list .list-cell:hover .clip-row-card {
+    -fx-border-color: rgba(102, 145, 194, 0.28);
+}
+
+.clip-list .list-cell:selected .clip-row-card,
+.clip-list .list-cell:favorite:selected .clip-row-card {
+    -fx-background-color: #0D213B;
+    -fx-border-color: rgba(83, 150, 239, 0.50);
+}
+
+.pin-accent {
+    -fx-background-color: rgba(217, 166, 50, 0.64);
+    -fx-background-radius: 7 0 0 7;
+}
+
+.selection-indicator {
+    -fx-border-radius: 4;
+    -fx-background-radius: 4;
+}
+
+.row-pin-indicator {
+    -fx-background-color: rgba(217, 166, 50, 0.045);
+    -fx-background-radius: 5;
+}
+
+.pinned-title {
+    -fx-font-size: 12.5px;
+}
+
+.pinned-title-plain {
+    -fx-text-fill: #D6E0EC;
+}
+
+.pinned-preview,
+.clip-content {
+    -fx-font-size: 11.5px;
+}
+
+.clip-text {
+    -fx-fill: #D6E0EC;
+}
+
+.clip-time {
+    -fx-font-size: 10.5px;
+    -fx-text-fill: #7589A3;
+}
+
+.clip-type-badge {
+    -fx-font-size: 9px;
+    -fx-padding: 2 7 2 7;
+    -fx-background-radius: 5;
+    -fx-border-radius: 5;
+}
+
+.row-more-button {
+    -fx-padding: 5;
+}
+
+.clip-list .list-cell:section,
+.clip-list .list-cell:section:hover,
+.clip-list .list-cell:section:selected {
+    -fx-padding: 9 16 4 16;
+}
+
+.section-row-root {
+    -fx-padding: 0 1 0 1;
+}
+
+.section-row {
+    -fx-font-size: 11.5px;
+}
+
+.section-count {
+    -fx-padding: 1 6 1 6;
+    -fx-font-size: 9.5px;
+}
+
+/* Always discoverable, narrow scrollbar without JavaFX arrow buttons. */
+.clip-list .scroll-bar:vertical {
+    -fx-pref-width: 7px;
+    -fx-min-width: 7px;
+    -fx-max-width: 7px;
+    -fx-background-color: transparent;
+    -fx-padding: 2 1 2 0;
+    -fx-opacity: 0.88;
+}
+
+.clip-list .scroll-bar:vertical .track {
+    -fx-background-color: rgba(255, 255, 255, 0.018);
+    -fx-background-radius: 999;
+}
+
+.clip-list .scroll-bar:vertical .thumb {
+    -fx-background-color: #30455E;
+    -fx-background-radius: 999;
+}
+
+.clip-list .scroll-bar:vertical .thumb:hover {
+    -fx-background-color: #46617F;
+}
+
+.clip-list .scroll-bar:vertical .increment-button,
+.clip-list .scroll-bar:vertical .decrement-button,
+.clip-list .scroll-bar:vertical .increment-arrow,
+.clip-list .scroll-bar:vertical .decrement-arrow {
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+}
+
+/* Compact footer. */
+.actions-row {
+    -fx-padding: 7 16 6 16;
+}
+
+.action-btn {
+    -fx-min-height: 34px;
+    -fx-pref-height: 34px;
+    -fx-max-height: 34px;
+    -fx-min-width: 96px;
+    -fx-padding: 0 13 0 13;
+    -fx-font-size: 12px;
+    -fx-border-radius: 7;
+    -fx-background-radius: 7;
+}
+
+.action-state {
+    -fx-min-width: 120px;
+}
+
+.action-danger {
+    -fx-min-width: 104px;
+}
+
+.action-button-label {
+    -fx-font-size: 12px;
+}
+
+.split-action-main {
+    -fx-min-width: 86px;
+    -fx-pref-width: 86px;
+    -fx-background-radius: 7 0 0 7;
+    -fx-border-radius: 7 0 0 7;
+}
+
+.split-action-menu {
+    -fx-min-width: 32px;
+    -fx-pref-width: 32px;
+    -fx-max-width: 32px;
+    -fx-background-radius: 0 7 7 0;
+    -fx-border-radius: 0 7 7 0;
+}
+
+.actions-hint {
+    -fx-font-size: 10.5px;
+    -fx-text-fill: #8294AC;
+    -fx-padding: 4 10 5 10;
+}
+
+/* Smaller, quieter hover tooltip. It is installed only for truncated content. */
+.tooltip {
+    -fx-font-size: 11.5px;
+    -fx-padding: 7 9 7 9;
+}
+
+/* Compact secondary surfaces. */
+.context-menu {
+    -fx-padding: 3;
+}
+
+.menu-item {
+    -fx-padding: 5 10 5 10;
+}
+
+.menu-item .label {
+    -fx-font-size: 11.5px;
 }

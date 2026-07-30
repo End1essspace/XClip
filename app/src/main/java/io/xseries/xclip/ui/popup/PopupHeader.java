@@ -36,7 +36,7 @@ public final class PopupHeader extends VBox {
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        HBox topBar = new HBox(12, search, spacer, statusGroup, controlGroup);
+        HBox topBar = new HBox(10, search, spacer, statusGroup, controlGroup);
         topBar.setAlignment(Pos.CENTER_LEFT);
         topBar.getStyleClass().add("top-bar");
 

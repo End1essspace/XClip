@@ -1,4 +1,3 @@
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -161,6 +160,20 @@ public final class ClipEntryDao {
             }
         } catch (Exception e) {
             throw new RuntimeException("search failed", e);
+        }
+    }
+
+    /**
+     * Returns the total number of persisted clips, independent of popup search
+     * and scope/type filters.
+     */
+    public int countAll() {
+        try (PreparedStatement ps = conn().prepareStatement(
+                "SELECT COUNT(*) FROM clip_entries");
+             ResultSet rs = ps.executeQuery()) {
+            return rs.next() ? rs.getInt(1) : 0;
+        } catch (Exception e) {
+            throw new RuntimeException("countAll failed", e);
         }
     }
 

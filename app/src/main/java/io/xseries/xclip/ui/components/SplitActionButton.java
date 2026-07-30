@@ -36,7 +36,7 @@ public final class SplitActionButton extends HBox {
         this.mainButton.getStyleClass().add("split-action-main");
 
         menuButton = new Button();
-        menuButton.setGraphic(SvgIcon.of("chevron-down", 14, "split-chevron-icon"));
+        menuButton.setGraphic(SvgIcon.of("chevron-down", 12, "split-chevron-icon"));
         menuButton.setAccessibleText("Paste options");
         menuButton.setTooltip(new Tooltip("Paste options"));
         menuButton.setFocusTraversable(false);
@@ -48,13 +48,13 @@ public final class SplitActionButton extends HBox {
 
         MenuItem pasteItem = new MenuItem(
                 "Paste",
-                SvgIcon.of("clipboard-paste", 15, "menu-item-icon")
+                SvgIcon.of("clipboard-paste", 14, "menu-item-icon")
         );
         pasteItem.setOnAction(event -> pasteAction.run());
 
         MenuItem copyItem = new MenuItem(
                 "Copy only",
-                SvgIcon.of("copy", 15, "menu-item-icon")
+                SvgIcon.of("copy", 14, "menu-item-icon")
         );
         copyItem.setOnAction(event -> copyOnlyAction.run());
 
@@ -63,7 +63,7 @@ public final class SplitActionButton extends HBox {
             if (menu.isShowing()) {
                 menu.hide();
             } else {
-                menu.show(menuButton, Side.TOP, 0, -4);
+                menu.show(menuButton, Side.TOP, 0, -2);
             }
         });
 

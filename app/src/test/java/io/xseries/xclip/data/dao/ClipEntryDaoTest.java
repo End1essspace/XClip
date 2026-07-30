@@ -1,4 +1,3 @@
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -47,6 +46,31 @@ class ClipEntryDaoTest {
             assertEquals(3_000L, rows.get(0).createdAt());
             assertEquals("beta", rows.get(1).content());
             assertEquals(2, usageCount(db.jdbcUrl(), "hash-alpha"));
+        } finally {
+            dao.closeForCurrentThread();
+            db.close();
+        }
+    }
+
+    @Test
+    void countAllIsIndependentOfPinnedStateAndListFilters() {
+        Path dbPath = tempDir.resolve("count-all.db");
+        Database db = new Database(dbPath);
+        db.init();
+
+        ClipEntryDao dao = new ClipEntryDao(db.jdbcUrl());
+        try {
+            dao.insert("alpha", "alpha", "hash-alpha", 1_000L);
+            dao.insert("beta", "beta", "hash-beta", 2_000L);
+            dao.insert("gamma", "gamma", "hash-gamma", 3_000L);
+
+            long betaId = idFor(dao, "beta");
+            dao.setFavorite(betaId, true);
+
+            assertEquals(3, dao.countAll());
+            assertEquals(1, dao.listLatest(10, true).size());
+            assertEquals(2, dao.listLatest(10, false).size());
+            assertEquals(3, dao.countAll());
         } finally {
             dao.closeForCurrentThread();
             db.close();

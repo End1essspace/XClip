@@ -31,7 +31,7 @@ import java.util.Objects;
  */
 public final class PopupTitleBar extends HBox {
 
-    private static final double APP_ICON_SIZE = 24.0;
+    private static final double APP_ICON_SIZE = 20.0;
 
     private final WindowChromeController chrome;
     private final Button maximizeButton;
@@ -80,7 +80,7 @@ public final class PopupTitleBar extends HBox {
     }
 
     private HBox createDragRegion() {
-        HBox dragRegion = new HBox(12.0);
+        HBox dragRegion = new HBox(9.0);
         dragRegion.setAlignment(Pos.CENTER_LEFT);
         dragRegion.setMaxWidth(Double.MAX_VALUE);
         dragRegion.getStyleClass().add("title-drag-region");
@@ -126,7 +126,7 @@ public final class PopupTitleBar extends HBox {
             String extraStyleClass
     ) {
         Button button = new Button();
-        button.setGraphic(SvgIcon.of(iconName, 15, "window-control-icon"));
+        button.setGraphic(SvgIcon.of(iconName, 13, "window-control-icon"));
         button.setFocusTraversable(false);
         button.setAccessibleText(tooltip);
         button.setTooltip(new Tooltip(tooltip));
@@ -138,7 +138,7 @@ public final class PopupTitleBar extends HBox {
         String iconName = maximized ? "copy" : "square";
         String label = maximized ? "Restore" : "Maximize";
 
-        maximizeButton.setGraphic(SvgIcon.of(iconName, 14, "window-control-icon"));
+        maximizeButton.setGraphic(SvgIcon.of(iconName, 12, "window-control-icon"));
         maximizeButton.setAccessibleText(label);
         maximizeButton.setTooltip(new Tooltip(label));
     }

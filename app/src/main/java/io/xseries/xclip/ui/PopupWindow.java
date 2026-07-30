@@ -1,7 +1,3 @@
-
-
-
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -286,7 +282,7 @@ public final class PopupWindow {
         searchField.getStyleClass().add("search-field");
 
         Button clearSearchBtn = new Button();
-        clearSearchBtn.setGraphic(SvgIcon.of("x", 14, "search-clear-icon"));
+        clearSearchBtn.setGraphic(SvgIcon.of("x", 12, "search-clear-icon"));
         clearSearchBtn.setFocusTraversable(false);
         clearSearchBtn.setAccessibleText("Clear search");
         clearSearchBtn.setTooltip(new Tooltip("Clear search"));
@@ -294,7 +290,7 @@ public final class PopupWindow {
         clearSearchBtn.setVisible(false);
         clearSearchBtn.setManaged(false);
 
-        SvgIcon searchIcon = SvgIcon.of("search", 19, "search-leading-icon");
+        SvgIcon searchIcon = SvgIcon.of("search", 16, "search-leading-icon");
         Label searchShortcut = new Label("Ctrl + K");
         searchShortcut.getStyleClass().add("search-shortcut");
         searchShortcut.setMouseTransparent(true);
@@ -379,7 +375,7 @@ public final class PopupWindow {
         Tooltip.install(help, tip);
 
         Button pauseBtn = new Button("Pause");
-        pauseBtn.setGraphic(SvgIcon.of("pause", 17, "toolbar-icon", "pause-icon"));
+        pauseBtn.setGraphic(SvgIcon.of("pause", 15, "toolbar-icon", "pause-icon"));
         pauseBtn.setContentDisplay(ContentDisplay.LEFT);
         pauseBtn.setFocusTraversable(false);
         pauseBtn.setOnAction(e -> onTogglePaused.run());
@@ -390,7 +386,7 @@ public final class PopupWindow {
         settingsBtn.setOnAction(e -> openSettings());
 
         Button clearBtn = new Button("Clear");
-        clearBtn.setGraphic(SvgIcon.of("trash-2", 17, "toolbar-icon", "clear-icon"));
+        clearBtn.setGraphic(SvgIcon.of("trash-2", 15, "toolbar-icon", "clear-icon"));
         clearBtn.setContentDisplay(ContentDisplay.LEFT);
         clearBtn.setFocusTraversable(false);
         clearBtn.setTooltip(new Tooltip("Clear visible non-pinned clips"));
@@ -401,22 +397,22 @@ public final class PopupWindow {
         searchWrap.getStyleClass().add("search-wrap");
 
         StackPane.setAlignment(searchIcon, Pos.CENTER_LEFT);
-        StackPane.setMargin(searchIcon, new Insets(0, 0, 0, 16));
+        StackPane.setMargin(searchIcon, new Insets(0, 0, 0, 13));
         StackPane.setAlignment(searchShortcut, Pos.CENTER_RIGHT);
-        StackPane.setMargin(searchShortcut, new Insets(0, 14, 0, 0));
+        StackPane.setMargin(searchShortcut, new Insets(0, 12, 0, 0));
         StackPane.setAlignment(clearSearchBtn, Pos.CENTER_RIGHT);
-        StackPane.setMargin(clearSearchBtn, new Insets(0, 10, 0, 0));
+        StackPane.setMargin(clearSearchBtn, new Insets(0, 8, 0, 0));
 
         searchWrap.setMinWidth(420);
         searchWrap.setPrefWidth(820);
         searchWrap.setMaxWidth(Double.MAX_VALUE);
         HBox.setHgrow(searchWrap, Priority.ALWAYS);
 
-        HBox statusGroup = new HBox(14, countLabel, selectedLabel);
+        HBox statusGroup = new HBox(10, countLabel, selectedLabel);
         statusGroup.setAlignment(Pos.CENTER_RIGHT);
         statusGroup.getStyleClass().add("popup-status-group");
 
-        HBox controlGroup = new HBox(10, pauseBtn, settingsBtn, help, clearBtn);
+        HBox controlGroup = new HBox(7, pauseBtn, settingsBtn, help, clearBtn);
         controlGroup.setAlignment(Pos.CENTER_RIGHT);
         controlGroup.getStyleClass().add("popup-control-group");
 
@@ -438,13 +434,13 @@ public final class PopupWindow {
         PopupTitleBar popupTitleBar = new PopupTitleBar(stage, windowChrome);
 
         Button pasteBtn = new Button("Paste");
-        pasteBtn.setGraphic(SvgIcon.of("clipboard-paste", 17, "action-icon"));
+        pasteBtn.setGraphic(SvgIcon.of("clipboard-paste", 15, "action-icon"));
         pasteBtn.setContentDisplay(ContentDisplay.LEFT);
         pasteBtn.setOnAction(e -> pasteSelectedOrFirst());
         pasteBtn.getStyleClass().addAll("action-btn", "action-primary");
 
         Button copyBtn = new Button("Copy");
-        copyBtn.setGraphic(SvgIcon.of("copy", 17, "action-icon"));
+        copyBtn.setGraphic(SvgIcon.of("copy", 15, "action-icon"));
         copyBtn.setContentDisplay(ContentDisplay.LEFT);
         copyBtn.setOnAction(e -> copySelectedOrFirst());
         copyBtn.getStyleClass().addAll("action-btn", "action-neutral");
@@ -453,10 +449,10 @@ public final class PopupWindow {
         Label actionsText = new Label("Actions");
         actionsText.getStyleClass().add("action-button-label");
         HBox actionsGraphic = new HBox(
-                8,
-                SvgIcon.of("zap", 17, "action-icon"),
+                6,
+                SvgIcon.of("zap", 15, "action-icon"),
                 actionsText,
-                SvgIcon.of("chevron-down", 14, "action-chevron-icon")
+                SvgIcon.of("chevron-down", 12, "action-chevron-icon")
         );
         actionsGraphic.setAlignment(Pos.CENTER);
         actionsBtn.setGraphic(actionsGraphic);
@@ -466,13 +462,13 @@ public final class PopupWindow {
         actionsBtn.getStyleClass().addAll("action-btn", "action-neutral", "actions-menu-button");
 
         Button favBtn = new Button("Pin / Unpin");
-        favBtn.setGraphic(SvgIcon.of("pin", 17, "action-icon", "favorite-action-icon"));
+        favBtn.setGraphic(SvgIcon.of("pin", 15, "action-icon", "favorite-action-icon"));
         favBtn.setContentDisplay(ContentDisplay.LEFT);
         favBtn.setOnAction(e -> toggleFavoriteSelected());
         favBtn.getStyleClass().addAll("action-btn", "action-neutral", "action-state");
 
         Button delBtn = new Button("Delete");
-        delBtn.setGraphic(SvgIcon.of("trash-2", 17, "action-icon", "danger-action-icon"));
+        delBtn.setGraphic(SvgIcon.of("trash-2", 15, "action-icon", "danger-action-icon"));
         delBtn.setContentDisplay(ContentDisplay.LEFT);
         delBtn.setOnAction(e -> deleteSelected());
         delBtn.getStyleClass().addAll("action-btn", "action-danger");
@@ -902,7 +898,7 @@ public final class PopupWindow {
 
     private Button iconButton(String iconName, String accessibleText, String extraStyleClass) {
         Button button = new Button();
-        button.setGraphic(SvgIcon.of(iconName, 17, "toolbar-icon"));
+        button.setGraphic(SvgIcon.of(iconName, 15, "toolbar-icon"));
         button.setFocusTraversable(false);
         button.setAccessibleText(accessibleText);
         button.setTooltip(new Tooltip(accessibleText));
@@ -959,8 +955,8 @@ public final class PopupWindow {
         typeFilterCombo.setItems(typeOptions);
         typeFilterCombo.getSelectionModel().selectFirst();
         typeFilterCombo.setFocusTraversable(false);
-        typeFilterCombo.setPrefWidth(210);
-        typeFilterCombo.setMinWidth(180);
+        typeFilterCombo.setPrefWidth(190);
+        typeFilterCombo.setMinWidth(160);
         typeFilterCombo.getStyleClass().add("filter-type-combo");
         typeFilterCombo.valueProperty().addListener((obs, oldValue, newValue) -> {
             if (filterUiSync) return;
@@ -968,7 +964,7 @@ public final class PopupWindow {
             setFilterState(viewState.scope(), type, true);
         });
 
-        resetFiltersBtn.setGraphic(SvgIcon.of("rotate-ccw", 15, "filter-icon", "filter-reset-icon"));
+        resetFiltersBtn.setGraphic(SvgIcon.of("rotate-ccw", 13, "filter-icon", "filter-reset-icon"));
         resetFiltersBtn.setContentDisplay(ContentDisplay.LEFT);
         resetFiltersBtn.setFocusTraversable(false);
         resetFiltersBtn.getStyleClass().add("filter-reset");
@@ -987,7 +983,7 @@ public final class PopupWindow {
             case PINNED -> "pin";
             case RECENT -> "rotate-ccw-clock";
         };
-        button.setGraphic(SvgIcon.of(iconName, 15, "filter-icon"));
+        button.setGraphic(SvgIcon.of(iconName, 13, "filter-icon"));
         button.getStyleClass().add("filter-toggle");
     }
 
@@ -1324,6 +1320,8 @@ public final class PopupWindow {
                     ? limit
                     : Math.max(limit, TYPE_FILTER_SCAN_LIMIT);
 
+            int totalClipCount = dao.countAll();
+
             List<ClipEntry> candidates = normQuery.isBlank()
                     ? dao.listLatest(candidateLimit, scopeSnapshot.favoriteFilter())
                     : dao.search(normQuery, candidateLimit, scopeSnapshot.favoriteFilter());
@@ -1346,7 +1344,11 @@ public final class PopupWindow {
                 if (requestGeneration != reloadGeneration.get()) return;
 
                 items.setAll(buildRows(list));
-                countLabel.setText("Clips " + countClips(items));
+                int visibleClipCount = countClips(items);
+                countLabel.setText("Clips " + totalClipCount);
+                countLabel.setTooltip(visibleClipCount < totalClipCount
+                        ? new Tooltip("Showing " + visibleClipCount + " of " + totalClipCount + " clips")
+                        : null);
 
                 updateEmptyStateText();
 
