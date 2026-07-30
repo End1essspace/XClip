@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -37,10 +38,11 @@ class PopupViewStateTest {
     void popupRowsExposeStableSectionAndClipContracts() {
         ClipEntry entry = new ClipEntry(7L, "content", null, false, null, 10L);
 
-        PopupRow.SectionRow section = new PopupRow.SectionRow(null);
+        PopupRow.SectionRow section = new PopupRow.SectionRow(null, -3);
         PopupRow.ClipRow clip = new PopupRow.ClipRow(entry);
 
         assertEquals("", section.title());
+        assertEquals(0, section.count());
         assertSame(entry, clip.entry());
         assertThrows(NullPointerException.class, () -> new PopupRow.ClipRow(null));
     }

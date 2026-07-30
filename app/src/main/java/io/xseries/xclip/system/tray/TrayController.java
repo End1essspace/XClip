@@ -1,4 +1,5 @@
 
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -156,11 +157,8 @@ public final class TrayController {
                 isPaused ? "Resume capturing" : "Pause capturing",
                 isPaused,
                 () -> {
-                    boolean next = !paused.get();
-                    paused.set(next);
-                    updateIcon(next);
+                    togglePaused();
                     hideTrayMenu();
-                    Platform.runLater(() -> onPausedChanged.accept(next));
                 }
         ));
 
@@ -395,6 +393,24 @@ public final class TrayController {
 
     public boolean isPaused() {
         return paused.get();
+    }
+
+    /**
+     * Toggles clipboard capture from either the tray menu or the popup header.
+     * Both surfaces receive the same state-change notification.
+     */
+    public boolean togglePaused() {
+        boolean current;
+        boolean next;
+        do {
+            current = paused.get();
+            next = !current;
+        } while (!paused.compareAndSet(current, next));
+
+        updateIcon(next);
+        boolean notifiedState = next;
+        Platform.runLater(() -> onPausedChanged.accept(notifiedState));
+        return next;
     }
 
     public void setOnPausedChanged(Consumer<Boolean> onPausedChanged) {

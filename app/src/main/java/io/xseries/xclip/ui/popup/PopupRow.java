@@ -11,15 +11,13 @@ import java.util.Objects;
 
 /**
  * Immutable rows rendered by the popup list.
- *
- * Keeping section and clip rows outside PopupWindow makes the list contract
- * explicit and prepares the UI for a dedicated reusable cell implementation.
  */
 public sealed interface PopupRow permits PopupRow.SectionRow, PopupRow.ClipRow {
 
-    record SectionRow(String title) implements PopupRow {
+    record SectionRow(String title, int count) implements PopupRow {
         public SectionRow {
             title = Objects.requireNonNullElse(title, "");
+            count = Math.max(0, count);
         }
     }
 

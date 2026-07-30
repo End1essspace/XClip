@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -7,6 +8,7 @@ package io.xseries.xclip.ui.popup;
 
 import io.xseries.xclip.data.model.ClipEntry;
 import io.xseries.xclip.domain.model.ClipPrimaryAction;
+import javafx.geometry.Side;
 import javafx.scene.Node;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Menu;
@@ -102,9 +104,19 @@ public final class PopupActionsMenu {
             double screenY,
             List<ClipEntry> selected
     ) {
+        if (!prepare(owner, selected)) return;
+        contextMenu.show(owner, screenX, screenY);
+    }
+
+    public void showAbove(Node owner, List<ClipEntry> selected) {
+        if (!prepare(owner, selected)) return;
+        contextMenu.show(owner, Side.TOP, 0, -4);
+    }
+
+    private boolean prepare(Node owner, List<ClipEntry> selected) {
         if (owner == null || selected == null || selected.isEmpty()) {
             hide();
-            return;
+            return false;
         }
 
         pasteItem.setDisable(false);
@@ -129,8 +141,7 @@ public final class PopupActionsMenu {
         renameItem.setDisable(!singlePinned);
         clearTitleItem.setDisable(!singlePinned || !single.hasTitle());
         movePinnedMenu.setDisable(!singlePinned);
-
-        contextMenu.show(owner, screenX, screenY);
+        return true;
     }
 
     public void hide() {

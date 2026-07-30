@@ -1,5 +1,6 @@
 
 
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -18,6 +19,7 @@ import io.xseries.xclip.ui.popup.PopupRow;
 import io.xseries.xclip.ui.popup.PopupRow.ClipRow;
 import io.xseries.xclip.ui.popup.PopupRow.SectionRow;
 import io.xseries.xclip.ui.popup.PopupViewState;
+import io.xseries.xclip.ui.components.WindowsGlyphs;
 import io.xseries.xclip.system.window.WindowChromeController;
 import io.xseries.xclip.system.window.WindowChromeController.WindowBounds;
 import io.xseries.xclip.system.window.WindowsTitleBar;
@@ -79,6 +81,7 @@ public final class PopupWindow {
     private Button copyBtnRef;
     private Button favBtnRef;
     private Button delBtnRef;
+    private Button pauseBtnRef;
 
     // Preview behavior (prevents "text wall" in list)
     private static final int PREVIEW_LINES = 3;
@@ -115,6 +118,7 @@ public final class PopupWindow {
     private final ExternalOpenService externalOpenService = new ExternalOpenService();
 
     private final Runnable onOpenSettings;
+    private final Runnable onTogglePaused;
 
     // per-entry expand state for "More/Less"
     private final Map<Long, Boolean> expandedById = new HashMap<>();
@@ -125,7 +129,6 @@ public final class PopupWindow {
     private final Map<Long, ContentTypeCache> contentTypeCache = new ConcurrentHashMap<>();
 
     // v1.1 UX state
-    private final Label pausedBadge = new Label("PAUSED");
     private final Label countLabel = new Label();
     private final Label emptyStateLabel = new Label();
     private volatile boolean paused = false;
@@ -205,6 +208,7 @@ public final class PopupWindow {
                 clipboard,
                 clipService,
                 onOpenSettings,
+                () -> {},
                 PasteService.createDefault(clipboard, clipService)
         );
     }
@@ -216,11 +220,23 @@ public final class PopupWindow {
             Runnable onOpenSettings,
             PasteService pasteService
     ) {
+        this(dao, clipboard, clipService, onOpenSettings, () -> {}, pasteService);
+    }
+
+    public PopupWindow(
+            ClipEntryDao dao,
+            ClipboardAccess clipboard,
+            ClipService clipService,
+            Runnable onOpenSettings,
+            Runnable onTogglePaused,
+            PasteService pasteService
+    ) {
         this.dao = dao;
         this.clipboard = clipboard;
         this.clipService = clipService;
         this.pasteService = java.util.Objects.requireNonNull(pasteService);
         this.onOpenSettings = (onOpenSettings != null) ? onOpenSettings : (() -> {});
+        this.onTogglePaused = (onTogglePaused != null) ? onTogglePaused : (() -> {});
         this.actionsMenu = createPopupActionsMenu();
 
         stage = new Stage(StageStyle.UNDECORATED);
@@ -255,29 +271,31 @@ public final class PopupWindow {
         listView.setPlaceholder(emptyStateLabel);
         updateEmptyStateText();
 
-        // Paused badge
-        pausedBadge.setVisible(false);
-        pausedBadge.setManaged(false);
-        pausedBadge.setPadding(new Insets(2, 8, 2, 8));
-        pausedBadge.getStyleClass().add("paused-badge");
-
         // Clip count indicator (counts only real clips, not section rows)
         countLabel.getStyleClass().add("topbar-status");
-        countLabel.setText("Clips: 0");
+        countLabel.setText("Clips 0");
 
         selectedLabel.getStyleClass().add("topbar-status");
         selectedLabel.setVisible(false);
         selectedLabel.setManaged(false);
 
-        searchField.setPromptText("Search…");
+        searchField.setPromptText("Search clips...");
         searchField.setMaxWidth(Double.MAX_VALUE);
         searchField.getStyleClass().add("search-field");
 
-        Button clearSearchBtn = new Button("×");
+        Button clearSearchBtn = new Button();
+        clearSearchBtn.setGraphic(WindowsGlyphs.icon(WindowsGlyphs.CLOSE, "search-clear-glyph"));
         clearSearchBtn.setFocusTraversable(false);
+        clearSearchBtn.setAccessibleText("Clear search");
+        clearSearchBtn.setTooltip(new Tooltip("Clear search"));
         clearSearchBtn.getStyleClass().add("search-clear");
         clearSearchBtn.setVisible(false);
         clearSearchBtn.setManaged(false);
+
+        Label searchIcon = WindowsGlyphs.icon(WindowsGlyphs.SEARCH, "search-leading-icon");
+        Label searchShortcut = new Label("Ctrl + K");
+        searchShortcut.getStyleClass().add("search-shortcut");
+        searchShortcut.setMouseTransparent(true);
 
         clearSearchBtn.setOnAction(e -> {
             searchField.clear();
@@ -288,6 +306,8 @@ public final class PopupWindow {
             boolean has = n != null && !n.isBlank();
             clearSearchBtn.setVisible(has);
             clearSearchBtn.setManaged(has);
+            searchShortcut.setVisible(!has);
+            searchShortcut.setManaged(!has);
             debounceReload();
         });
 
@@ -320,61 +340,35 @@ public final class PopupWindow {
         });
 
         // Help
-        Button help = new Button("?");
-        help.setFocusTraversable(false);
-        help.setAlignment(Pos.CENTER);
-        help.setPadding(new Insets(2, 8, 2, 8));
+        Button help = iconButton(WindowsGlyphs.HELP, "Quick help", "topbar-help");
 
         Tooltip tip = new Tooltip("""
         XClip — Quick Help
 
         Search:
-        • Ctrl+F         Focus search
-        • Ctrl+L         Clear search
-        • Enter          Jump to first result
-        • Esc            Clear search (if not empty) / Hide popup (if empty)
-        • Tab            Focus list
-
-        Filters:
-        • All / Pinned / Recent restrict the visible section
-        • Type filters by TEXT, CODE, URL, PATH, JSON, or COMMAND
-        • Reset filters returns to the complete view
-        • Search and filters can be combined
+        • Ctrl+K / Ctrl+F Focus search
+        • Ctrl+L          Clear search
+        • Enter           Jump to first result
+        • Esc             Clear search / Hide popup
+        • Tab             Focus list
 
         Selection:
-        • Ctrl+Click     Toggle item selection
-        • Shift+Click    Select range
-        • Ctrl+A         Select all clips (current list)
-        • Ctrl+Shift+A   Select RECENT section
-        • Ctrl+I         Invert selection
-        • Ctrl+D         Clear selection
+        • Ctrl+Click      Toggle selection
+        • Shift+Click     Select range
+        • Ctrl+A          Select all visible clips
+        • Ctrl+D          Clear selection
 
         Actions:
-        • Ctrl+Shift+V   Open XClip and remember the active app
-        • Enter          Paste selection into the remembered app
-        • Ctrl+C         Copy selection only
-        • Ctrl+P         Pin / Unpin selection
-        • F2             Rename one pinned clip
-        • Alt+↑          Move one pinned clip up
-        • Alt+↓          Move one pinned clip down
-        • E              Expand / Collapse selected recent clip
-        • Delete         Delete selection
-        • Double-click   Paste single item
-        • Click badge    Run the safe primary type action
-        • Right-click    Paste / Copy / Type action / Pin / Rename / Move / Delete
-
-        Window:
-        • Esc            Clear selection → clear search → hide popup (in this order)
-        • Ctrl+,         Settings
-
-        Notes:
-        • Pinned clips are shown in PINNED section
-        • Multi-copy joins clips with new lines
-        • COMMAND actions only copy text; XClip never executes commands
-        • PATH actions reveal files instead of launching them
-        • Popup auto-hides when it loses focus
+        • Enter           Paste
+        • Ctrl+C          Copy only
+        • Ctrl+P          Pin / Unpin
+        • F2              Rename pinned clip
+        • Alt+↑ / Alt+↓   Move pinned clip
+        • Delete          Delete selection
+        • Double-click    Paste single item
+        • Click badge     Safe type action
+        • Right-click     Context actions
         """);
-
         tip.setWrapText(true);
         tip.setMaxWidth(340);
         tip.setShowDelay(Duration.millis(60));
@@ -382,39 +376,45 @@ public final class PopupWindow {
         tip.setShowDuration(Duration.seconds(30));
         Tooltip.install(help, tip);
 
-        help.getStyleClass().addAll("topbar-btn", "topbar-help");
+        Button pauseBtn = new Button("Pause");
+        pauseBtn.setGraphic(WindowsGlyphs.icon(WindowsGlyphs.PAUSE, "toolbar-glyph"));
+        pauseBtn.setContentDisplay(ContentDisplay.LEFT);
+        pauseBtn.setFocusTraversable(false);
+        pauseBtn.setOnAction(e -> onTogglePaused.run());
+        pauseBtn.getStyleClass().addAll("topbar-btn", "pause-button");
+        this.pauseBtnRef = pauseBtn;
 
-        // Settings button
-        Button settingsBtn = new Button("Settings");
-        settingsBtn.setFocusTraversable(false);
-        settingsBtn.setTooltip(new Tooltip("Open settings"));
+        Button settingsBtn = iconButton(WindowsGlyphs.SETTINGS, "Open settings", "topbar-settings");
         settingsBtn.setOnAction(e -> openSettings());
-        settingsBtn.getStyleClass().add("topbar-btn");
 
-        // Clear button
         Button clearBtn = new Button("Clear");
+        clearBtn.setGraphic(WindowsGlyphs.icon(WindowsGlyphs.DELETE, "toolbar-glyph"));
+        clearBtn.setContentDisplay(ContentDisplay.LEFT);
         clearBtn.setFocusTraversable(false);
-        clearBtn.setTooltip(new Tooltip("Clear non-favorites (keeps pinned)"));
+        clearBtn.setTooltip(new Tooltip("Clear visible non-pinned clips"));
         clearBtn.setOnAction(e -> clearHistoryNonFavorites());
-        clearBtn.getStyleClass().add("topbar-btn");
+        clearBtn.getStyleClass().addAll("topbar-btn", "clear-history-button");
 
-        StackPane searchWrap = new StackPane(searchField, clearSearchBtn);
+        StackPane searchWrap = new StackPane(searchField, searchIcon, searchShortcut, clearSearchBtn);
         searchWrap.getStyleClass().add("search-wrap");
 
+        StackPane.setAlignment(searchIcon, Pos.CENTER_LEFT);
+        StackPane.setMargin(searchIcon, new Insets(0, 0, 0, 16));
+        StackPane.setAlignment(searchShortcut, Pos.CENTER_RIGHT);
+        StackPane.setMargin(searchShortcut, new Insets(0, 14, 0, 0));
         StackPane.setAlignment(clearSearchBtn, Pos.CENTER_RIGHT);
-        StackPane.setMargin(clearSearchBtn, new Insets(0, 8, 0, 0));
+        StackPane.setMargin(clearSearchBtn, new Insets(0, 10, 0, 0));
+
+        searchWrap.setMinWidth(420);
+        searchWrap.setPrefWidth(820);
+        searchWrap.setMaxWidth(Double.MAX_VALUE);
         HBox.setHgrow(searchWrap, Priority.ALWAYS);
 
-        searchWrap.setMinWidth(520);
-        searchWrap.setPrefWidth(760);
-        searchWrap.setMaxWidth(980);
-        HBox.setHgrow(searchWrap, Priority.ALWAYS);
-
-        HBox statusGroup = new HBox(10, pausedBadge, countLabel, selectedLabel);
+        HBox statusGroup = new HBox(14, countLabel, selectedLabel);
         statusGroup.setAlignment(Pos.CENTER_RIGHT);
         statusGroup.getStyleClass().add("popup-status-group");
 
-        HBox controlGroup = new HBox(8, help, settingsBtn, clearBtn);
+        HBox controlGroup = new HBox(10, pauseBtn, settingsBtn, help, clearBtn);
         controlGroup.setAlignment(Pos.CENTER_RIGHT);
         controlGroup.getStyleClass().add("popup-control-group");
 
@@ -435,20 +435,33 @@ public final class PopupWindow {
         );
         PopupTitleBar popupTitleBar = new PopupTitleBar(stage, windowChrome);
 
-
         Button pasteBtn = new Button("Paste");
+        pasteBtn.setGraphic(WindowsGlyphs.icon(WindowsGlyphs.PASTE, "action-glyph"));
+        pasteBtn.setContentDisplay(ContentDisplay.LEFT);
         pasteBtn.setOnAction(e -> pasteSelectedOrFirst());
         pasteBtn.getStyleClass().addAll("action-btn", "action-primary");
 
         Button copyBtn = new Button("Copy");
+        copyBtn.setGraphic(WindowsGlyphs.icon(WindowsGlyphs.COPY, "action-glyph"));
+        copyBtn.setContentDisplay(ContentDisplay.LEFT);
         copyBtn.setOnAction(e -> copySelectedOrFirst());
         copyBtn.getStyleClass().addAll("action-btn", "action-neutral");
 
-        Button favBtn = new Button("★");
+        Button actionsBtn = new Button("Actions");
+        actionsBtn.setGraphic(WindowsGlyphs.icon(WindowsGlyphs.MORE, "action-glyph"));
+        actionsBtn.setContentDisplay(ContentDisplay.LEFT);
+        actionsBtn.setOnAction(e -> showActionsMenu(actionsBtn));
+        actionsBtn.getStyleClass().addAll("action-btn", "action-neutral", "actions-menu-button");
+
+        Button favBtn = new Button("Pin / Unpin");
+        favBtn.setGraphic(WindowsGlyphs.icon(WindowsGlyphs.PIN, "action-glyph"));
+        favBtn.setContentDisplay(ContentDisplay.LEFT);
         favBtn.setOnAction(e -> toggleFavoriteSelected());
-        favBtn.getStyleClass().addAll("action-btn", "action-neutral");
+        favBtn.getStyleClass().addAll("action-btn", "action-neutral", "action-state");
 
         Button delBtn = new Button("Delete");
+        delBtn.setGraphic(WindowsGlyphs.icon(WindowsGlyphs.DELETE, "action-glyph"));
+        delBtn.setContentDisplay(ContentDisplay.LEFT);
         delBtn.setOnAction(e -> deleteSelected());
         delBtn.getStyleClass().addAll("action-btn", "action-danger");
 
@@ -460,6 +473,7 @@ public final class PopupWindow {
         PopupActionBar actions = new PopupActionBar(
                 pasteBtn,
                 copyBtn,
+                actionsBtn,
                 favBtn,
                 delBtn
         );
@@ -550,7 +564,8 @@ public final class PopupWindow {
                 listView.requestFocus();
                 return;
             }
-            if (e.isControlDown() && e.getCode() == KeyCode.F) {
+            if (e.isControlDown()
+                    && (e.getCode() == KeyCode.F || e.getCode() == KeyCode.K)) {
                 e.consume();
                 searchField.requestFocus();
                 searchField.selectAll();
@@ -867,6 +882,35 @@ public final class PopupWindow {
         );
     }
 
+    private Button iconButton(String glyph, String accessibleText, String extraStyleClass) {
+        Button button = new Button();
+        button.setGraphic(WindowsGlyphs.icon(glyph, "toolbar-glyph"));
+        button.setFocusTraversable(false);
+        button.setAccessibleText(accessibleText);
+        button.setTooltip(new Tooltip(accessibleText));
+        button.getStyleClass().addAll("topbar-btn", "topbar-icon-button");
+        if (extraStyleClass != null && !extraStyleClass.isBlank()) {
+            button.getStyleClass().add(extraStyleClass);
+        }
+        return button;
+    }
+
+    private void showActionsMenu(Node owner) {
+        if (owner == null) return;
+
+        List<ClipEntry> selected = getSelectedClipsOrdered();
+        if (selected.isEmpty()) {
+            int first = findFirstClipIndex();
+            if (first >= 0) {
+                selectCellExclusively(first);
+                selected = getSelectedClipsOrdered();
+            }
+        }
+        if (selected.isEmpty()) return;
+
+        actionsMenu.showAbove(owner, selected);
+    }
+
     private void configureFilterControls() {
         configureScopeToggle(filterAllBtn, ClipViewScope.ALL);
         configureScopeToggle(filterPinnedBtn, ClipViewScope.PINNED);
@@ -897,8 +941,8 @@ public final class PopupWindow {
         typeFilterCombo.setItems(typeOptions);
         typeFilterCombo.getSelectionModel().selectFirst();
         typeFilterCombo.setFocusTraversable(false);
-        typeFilterCombo.setPrefWidth(126);
-        typeFilterCombo.setMinWidth(126);
+        typeFilterCombo.setPrefWidth(210);
+        typeFilterCombo.setMinWidth(180);
         typeFilterCombo.getStyleClass().add("filter-type-combo");
         typeFilterCombo.valueProperty().addListener((obs, oldValue, newValue) -> {
             if (filterUiSync) return;
@@ -906,6 +950,8 @@ public final class PopupWindow {
             setFilterState(viewState.scope(), type, true);
         });
 
+        resetFiltersBtn.setGraphic(WindowsGlyphs.icon(WindowsGlyphs.RESET, "filter-glyph"));
+        resetFiltersBtn.setContentDisplay(ContentDisplay.LEFT);
         resetFiltersBtn.setFocusTraversable(false);
         resetFiltersBtn.getStyleClass().add("filter-reset");
         resetFiltersBtn.setOnAction(e -> setFilterState(ClipViewScope.ALL, null, true));
@@ -917,6 +963,13 @@ public final class PopupWindow {
         button.setToggleGroup(scopeFilterGroup);
         button.setUserData(scope);
         button.setFocusTraversable(false);
+        button.setContentDisplay(ContentDisplay.LEFT);
+        String glyph = switch (scope) {
+            case ALL -> WindowsGlyphs.ALL;
+            case PINNED -> WindowsGlyphs.PIN;
+            case RECENT -> WindowsGlyphs.HISTORY;
+        };
+        button.setGraphic(WindowsGlyphs.icon(glyph, "filter-glyph"));
         button.getStyleClass().add("filter-toggle");
     }
 
@@ -1100,8 +1153,17 @@ public final class PopupWindow {
     public void setPaused(boolean paused) {
         this.paused = paused;
         Platform.runLater(() -> {
-            pausedBadge.setVisible(paused);
-            pausedBadge.setManaged(paused);
+            if (pauseBtnRef != null) {
+                pauseBtnRef.setText(paused ? "Resume" : "Pause");
+                pauseBtnRef.setGraphic(WindowsGlyphs.icon(
+                        paused ? WindowsGlyphs.RESUME : WindowsGlyphs.PAUSE,
+                        "toolbar-glyph"
+                ));
+                pauseBtnRef.pseudoClassStateChanged(
+                        javafx.css.PseudoClass.getPseudoClass("paused"),
+                        paused
+                );
+            }
             updateEmptyStateText();
         });
     }
@@ -1264,7 +1326,7 @@ public final class PopupWindow {
                 if (requestGeneration != reloadGeneration.get()) return;
 
                 items.setAll(buildRows(list));
-                countLabel.setText("Clips: " + countClips(items));
+                countLabel.setText("Clips " + countClips(items));
 
                 updateEmptyStateText();
 
@@ -1321,20 +1383,24 @@ public final class PopupWindow {
     private ObservableList<PopupRow> buildRows(List<ClipEntry> sorted) {
         ObservableList<PopupRow> out = FXCollections.observableArrayList();
 
-        boolean anyPinned = sorted.stream().anyMatch(ClipEntry::favorite);
-        boolean anyRecent = sorted.stream().anyMatch(e -> !e.favorite());
+        int pinnedCount = 0;
+        int recentCount = 0;
+        for (ClipEntry entry : sorted) {
+            if (entry.favorite()) pinnedCount++;
+            else recentCount++;
+        }
 
-        if (anyPinned) {
-            out.add(new SectionRow("PINNED"));
-            for (ClipEntry e : sorted) {
-                if (e.favorite()) out.add(new ClipRow(e));
+        if (pinnedCount > 0) {
+            out.add(new SectionRow("PINNED", pinnedCount));
+            for (ClipEntry entry : sorted) {
+                if (entry.favorite()) out.add(new ClipRow(entry));
             }
         }
 
-        if (anyRecent) {
-            out.add(new SectionRow("RECENT"));
-            for (ClipEntry e : sorted) {
-                if (!e.favorite()) out.add(new ClipRow(e));
+        if (recentCount > 0) {
+            out.add(new SectionRow("RECENT", recentCount));
+            for (ClipEntry entry : sorted) {
+                if (!entry.favorite()) out.add(new ClipRow(entry));
             }
         }
 
@@ -1950,7 +2016,7 @@ public final class PopupWindow {
         boolean has = n > 0;
         selectedLabel.setVisible(has);
         selectedLabel.setManaged(has);
-        selectedLabel.setText(has ? ("Selected: " + n) : "");
+        selectedLabel.setText(has ? ("Selected " + n) : "");
 
         // Buttons
         pasteBtnRef.setText(has ? ("Paste (" + n + ")") : "Paste");
@@ -1958,7 +2024,7 @@ public final class PopupWindow {
         delBtnRef.setText(has ? ("Delete (" + n + ")") : "Delete");
 
         if (!has) {
-            favBtnRef.setText("★");
+            favBtnRef.setText("Pin / Unpin");
             return;
         }
 

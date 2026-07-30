@@ -1,4 +1,5 @@
 
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -84,7 +85,7 @@ public final class XClipApp extends Application {
         this.popup = new PopupWindow(dao, clipboard, clipService, () -> {
             Runnable r = openSettingsRef[0];
             if (r != null) r.run();
-        }, pasteService);
+        }, tray::togglePaused, pasteService);
         popup.enableWindowPersistence(configService, config);
         popup.applyConfig(config);
 

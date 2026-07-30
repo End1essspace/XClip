@@ -6,6 +6,7 @@
 package io.xseries.xclip.ui.popup;
 
 import io.xseries.xclip.system.window.WindowChromeController;
+import io.xseries.xclip.ui.components.WindowsGlyphs;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
@@ -22,17 +23,18 @@ import java.io.InputStream;
 import java.util.Objects;
 
 /**
- * Minimal custom title bar used by the undecorated popup shell.
+ * Custom title bar for the undecorated popup shell.
  *
- * R2.2 intentionally keeps the visual language restrained. The production SVG
- * icon system and final header polish are introduced later in R3/R4.
+ * The bar provides normal Windows window controls while leaving the large
+ * center area draggable. It deliberately contains only product identity and
+ * window management; search and clipboard actions live in PopupHeader.
  */
 public final class PopupTitleBar extends HBox {
 
-    private static final double ICON_SIZE = 16.0;
+    private static final double ICON_SIZE = 20.0;
 
     private final WindowChromeController chrome;
-    private final Button maximizeButton = new Button();
+    private final Button maximizeButton;
 
     public PopupTitleBar(Stage stage, WindowChromeController chrome) {
         Objects.requireNonNull(stage, "stage");
@@ -44,14 +46,25 @@ public final class PopupTitleBar extends HBox {
         HBox dragRegion = createDragRegion();
         HBox.setHgrow(dragRegion, Priority.ALWAYS);
 
-        Button minimizeButton = createWindowButton("—", "Minimize", "window-minimize-button");
+        Button minimizeButton = createWindowButton(
+                WindowsGlyphs.MINIMIZE,
+                "Minimize",
+                "window-minimize-button"
+        );
         minimizeButton.setOnAction(event -> chrome.minimize());
 
-        maximizeButton.getStyleClass().addAll("window-control-button", "window-maximize-button");
-        maximizeButton.setFocusTraversable(false);
+        maximizeButton = createWindowButton(
+                WindowsGlyphs.MAXIMIZE,
+                "Maximize",
+                "window-maximize-button"
+        );
         maximizeButton.setOnAction(event -> chrome.toggleMaximized());
 
-        Button closeButton = createWindowButton("×", "Close to tray", "window-close-button");
+        Button closeButton = createWindowButton(
+                WindowsGlyphs.CLOSE,
+                "Close to tray",
+                "window-close-button"
+        );
         closeButton.setOnAction(event -> chrome.closeToBackground());
 
         HBox controls = new HBox(minimizeButton, maximizeButton, closeButton);
@@ -67,7 +80,7 @@ public final class PopupTitleBar extends HBox {
     }
 
     private HBox createDragRegion() {
-        HBox dragRegion = new HBox(8.0);
+        HBox dragRegion = new HBox(10.0);
         dragRegion.setAlignment(Pos.CENTER_LEFT);
         dragRegion.setMaxWidth(Double.MAX_VALUE);
         dragRegion.getStyleClass().add("title-drag-region");
@@ -107,8 +120,9 @@ public final class PopupTitleBar extends HBox {
         return dragRegion;
     }
 
-    private Button createWindowButton(String text, String tooltip, String extraStyleClass) {
-        Button button = new Button(text);
+    private Button createWindowButton(String glyph, String tooltip, String extraStyleClass) {
+        Button button = new Button();
+        button.setGraphic(WindowsGlyphs.icon(glyph, "window-control-glyph"));
         button.setFocusTraversable(false);
         button.setAccessibleText(tooltip);
         button.setTooltip(new Tooltip(tooltip));
@@ -117,15 +131,12 @@ public final class PopupTitleBar extends HBox {
     }
 
     private void updateMaximizeButton(boolean maximized) {
-        if (maximized) {
-            maximizeButton.setText("❐");
-            maximizeButton.setAccessibleText("Restore");
-            maximizeButton.setTooltip(new Tooltip("Restore"));
-        } else {
-            maximizeButton.setText("□");
-            maximizeButton.setAccessibleText("Maximize");
-            maximizeButton.setTooltip(new Tooltip("Maximize"));
-        }
+        String glyph = maximized ? WindowsGlyphs.RESTORE : WindowsGlyphs.MAXIMIZE;
+        String label = maximized ? "Restore" : "Maximize";
+
+        maximizeButton.setGraphic(WindowsGlyphs.icon(glyph, "window-control-glyph"));
+        maximizeButton.setAccessibleText(label);
+        maximizeButton.setTooltip(new Tooltip(label));
     }
 
     private ImageView loadAppIcon() {
