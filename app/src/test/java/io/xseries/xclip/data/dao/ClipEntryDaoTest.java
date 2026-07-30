@@ -18,6 +18,7 @@ import java.sql.Statement;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 class ClipEntryDaoTest {
 
@@ -71,6 +72,43 @@ class ClipEntryDaoTest {
 
             assertEquals("pinned", rows.get(0).content());
             assertEquals("recent", rows.get(1).content());
+        } finally {
+            dao.closeForCurrentThread();
+            db.close();
+        }
+    }
+
+    @Test
+    void storesPinnedTitleAndSearchesByTitleWithoutChangingContent() {
+        Path dbPath = tempDir.resolve("titles.db");
+        Database db = new Database(dbPath);
+        db.init();
+
+        ClipEntryDao dao = new ClipEntryDao(db.jdbcUrl());
+        try {
+            dao.insert("git status --short", "git status --short", "hash-command", 1_000L);
+
+            ClipEntry entry = dao.listLatest(10).get(0);
+
+            // Titles are intentionally restricted to pinned entries.
+            dao.setTitle(entry.id(), "Should not be stored");
+            assertNull(dao.listLatest(10).get(0).title());
+
+            dao.setFavorite(entry.id(), true);
+            dao.setTitle(entry.id(), "Repository status");
+
+            List<ClipEntry> matches = dao.search("Repository", 10);
+
+            assertEquals(1, matches.size());
+            assertEquals("Repository status", matches.get(0).title());
+            assertEquals("git status --short", matches.get(0).content());
+
+            // Reusing the same clipboard content must not erase user metadata.
+            dao.insert("git status --short", "git status --short", "hash-command", 2_000L);
+            assertEquals("Repository status", dao.listLatest(10).get(0).title());
+
+            dao.setTitle(entry.id(), "   ");
+            assertNull(dao.listLatest(10).get(0).title());
         } finally {
             dao.closeForCurrentThread();
             db.close();

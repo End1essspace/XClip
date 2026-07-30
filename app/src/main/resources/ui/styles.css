@@ -199,6 +199,7 @@
     -fx-background-color: rgba(245, 197, 66, 0.026);
     -fx-border-color: transparent transparent rgba(245, 197, 66, 0.10) rgba(245, 197, 66, 0.45);
     -fx-border-width: 0 0 1 3;
+    -fx-padding: 7 14 7 14;
 }
 
 .clip-list .list-cell:favorite:hover {
@@ -263,6 +264,25 @@
     -fx-text-fill: #EEF2F8;
     -fx-fill: #EEF2F8;
     -fx-font-size: 13px;
+}
+
+.pinned-title {
+    -fx-text-fill: #EEF2F8;
+    -fx-font-size: 13px;
+    -fx-font-weight: 700;
+}
+
+.pinned-title-match {
+    -fx-text-fill: -x-accent;
+}
+
+.pinned-preview {
+    -fx-text-fill: #8E98A8;
+    -fx-font-size: 11.5px;
+}
+
+.pinned-preview-match {
+    -fx-text-fill: #D8B84E;
 }
 
 .clip-time {

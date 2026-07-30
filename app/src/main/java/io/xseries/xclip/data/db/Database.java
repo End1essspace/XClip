@@ -22,7 +22,7 @@ import java.util.stream.Collectors;
 
 public final class Database {
 
-    private static final int CURRENT_SCHEMA_VERSION = 2;
+    private static final int CURRENT_SCHEMA_VERSION = 3;
 
     private final Path dbPath;
     private final String jdbcUrl;
@@ -114,6 +114,7 @@ public final class Database {
         try {
             ensureColumn(c, "last_copied_at", "INTEGER NOT NULL DEFAULT 0");
             ensureColumn(c, "use_count", "INTEGER NOT NULL DEFAULT 1");
+            ensureColumn(c, "title", "TEXT");
 
             try (Statement st = c.createStatement()) {
                 // Existing v1 rows did not have last_copied_at.

@@ -84,7 +84,7 @@ public final class ClipEntryDao {
 
     public List<ClipEntry> listLatest(int limit) {
         String sql = """
-            SELECT id, content, is_favorite, last_copied_at AS created_at
+            SELECT id, content, title, is_favorite, last_copied_at AS created_at
             FROM clip_entries
             ORDER BY is_favorite DESC, last_copied_at DESC, id DESC
             LIMIT ?
@@ -102,9 +102,10 @@ public final class ClipEntryDao {
 
     public List<ClipEntry> search(String q, int limit) {
         String sql = """
-            SELECT id, content, is_favorite, last_copied_at AS created_at
+            SELECT id, content, title, is_favorite, last_copied_at AS created_at
             FROM clip_entries
             WHERE content LIKE ? ESCAPE '\\'
+               OR (is_favorite = 1 AND COALESCE(title, '') LIKE ? ESCAPE '\\')
             ORDER BY is_favorite DESC, last_copied_at DESC, id DESC
             LIMIT ?
             """;
@@ -112,7 +113,8 @@ public final class ClipEntryDao {
         Connection c = conn();
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, like);
-            ps.setInt(2, limit);
+            ps.setString(2, like);
+            ps.setInt(3, limit);
             try (ResultSet rs = ps.executeQuery()) {
                 return map(rs);
             }
@@ -158,6 +160,32 @@ public final class ClipEntryDao {
         }
     }
 
+    /**
+     * Stores an optional user-facing title for a clip.
+     *
+     * Blank titles are persisted as NULL. The clipboard content itself is never changed.
+     */
+    public void setTitle(long id, String title) {
+        String normalized = title == null ? null : title.trim();
+        if (normalized != null && normalized.isEmpty()) {
+            normalized = null;
+        }
+
+        String sql = "UPDATE clip_entries SET title = ? WHERE id = ? AND is_favorite = 1";
+        Connection c = conn();
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            if (normalized == null) {
+                ps.setNull(1, Types.VARCHAR);
+            } else {
+                ps.setString(1, normalized);
+            }
+            ps.setLong(2, id);
+            ps.executeUpdate();
+        } catch (Exception e) {
+            throw new RuntimeException("title update failed", e);
+        }
+    }
+
     public void pruneToLimit(int limit) {
         // Keep ALL favorites; prune only non-favorites.
         String sql = """
@@ -184,9 +212,10 @@ public final class ClipEntryDao {
         while (rs.next()) {
             long id = rs.getLong("id");
             String content = rs.getString("content");
+            String title = rs.getString("title");
             boolean fav = rs.getInt("is_favorite") != 0;
             long createdAt = rs.getLong("created_at");
-            list.add(new ClipEntry(id, content, fav, createdAt));
+            list.add(new ClipEntry(id, content, title, fav, createdAt));
         }
         return list;
     }

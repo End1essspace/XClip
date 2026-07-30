@@ -18,6 +18,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DatabaseMigrationTest {
@@ -67,6 +68,7 @@ class DatabaseMigrationTest {
                     "content",
                     "content_norm",
                     "content_hash",
+                    "title",
                     "is_favorite",
                     "created_at",
                     "last_copied_at",
@@ -75,7 +77,7 @@ class DatabaseMigrationTest {
 
             try (Statement st = c.createStatement();
                  ResultSet rs = st.executeQuery("""
-                         SELECT created_at, last_copied_at, use_count
+                         SELECT created_at, last_copied_at, use_count, title
                          FROM clip_entries
                          WHERE content_hash = 'legacy-hash'
                          """)) {
@@ -83,12 +85,13 @@ class DatabaseMigrationTest {
                 assertEquals(1234L, rs.getLong("created_at"));
                 assertEquals(1234L, rs.getLong("last_copied_at"));
                 assertEquals(1, rs.getInt("use_count"));
+                assertNull(rs.getString("title"));
             }
 
             try (Statement st = c.createStatement();
                  ResultSet rs = st.executeQuery("PRAGMA user_version")) {
                 assertTrue(rs.next());
-                assertEquals(2, rs.getInt(1));
+                assertEquals(3, rs.getInt(1));
             }
 
             assertTrue(hasUniqueHashIndex(c));

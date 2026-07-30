@@ -60,7 +60,7 @@ public final class PopupWindow {
     private double lastNormalH = -1;
 
     private int selectionAnchorIndex = -1;
-    
+
     private io.xseries.xclip.config.ConfigService configService;
     private io.xseries.xclip.config.Config config;
 
@@ -76,6 +76,11 @@ public final class PopupWindow {
     // Preview behavior (prevents "text wall" in list)
     private static final int PREVIEW_LINES = 3;
     private static final int PREVIEW_CHAR_LIMIT = 320;
+
+    // Pinned clips remain intentionally compact even when their content is large.
+    private static final int PINNED_TITLE_MAX_LENGTH = 120;
+    private static final int PINNED_COMPACT_CHAR_LIMIT = 220;
+    private static final int TOOLTIP_CHAR_LIMIT = 2_000;
 
     // Expanded preview (still bounded to protect UI)
     private static final int EXPANDED_LINES = 200;
@@ -166,6 +171,8 @@ public final class PopupWindow {
     private final MenuItem miPaste = new MenuItem("Paste");
     private final MenuItem miCopy = new MenuItem("Copy");
     private final MenuItem miPin = new MenuItem("Pin / Unpin");
+    private final MenuItem miRename = new MenuItem("Rename pinned clip…");
+    private final MenuItem miClearTitle = new MenuItem("Clear title");
     private final MenuItem miDelete = new MenuItem("Delete");
 
     public PopupWindow(ClipEntryDao dao, ClipboardAccess clipboard, ClipService clipService) {
@@ -315,10 +322,11 @@ public final class PopupWindow {
         • Enter          Paste selection into the remembered app
         • Ctrl+C         Copy selection only
         • Ctrl+P         Pin / Unpin selection
-        • E              Expand / Collapse selected clip (bounded preview)
+        • F2             Rename one pinned clip
+        • E              Expand / Collapse selected recent clip
         • Delete         Delete selection
         • Double-click   Paste single item
-        • Right-click    Context menu (Paste / Copy / Pin / Delete)
+        • Right-click    Context menu (Paste / Copy / Pin / Rename / Delete)
 
         Window:
         • Esc            Clear selection → clear search → hide popup (in this order)
@@ -502,7 +510,14 @@ public final class PopupWindow {
                 openSettings();
                 return;
             }
-            // Expand/Collapse selected clip (UI-only, bounded)
+            if (!e.isControlDown() && !e.isAltDown() && !e.isMetaDown() && e.getCode() == KeyCode.F2) {
+                if (e.getTarget() instanceof TextInputControl) return;
+
+                e.consume();
+                renameSelectedPinned();
+                return;
+            }
+            // Expand/Collapse selected recent clip (UI-only, bounded)
             if (!e.isControlDown() && !e.isAltDown() && !e.isMetaDown() && e.getCode() == KeyCode.E) {
                 // do not hijack typing in search/inputs
                 if (e.getTarget() instanceof TextInputControl) return;
@@ -540,8 +555,19 @@ public final class PopupWindow {
         miPaste.setOnAction(e -> pasteSelectedOrFirst());
         miCopy.setOnAction(e -> copySelectedOrFirst());
         miPin.setOnAction(e -> toggleFavoriteSelected());
+        miRename.setOnAction(e -> renameSelectedPinned());
+        miClearTitle.setOnAction(e -> clearSelectedTitle());
         miDelete.setOnAction(e -> deleteSelected());
-        ctxMenu.getItems().addAll(miPaste, miCopy, miPin, new SeparatorMenuItem(), miDelete);
+        ctxMenu.getItems().addAll(
+                miPaste,
+                miCopy,
+                miPin,
+                new SeparatorMenuItem(),
+                miRename,
+                miClearTitle,
+                new SeparatorMenuItem(),
+                miDelete
+        );
 
         toastHide.setOnFinished(e -> {
             toast.setVisible(false);
@@ -829,7 +855,7 @@ public final class PopupWindow {
             Platform.runLater(() -> {
                 items.setAll(buildRows(list));
                 countLabel.setText("Clips: " + countClips(items));
-                
+
                 updateEmptyStateText();
 
                 if (items.isEmpty()) return;
@@ -1011,21 +1037,117 @@ public final class PopupWindow {
             });
         });
     }
-    
+
+    private void renameSelectedPinned() {
+        List<ClipEntry> selected = getSelectedClipsOrdered();
+        if (selected.size() != 1 || !selected.get(0).favorite()) {
+            showToast("Select one pinned clip");
+            return;
+        }
+
+        ClipEntry entry = selected.get(0);
+        pasteService.clearTarget();
+        suppressAutoHide = true;
+        autoHideDelay.stop();
+
+        TextInputDialog dialog = new TextInputDialog(entry.title() == null ? "" : entry.title());
+        dialog.initOwner(stage);
+        dialog.initModality(Modality.WINDOW_MODAL);
+        dialog.setTitle("Rename pinned clip");
+        dialog.setHeaderText("Give this pinned clip a short title");
+        dialog.setContentText("Title:");
+
+        dialog.getDialogPane().getStylesheets().add(
+                getClass().getResource("/ui/styles.css").toExternalForm()
+        );
+        dialog.getDialogPane().getStyleClass().add("x-dialog");
+
+        TextField editor = dialog.getEditor();
+        editor.setPromptText("Example: XCC release checklist");
+        editor.setTextFormatter(new TextFormatter<String>(change ->
+                change.getControlNewText().length() <= PINNED_TITLE_MAX_LENGTH ? change : null
+        ));
+
+        dialog.setOnShown(ev -> {
+            Object window = dialog.getDialogPane().getScene().getWindow();
+            if (window instanceof Stage dialogStage) {
+                WindowsTitleBar.applyDarkTitleBar(dialogStage);
+            }
+            editor.requestFocus();
+            editor.selectAll();
+        });
+
+        dialog.setOnHidden(ev -> {
+            suppressAutoHide = false;
+            Platform.runLater(() -> {
+                if (stage.isShowing()) {
+                    stage.toFront();
+                    stage.requestFocus();
+                    listView.requestFocus();
+                }
+            });
+        });
+
+        dialog.showAndWait().ifPresent(value -> {
+            String normalized = value == null ? "" : value.trim();
+            String oldTitle = entry.title() == null ? "" : entry.title().trim();
+            if (normalized.equals(oldTitle)) return;
+
+            dbExec.submit(() -> {
+                dao.setTitle(entry.id(), normalized);
+                Platform.runLater(() -> {
+                    reloadNow(searchField.getText());
+                    showToast(normalized.isEmpty() ? "Title cleared" : "Title saved");
+                });
+            });
+        });
+    }
+
+    private void clearSelectedTitle() {
+        List<ClipEntry> selected = getSelectedClipsOrdered();
+        if (selected.size() != 1 || !selected.get(0).favorite()) {
+            showToast("Select one pinned clip");
+            return;
+        }
+
+        ClipEntry entry = selected.get(0);
+        if (!entry.hasTitle()) {
+            showToast("No title to clear");
+            return;
+        }
+
+        dbExec.submit(() -> {
+            dao.setTitle(entry.id(), null);
+            Platform.runLater(() -> {
+                reloadNow(searchField.getText());
+                showToast("Title cleared");
+            });
+        });
+    }
+
     private void toggleExpandSelected() {
-        // toggle selected clips; if nothing selected -> toggle first clip in list
+        // Pinned clips intentionally stay compact. Expand applies only to RECENT rows.
         java.util.List<Long> ids = new java.util.ArrayList<>();
 
         for (Row r : listView.getSelectionModel().getSelectedItems()) {
-            if (r instanceof ClipRow cr) ids.add(cr.entry().id());
+            if (r instanceof ClipRow cr && !cr.entry().favorite()) {
+                ids.add(cr.entry().id());
+            }
         }
 
         if (ids.isEmpty()) {
             int first = findFirstClipIndex();
             if (first < 0) return;
+
             Row r = items.get(first);
-            if (r instanceof ClipRow cr) ids.add(cr.entry().id());
-            else return;
+            if (r instanceof ClipRow cr && !cr.entry().favorite()) {
+                ids.add(cr.entry().id());
+            }
+        }
+
+        if (ids.isEmpty()) {
+            showToast("Pinned clips stay compact");
+            return;
         }
 
         // If any is collapsed -> expand all. Else collapse all.
@@ -1124,7 +1246,7 @@ public final class PopupWindow {
         stage.setX(Math.max(screen.getMinX() + 12, x));
         stage.setY(Math.max(screen.getMinY() + 12, y));
     }
-    
+
     private PreviewData getPreviewData(long id, String full) {
         PreviewData cached = previewCache.get(id);
         if (cached != null) return cached;
@@ -1245,6 +1367,9 @@ public final class PopupWindow {
         private final HBox clipRoot = new HBox(12);
         private final VBox clipLeft = new VBox(2);
         private final Label timeLabel = new Label();
+        private final Label pinnedTitleLabel = new Label();
+        private final Label pinnedPreviewLabel = new Label();
+        private final Tooltip clipTooltip = new Tooltip();
         private final Hyperlink toggleLink = new Hyperlink();
         private static final PseudoClass SECTION_PC = PseudoClass.getPseudoClass("section");
         private static final PseudoClass FAVORITE_PC = PseudoClass.getPseudoClass("favorite");
@@ -1258,9 +1383,29 @@ public final class PopupWindow {
 
             // IMPORTANT: prevent row expansion
             clipRoot.setMaxWidth(Double.MAX_VALUE);
-            
+
             toggleLink.getStyleClass().add("clip-toggle");
             toggleLink.setPadding(Insets.EMPTY);
+
+            pinnedTitleLabel.getStyleClass().add("pinned-title");
+            pinnedTitleLabel.setWrapText(false);
+            pinnedTitleLabel.setTextOverrun(OverrunStyle.ELLIPSIS);
+            pinnedTitleLabel.setMaxWidth(Double.MAX_VALUE);
+            pinnedTitleLabel.setMinWidth(0);
+            pinnedTitleLabel.setPrefWidth(0);
+
+            pinnedPreviewLabel.getStyleClass().add("pinned-preview");
+            pinnedPreviewLabel.setWrapText(false);
+            pinnedPreviewLabel.setTextOverrun(OverrunStyle.ELLIPSIS);
+            pinnedPreviewLabel.setMaxWidth(Double.MAX_VALUE);
+            pinnedPreviewLabel.setMinWidth(0);
+            pinnedPreviewLabel.setPrefWidth(0);
+
+            clipTooltip.setWrapText(true);
+            clipTooltip.setMaxWidth(620);
+            clipTooltip.setShowDelay(Duration.millis(250));
+            clipTooltip.setShowDuration(Duration.seconds(30));
+            Tooltip.install(clipRoot, clipTooltip);
 
             // Right column (fixed width)
             VBox right = new VBox(timeLabel);
@@ -1276,7 +1421,7 @@ public final class PopupWindow {
             HBox.setHgrow(clipLeft, Priority.ALWAYS);
 
             clipLeft.setMaxWidth(Double.MAX_VALUE);
-            
+
             clipRoot.getChildren().setAll(clipLeft, right);
             addEventFilter(MouseEvent.MOUSE_PRESSED, ev -> {
                 if (isEmpty()) return;
@@ -1362,6 +1507,12 @@ public final class PopupWindow {
                 miPaste.setDisable(false);
                 miCopy.setDisable(false);
                 miPin.setDisable(false);
+
+                List<ClipEntry> selected = getSelectedClipsOrdered();
+                boolean singlePinned = selected.size() == 1 && selected.get(0).favorite();
+                miRename.setDisable(!singlePinned);
+                miClearTitle.setDisable(!singlePinned || !selected.get(0).hasTitle());
+
                 miDelete.setDisable(false);
 
                 ctxMenu.show(this, ev.getScreenX(), ev.getScreenY());
@@ -1421,25 +1572,75 @@ public final class PopupWindow {
             pseudoClassStateChanged(FAVORITE_PC, ce.favorite());
 
             long id = ce.id();
-            boolean expanded = expandedById.getOrDefault(id, false);
-
-            String prefix = ce.favorite() ? "★ " : "";
             String full = (ce.content() == null) ? "" : ce.content();
+            clipTooltip.setText(buildTooltipText(ce));
 
+            pinnedTitleLabel.getStyleClass().remove("pinned-title-match");
+            pinnedPreviewLabel.getStyleClass().remove("pinned-preview-match");
+
+            // Pinned clips are intentionally compact:
+            // - one line when no custom title exists;
+            // - title + one-line content preview when a title exists.
+            if (ce.favorite()) {
+                String customTitle = ce.hasTitle() ? ce.title().trim() : null;
+                String contentPreview = compactSingleLine(full, PINNED_COMPACT_CHAR_LIMIT);
+                String primary = customTitle != null ? customTitle : contentPreview;
+
+                if (primary.isBlank()) {
+                    primary = "(empty clip)";
+                }
+
+                pinnedTitleLabel.setText("★ " + primary);
+
+                boolean hasCustomTitle = customTitle != null;
+                pinnedPreviewLabel.setManaged(hasCustomTitle);
+                pinnedPreviewLabel.setVisible(hasCustomTitle);
+                pinnedPreviewLabel.setText(hasCustomTitle ? contentPreview : "");
+
+                String q = currentQueryLower;
+                if (q != null && !q.isEmpty()) {
+                    boolean titleMatch = primary.toLowerCase(Locale.ROOT).contains(q);
+                    boolean contentMatch = full.toLowerCase(Locale.ROOT).contains(q);
+
+                    if (titleMatch) {
+                        pinnedTitleLabel.getStyleClass().add("pinned-title-match");
+                    }
+                    if (hasCustomTitle && contentMatch) {
+                        pinnedPreviewLabel.getStyleClass().add("pinned-preview-match");
+                    }
+                }
+
+                if (hasCustomTitle) {
+                    clipLeft.getChildren().setAll(pinnedTitleLabel, pinnedPreviewLabel);
+                } else {
+                    clipLeft.getChildren().setAll(pinnedTitleLabel);
+                }
+
+                toggleLink.setManaged(false);
+                toggleLink.setVisible(false);
+                toggleLink.setOnAction(null);
+
+                timeLabel.setText(formatTime(ce.createdAt()));
+                setText(null);
+                setGraphic(clipRoot);
+                return;
+            }
+
+            boolean expanded = expandedById.getOrDefault(id, false);
             PreviewData pd = getPreviewData(id, full);
             boolean needsToggle = pd.needsToggle();
             String shown = expanded ? buildExpandedPreview(full) : pd.preview();
 
-            // Left content (with optional highlight)
+            // Recent content (with optional highlight)
             String q = currentQueryLower;
             if (q != null && !q.isEmpty()) {
                 String shownLower = shown.toLowerCase(Locale.ROOT);
                 if (shownLower.contains(q)) {
-                    TextFlow tf = buildHighlightedText(prefix, shown, q);
+                    TextFlow tf = buildHighlightedText("", shown, q);
                     tf.getStyleClass().add("clip-content");
                     clipLeft.getChildren().setAll(tf, toggleLink);
                 } else {
-                    Label lbl = new Label(prefix + shown);
+                    Label lbl = new Label(shown);
                     lbl.setWrapText(true);
                     lbl.setMaxWidth(Double.MAX_VALUE);
                     lbl.setMinWidth(0);
@@ -1448,7 +1649,7 @@ public final class PopupWindow {
                     clipLeft.getChildren().setAll(lbl, toggleLink);
                 }
             } else {
-                Label lbl = new Label(prefix + shown);
+                Label lbl = new Label(shown);
                 lbl.setWrapText(true);
                 lbl.setMaxWidth(Double.MAX_VALUE);
                 lbl.setMinWidth(0);
@@ -1467,7 +1668,6 @@ public final class PopupWindow {
                 toggleLink.setText(expanded ? "Less" : "More");
                 toggleLink.setOnAction(ev -> {
                     expandedById.put(id, !expanded);
-                    // force re-render (cheap enough; only happens on click)
                     listView.refresh();
                     ev.consume();
                 });
@@ -1477,6 +1677,55 @@ public final class PopupWindow {
 
             setText(null);
             setGraphic(clipRoot);
+        }
+
+        private String compactSingleLine(String value, int maxChars) {
+            if (value == null || value.isEmpty()) return "";
+
+            int limit = Math.max(1, maxChars);
+            StringBuilder out = new StringBuilder(Math.min(value.length(), limit + 1));
+            boolean pendingSpace = false;
+            boolean truncated = false;
+
+            for (int i = 0; i < value.length(); i++) {
+                char ch = value.charAt(i);
+
+                if (Character.isWhitespace(ch)) {
+                    pendingSpace = out.length() > 0;
+                    continue;
+                }
+
+                if (pendingSpace && out.length() < limit) {
+                    out.append(' ');
+                }
+                pendingSpace = false;
+
+                if (out.length() >= limit) {
+                    truncated = true;
+                    break;
+                }
+
+                out.append(ch);
+            }
+
+            String result = out.toString().trim();
+            if (truncated && !result.endsWith("…")) {
+                result = result + "…";
+            }
+            return result;
+        }
+
+        private String buildTooltipText(ClipEntry entry) {
+            String content = entry.content() == null ? "" : entry.content();
+            boolean truncated = content.length() > TOOLTIP_CHAR_LIMIT;
+            String body = truncated
+                    ? content.substring(0, TOOLTIP_CHAR_LIMIT).trim() + "…"
+                    : content;
+
+            if (entry.hasTitle()) {
+                return entry.title().trim() + "\n\n" + body;
+            }
+            return body;
         }
 
         private String formatTime(long epochMs) {
