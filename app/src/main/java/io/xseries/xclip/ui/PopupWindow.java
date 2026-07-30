@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -8,6 +9,7 @@ package io.xseries.xclip.ui;
 import io.xseries.xclip.ui.popup.ClipRowCell;
 import io.xseries.xclip.ui.popup.ClipRowCell.PreviewData;
 import io.xseries.xclip.ui.popup.PopupActionBar;
+import io.xseries.xclip.ui.popup.PopupActionsMenu;
 import io.xseries.xclip.ui.popup.PopupFilterBar;
 import io.xseries.xclip.ui.popup.PopupHeader;
 import io.xseries.xclip.ui.popup.PopupRow;
@@ -190,20 +192,8 @@ public final class PopupWindow {
         }
     }
 
-    // Context menu (created once)
-    private final ContextMenu ctxMenu = new ContextMenu();
-    private final MenuItem miPaste = new MenuItem("Paste");
-    private final MenuItem miCopy = new MenuItem("Copy");
-    private final MenuItem miTypeAction = new MenuItem();
-    private final MenuItem miPin = new MenuItem("Pin / Unpin");
-    private final MenuItem miRename = new MenuItem("Rename pinned clip…");
-    private final MenuItem miClearTitle = new MenuItem("Clear title");
-    private final Menu movePinnedMenu = new Menu("Move pinned clip");
-    private final MenuItem miMoveUp = new MenuItem("Move up");
-    private final MenuItem miMoveDown = new MenuItem("Move down");
-    private final MenuItem miMoveTop = new MenuItem("Move to top");
-    private final MenuItem miMoveBottom = new MenuItem("Move to bottom");
-    private final MenuItem miDelete = new MenuItem("Delete");
+    // Shared context menu controller (created once).
+    private final PopupActionsMenu actionsMenu;
 
     public PopupWindow(ClipEntryDao dao, ClipboardAccess clipboard, ClipService clipService) {
         this(dao, clipboard, clipService, () -> {});
@@ -231,6 +221,7 @@ public final class PopupWindow {
         this.clipService = clipService;
         this.pasteService = java.util.Objects.requireNonNull(pasteService);
         this.onOpenSettings = (onOpenSettings != null) ? onOpenSettings : (() -> {});
+        this.actionsMenu = createPopupActionsMenu();
 
         stage = new Stage(StageStyle.DECORATED);
         stage.setTitle("XClip");
@@ -620,39 +611,76 @@ public final class PopupWindow {
             }
         });
 
-        // Context menu actions
-        miPaste.setOnAction(e -> pasteSelectedOrFirst());
-        miCopy.setOnAction(e -> copySelectedOrFirst());
-        miTypeAction.setOnAction(e -> performPrimaryTypeActionForSelection());
-        miTypeAction.setVisible(false);
-        miPin.setOnAction(e -> toggleFavoriteSelected());
-        miRename.setOnAction(e -> renameSelectedPinned());
-        miClearTitle.setOnAction(e -> clearSelectedTitle());
-        miMoveUp.setOnAction(e -> moveSelectedPinned(PinnedMoveAction.UP));
-        miMoveDown.setOnAction(e -> moveSelectedPinned(PinnedMoveAction.DOWN));
-        miMoveTop.setOnAction(e -> moveSelectedPinned(PinnedMoveAction.TOP));
-        miMoveBottom.setOnAction(e -> moveSelectedPinned(PinnedMoveAction.BOTTOM));
-        movePinnedMenu.getItems().setAll(miMoveUp, miMoveDown, miMoveTop, miMoveBottom);
-        miDelete.setOnAction(e -> deleteSelected());
-        ctxMenu.getItems().addAll(
-                miPaste,
-                miCopy,
-                miTypeAction,
-                miPin,
-                new SeparatorMenuItem(),
-                miRename,
-                miClearTitle,
-                movePinnedMenu,
-                new SeparatorMenuItem(),
-                miDelete
-        );
-
         toastHide.setOnFinished(e -> {
             toast.setVisible(false);
             toast.setManaged(false);
         });
 
         reloadNow("");
+    }
+
+    private PopupActionsMenu createPopupActionsMenu() {
+        return new PopupActionsMenu(new PopupActionsMenu.Actions() {
+            @Override
+            public void paste() {
+                pasteSelectedOrFirst();
+            }
+
+            @Override
+            public void copy() {
+                copySelectedOrFirst();
+            }
+
+            @Override
+            public void performPrimaryTypeAction() {
+                performPrimaryTypeActionForSelection();
+            }
+
+            @Override
+            public void toggleFavorite() {
+                toggleFavoriteSelected();
+            }
+
+            @Override
+            public void renamePinned() {
+                renameSelectedPinned();
+            }
+
+            @Override
+            public void clearTitle() {
+                clearSelectedTitle();
+            }
+
+            @Override
+            public void movePinnedUp() {
+                moveSelectedPinned(PinnedMoveAction.UP);
+            }
+
+            @Override
+            public void movePinnedDown() {
+                moveSelectedPinned(PinnedMoveAction.DOWN);
+            }
+
+            @Override
+            public void movePinnedToTop() {
+                moveSelectedPinned(PinnedMoveAction.TOP);
+            }
+
+            @Override
+            public void movePinnedToBottom() {
+                moveSelectedPinned(PinnedMoveAction.BOTTOM);
+            }
+
+            @Override
+            public void delete() {
+                deleteSelected();
+            }
+
+            @Override
+            public ClipPrimaryAction primaryActionFor(ClipEntry entry) {
+                return PopupWindow.this.primaryActionFor(entry);
+            }
+        });
     }
 
     private ClipRowCell.Controller createRowCellController() {
@@ -698,7 +726,7 @@ public final class PopupWindow {
 
             @Override
             public void hideContextMenu() {
-                ctxMenu.hide();
+                actionsMenu.hide();
             }
 
             @Override
@@ -793,13 +821,13 @@ public final class PopupWindow {
             double screenY
     ) {
         if (owner == null || index < 0 || index >= items.size()) {
-            ctxMenu.hide();
+            actionsMenu.hide();
             return;
         }
 
         PopupRow row = items.get(index);
         if (!(row instanceof ClipRow)) {
-            ctxMenu.hide();
+            actionsMenu.hide();
             return;
         }
 
@@ -807,20 +835,12 @@ public final class PopupWindow {
             selectCellExclusively(index);
         }
 
-        miPaste.setDisable(false);
-        miCopy.setDisable(false);
-        miPin.setDisable(false);
-
-        List<ClipEntry> selected = getSelectedClipsOrdered();
-        configureTypeActionMenu(selected);
-
-        boolean singlePinned = selected.size() == 1 && selected.get(0).favorite();
-        miRename.setDisable(!singlePinned);
-        miClearTitle.setDisable(!singlePinned || !selected.get(0).hasTitle());
-        movePinnedMenu.setDisable(!singlePinned);
-        miDelete.setDisable(false);
-
-        ctxMenu.show(owner, screenX, screenY);
+        actionsMenu.show(
+                owner,
+                screenX,
+                screenY,
+                getSelectedClipsOrdered()
+        );
     }
 
     private void configureFilterControls() {
@@ -1153,7 +1173,7 @@ public final class PopupWindow {
     }
 
     private void hideWindowOnly() {
-        ctxMenu.hide();
+        actionsMenu.hide();
         stage.hide();
     }
 
@@ -1401,15 +1421,6 @@ public final class PopupWindow {
     private ClipPrimaryAction primaryActionFor(ClipEntry entry) {
         if (entry == null) return ClipPrimaryAction.NONE;
         return ClipContentActionService.primaryActionFor(contentTypeFor(entry));
-    }
-
-    private void configureTypeActionMenu(List<ClipEntry> selected) {
-        ClipEntry entry = selected != null && selected.size() == 1 ? selected.get(0) : null;
-        ClipPrimaryAction action = primaryActionFor(entry);
-
-        miTypeAction.setVisible(action.available());
-        miTypeAction.setDisable(!action.available());
-        miTypeAction.setText(action.available() ? action.label() : "Type action");
     }
 
     private void performPrimaryTypeActionForSelection() {
