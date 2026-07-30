@@ -1,5 +1,3 @@
-
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -11,11 +9,14 @@ import io.xseries.xclip.system.window.WindowsTitleBar;
 import io.xseries.xclip.data.dao.ClipEntryDao;
 import io.xseries.xclip.data.model.ClipEntry;
 import io.xseries.xclip.domain.model.ClipContentType;
+import io.xseries.xclip.domain.model.ClipPrimaryAction;
 import io.xseries.xclip.domain.model.ClipViewScope;
+import io.xseries.xclip.domain.service.ClipContentActionService;
 import io.xseries.xclip.domain.service.ClipContentClassifier;
 import io.xseries.xclip.domain.service.ClipFilterEngine;
 import io.xseries.xclip.domain.service.ClipService;
 import io.xseries.xclip.domain.service.PasteService;
+import io.xseries.xclip.system.ExternalOpenService;
 import io.xseries.xclip.system.clipboard.ClipboardAccess;
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
@@ -25,6 +26,7 @@ import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
 import javafx.geometry.Rectangle2D;
+import javafx.scene.Cursor;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.input.KeyCode;
@@ -113,6 +115,7 @@ public final class PopupWindow {
     private final ClipboardAccess clipboard;
     private final ClipService clipService;
     private final PasteService pasteService;
+    private final ExternalOpenService externalOpenService = new ExternalOpenService();
 
     private final Runnable onOpenSettings;
 
@@ -206,6 +209,7 @@ public final class PopupWindow {
     private final ContextMenu ctxMenu = new ContextMenu();
     private final MenuItem miPaste = new MenuItem("Paste");
     private final MenuItem miCopy = new MenuItem("Copy");
+    private final MenuItem miTypeAction = new MenuItem();
     private final MenuItem miPin = new MenuItem("Pin / Unpin");
     private final MenuItem miRename = new MenuItem("Rename pinned clip…");
     private final MenuItem miClearTitle = new MenuItem("Clear title");
@@ -375,7 +379,8 @@ public final class PopupWindow {
         • E              Expand / Collapse selected recent clip
         • Delete         Delete selection
         • Double-click   Paste single item
-        • Right-click    Paste / Copy / Pin / Rename / Move / Delete
+        • Click badge    Run the safe primary type action
+        • Right-click    Paste / Copy / Type action / Pin / Rename / Move / Delete
 
         Window:
         • Esc            Clear selection → clear search → hide popup (in this order)
@@ -384,6 +389,8 @@ public final class PopupWindow {
         Notes:
         • Pinned clips are shown in PINNED section
         • Multi-copy joins clips with new lines
+        • COMMAND actions only copy text; XClip never executes commands
+        • PATH actions reveal files instead of launching them
         • Popup auto-hides when it loses focus
         """);
 
@@ -652,6 +659,8 @@ public final class PopupWindow {
         // Context menu actions
         miPaste.setOnAction(e -> pasteSelectedOrFirst());
         miCopy.setOnAction(e -> copySelectedOrFirst());
+        miTypeAction.setOnAction(e -> performPrimaryTypeActionForSelection());
+        miTypeAction.setVisible(false);
         miPin.setOnAction(e -> toggleFavoriteSelected());
         miRename.setOnAction(e -> renameSelectedPinned());
         miClearTitle.setOnAction(e -> clearSelectedTitle());
@@ -664,6 +673,7 @@ public final class PopupWindow {
         ctxMenu.getItems().addAll(
                 miPaste,
                 miCopy,
+                miTypeAction,
                 miPin,
                 new SeparatorMenuItem(),
                 miRename,
@@ -1255,6 +1265,80 @@ public final class PopupWindow {
         }
     }
 
+    private ClipPrimaryAction primaryActionFor(ClipEntry entry) {
+        if (entry == null) return ClipPrimaryAction.NONE;
+        return ClipContentActionService.primaryActionFor(contentTypeFor(entry));
+    }
+
+    private void configureTypeActionMenu(List<ClipEntry> selected) {
+        ClipEntry entry = selected != null && selected.size() == 1 ? selected.get(0) : null;
+        ClipPrimaryAction action = primaryActionFor(entry);
+
+        miTypeAction.setVisible(action.available());
+        miTypeAction.setDisable(!action.available());
+        miTypeAction.setText(action.available() ? action.label() : "Type action");
+    }
+
+    private void performPrimaryTypeActionForSelection() {
+        List<ClipEntry> selected = getSelectedClipsOrdered();
+        if (selected.size() != 1) {
+            showToast("Select one clip");
+            return;
+        }
+        performPrimaryTypeAction(selected.get(0));
+    }
+
+    private void performPrimaryTypeAction(ClipEntry entry) {
+        if (entry == null) return;
+
+        ClipPrimaryAction action = primaryActionFor(entry);
+        String content = entry.content() == null ? "" : entry.content();
+
+        switch (action) {
+            case OPEN_URL -> handleExternalOpenResult(
+                    externalOpenService.openUrl(content),
+                    "Opened in browser",
+                    "Invalid URL",
+                    "Couldn't open URL"
+            );
+            case REVEAL_PATH -> handleExternalOpenResult(
+                    externalOpenService.revealPath(content),
+                    "Shown in Explorer",
+                    "Invalid path",
+                    "Couldn't show path"
+            );
+            case COPY_FORMATTED_JSON, COPY_CODE, COPY_COMMAND ->
+                    ClipContentActionService.clipboardTextFor(action, content)
+                            .ifPresentOrElse(
+                                    this::copyText,
+                                    () -> showToast(action == ClipPrimaryAction.COPY_FORMATTED_JSON
+                                            ? "Invalid JSON"
+                                            : "Nothing to copy")
+                            );
+            case NONE -> showToast("No type action available");
+        }
+    }
+
+    private void handleExternalOpenResult(
+            ExternalOpenService.OpenResult result,
+            String successMessage,
+            String invalidMessage,
+            String failedMessage
+    ) {
+        if (result == null) {
+            showToast(failedMessage);
+            return;
+        }
+
+        switch (result) {
+            case OPENED -> showToast(successMessage);
+            case INVALID_INPUT -> showToast(invalidMessage);
+            case NOT_FOUND -> showToast("Path not found");
+            case UNSUPPORTED -> showToast("Action unavailable on this system");
+            case FAILED -> showToast(failedMessage);
+        }
+    }
+
     private void toggleFavoriteSelected() {
         List<ClipEntry> selected = getSelectedClipsOrdered();
         if (selected.isEmpty()) return;
@@ -1672,6 +1756,16 @@ public final class PopupWindow {
         private static final PseudoClass SECTION_PC = PseudoClass.getPseudoClass("section");
         private static final PseudoClass FAVORITE_PC = PseudoClass.getPseudoClass("favorite");
 
+        private boolean isTypeBadgeTarget(Object target) {
+            if (!(target instanceof javafx.scene.Node node)) return false;
+
+            javafx.scene.Node current = node;
+            while (current != null) {
+                if (current == typeBadge) return true;
+                current = current.getParent();
+            }
+            return false;
+        }
 
         RowCell() {
             clipLeft.setSpacing(4);
@@ -1739,6 +1833,9 @@ public final class PopupWindow {
                     return;
                 }
 
+                // Type badges own their click so they can run the safe primary action.
+                if (isTypeBadgeTarget(ev.getTarget())) return;
+
                 // Don't hijack clicks on inner controls (e.g., "More/Less" hyperlink)
                 if (ev.getTarget() instanceof javafx.scene.Node n) {
                     if (n instanceof Hyperlink || n instanceof ButtonBase || n instanceof TextField) return;
@@ -1784,6 +1881,8 @@ public final class PopupWindow {
 
             // Double click -> direct paste (only clip rows)
             setOnMouseClicked(ev -> {
+                if (isTypeBadgeTarget(ev.getTarget())) return;
+
                 if (ev.getButton() == MouseButton.PRIMARY && ev.getClickCount() == 2) {
                     Row r = getItem();
                     if (r instanceof ClipRow cr) {
@@ -1815,6 +1914,7 @@ public final class PopupWindow {
                 miPin.setDisable(false);
 
                 List<ClipEntry> selected = getSelectedClipsOrdered();
+                configureTypeActionMenu(selected);
                 boolean singlePinned = selected.size() == 1 && selected.get(0).favorite();
                 miRename.setDisable(!singlePinned);
                 miClearTitle.setDisable(!singlePinned || !selected.get(0).hasTitle());
@@ -1888,7 +1988,32 @@ public final class PopupWindow {
                     "clip-type-badge",
                     "clip-type-" + contentType.cssClass()
             );
-            typeTooltip.setText("Detected content type: " + contentType.label());
+
+            ClipPrimaryAction primaryAction = ClipContentActionService.primaryActionFor(contentType);
+            if (primaryAction.available()) {
+                typeBadge.getStyleClass().add("clip-type-actionable");
+                typeBadge.setCursor(Cursor.HAND);
+                typeTooltip.setText(primaryAction.label() + " — click badge");
+                typeBadge.setOnMouseClicked(ev -> {
+                    if (ev.getButton() != MouseButton.PRIMARY || ev.getClickCount() != 1) return;
+
+                    Row current = getItem();
+                    if (!(current instanceof ClipRow currentClip)) return;
+
+                    int idx = getIndex();
+                    if (idx >= 0 && idx < items.size()) {
+                        selectionAnchorIndex = idx;
+                        listView.getSelectionModel().clearAndSelect(idx);
+                    }
+
+                    performPrimaryTypeAction(currentClip.entry());
+                    ev.consume();
+                });
+            } else {
+                typeBadge.setCursor(Cursor.DEFAULT);
+                typeTooltip.setText("Detected content type: " + contentType.label());
+                typeBadge.setOnMouseClicked(null);
+            }
 
             pinnedTitleLabel.getStyleClass().remove("pinned-title-match");
             pinnedPreviewLabel.getStyleClass().remove("pinned-preview-match");
