@@ -5,6 +5,13 @@
  */
 package io.xseries.xclip.ui;
 
+import io.xseries.xclip.ui.popup.PopupActionBar;
+import io.xseries.xclip.ui.popup.PopupFilterBar;
+import io.xseries.xclip.ui.popup.PopupHeader;
+import io.xseries.xclip.ui.popup.PopupRow;
+import io.xseries.xclip.ui.popup.PopupRow.ClipRow;
+import io.xseries.xclip.ui.popup.PopupRow.SectionRow;
+import io.xseries.xclip.ui.popup.PopupViewState;
 import io.xseries.xclip.system.window.WindowsTitleBar;
 import io.xseries.xclip.data.dao.ClipEntryDao;
 import io.xseries.xclip.data.model.ClipEntry;
@@ -97,8 +104,8 @@ public final class PopupWindow {
 
     private final Stage stage;
     private final TextField searchField = new TextField();
-    private final ListView<Row> listView = new ListView<>();
-    private final ObservableList<Row> items = FXCollections.observableArrayList();
+    private final ListView<PopupRow> listView = new ListView<>();
+    private final ObservableList<PopupRow> items = FXCollections.observableArrayList();
 
     private final ToggleGroup scopeFilterGroup = new ToggleGroup();
     private final ToggleButton filterAllBtn = new ToggleButton("All");
@@ -107,8 +114,7 @@ public final class PopupWindow {
     private final ComboBox<ContentTypeOption> typeFilterCombo = new ComboBox<>();
     private final Button resetFiltersBtn = new Button("Reset filters");
 
-    private volatile ClipViewScope currentScope = ClipViewScope.ALL;
-    private volatile ClipContentType currentTypeFilter = null;
+    private volatile PopupViewState viewState = PopupViewState.defaults();
     private boolean filterUiSync = false;
 
     private final ClipEntryDao dao;
@@ -163,15 +169,6 @@ public final class PopupWindow {
 
     private final PauseTransition autoHideDelay = new PauseTransition(Duration.millis(160));
 
-    // -----------------------
-    // List rows
-    // -----------------------
-    private sealed interface Row permits SectionRow, ClipRow {}
-
-    private record SectionRow(String title) implements Row {}
-
-    private record ClipRow(ClipEntry entry) implements Row {}
-
     private record ContentTypeOption(ClipContentType type, String label) {
         @Override
         public String toString() {
@@ -188,16 +185,16 @@ public final class PopupWindow {
 
     private record MultiSelectionSnapshot(java.util.Set<Long> ids, long anchorId) {
 
-        static MultiSelectionSnapshot capture(ListView<Row> lv, ObservableList<Row> items, int anchorIndex) {
+        static MultiSelectionSnapshot capture(ListView<PopupRow> lv, ObservableList<PopupRow> items, int anchorIndex) {
             java.util.Set<Long> ids = new java.util.HashSet<>();
 
-            for (Row r : lv.getSelectionModel().getSelectedItems()) {
+            for (PopupRow r : lv.getSelectionModel().getSelectedItems()) {
                 if (r instanceof ClipRow cr) ids.add(cr.entry().id());
             }
 
             long anchorId = -1L;
             if (anchorIndex >= 0 && anchorIndex < items.size()) {
-                Row ar = items.get(anchorIndex);
+                PopupRow ar = items.get(anchorIndex);
                 if (ar instanceof ClipRow cr) anchorId = cr.entry().id();
             }
 
@@ -429,9 +426,6 @@ public final class PopupWindow {
         searchWrap.setMaxWidth(980);
         HBox.setHgrow(searchWrap, Priority.ALWAYS);
 
-        Region headerSpacer = new Region();
-        HBox.setHgrow(headerSpacer, Priority.ALWAYS);
-
         HBox statusGroup = new HBox(10, pausedBadge, countLabel, selectedLabel);
         statusGroup.setAlignment(Pos.CENTER_RIGHT);
         statusGroup.getStyleClass().add("popup-status-group");
@@ -440,42 +434,21 @@ public final class PopupWindow {
         controlGroup.setAlignment(Pos.CENTER_RIGHT);
         controlGroup.getStyleClass().add("popup-control-group");
 
-        HBox topBar = new HBox(12, searchWrap, headerSpacer, statusGroup, controlGroup);
-        topBar.getStyleClass().add("top-bar");
-        topBar.setAlignment(Pos.CENTER_LEFT);
-
         configureFilterControls();
 
-        Label showFilterLabel = new Label("Show");
-        showFilterLabel.getStyleClass().add("filter-label");
-
-        HBox scopeButtons = new HBox(filterAllBtn, filterPinnedBtn, filterRecentBtn);
-        scopeButtons.getStyleClass().add("filter-segment");
-
-        Separator filterSeparator = new Separator(Orientation.VERTICAL);
-        filterSeparator.getStyleClass().add("filter-separator");
-
-        Label typeFilterLabel = new Label("Type");
-        typeFilterLabel.getStyleClass().add("filter-label");
-
-        Region filterSpacer = new Region();
-        HBox.setHgrow(filterSpacer, Priority.ALWAYS);
-
-        HBox filterBar = new HBox(
-                10,
-                showFilterLabel,
-                scopeButtons,
-                filterSeparator,
-                typeFilterLabel,
+        PopupFilterBar filterBar = new PopupFilterBar(
+                filterAllBtn,
+                filterPinnedBtn,
+                filterRecentBtn,
                 typeFilterCombo,
-                filterSpacer,
                 resetFiltersBtn
         );
-        filterBar.setAlignment(Pos.CENTER_LEFT);
-        filterBar.getStyleClass().add("filter-bar");
-
-        VBox popupHeader = new VBox(topBar, filterBar);
-        popupHeader.getStyleClass().add("popup-header");
+        PopupHeader popupHeader = new PopupHeader(
+                searchWrap,
+                statusGroup,
+                controlGroup,
+                filterBar
+        );
 
 
         Button pasteBtn = new Button("Paste");
@@ -499,10 +472,12 @@ public final class PopupWindow {
         this.favBtnRef = favBtn;
         this.delBtnRef = delBtn;
 
-        HBox actions = new HBox(8, pasteBtn, copyBtn, favBtn, delBtn);
-
-        actions.setPadding(new Insets(8));
-        actions.getStyleClass().add("actions-bar");
+        PopupActionBar actions = new PopupActionBar(
+                pasteBtn,
+                copyBtn,
+                favBtn,
+                delBtn
+        );
 
         // Toast (overlay-style feedback inside the window)
         toast.setVisible(false);
@@ -709,7 +684,7 @@ public final class PopupWindow {
 
             Object value = newToggle.getUserData();
             ClipViewScope scope = value instanceof ClipViewScope s ? s : ClipViewScope.ALL;
-            setFilterState(scope, currentTypeFilter, true);
+            setFilterState(scope, viewState.contentType(), true);
         });
 
         ObservableList<ContentTypeOption> typeOptions = FXCollections.observableArrayList();
@@ -727,7 +702,7 @@ public final class PopupWindow {
         typeFilterCombo.valueProperty().addListener((obs, oldValue, newValue) -> {
             if (filterUiSync) return;
             ClipContentType type = newValue == null ? null : newValue.type();
-            setFilterState(currentScope, type, true);
+            setFilterState(viewState.scope(), type, true);
         });
 
         resetFiltersBtn.setFocusTraversable(false);
@@ -750,10 +725,10 @@ public final class PopupWindow {
             boolean reload
     ) {
         ClipViewScope effectiveScope = scope == null ? ClipViewScope.ALL : scope;
-        boolean changed = currentScope != effectiveScope || currentTypeFilter != contentType;
+        PopupViewState nextState = new PopupViewState(effectiveScope, contentType);
+        boolean changed = !viewState.equals(nextState);
 
-        currentScope = effectiveScope;
-        currentTypeFilter = contentType;
+        viewState = nextState;
 
         filterUiSync = true;
         Toggle target = switch (effectiveScope) {
@@ -781,7 +756,7 @@ public final class PopupWindow {
     }
 
     private void updateFilterControlState() {
-        boolean active = currentScope != ClipViewScope.ALL || currentTypeFilter != null;
+        boolean active = viewState.filtersActive();
         resetFiltersBtn.setVisible(active);
         resetFiltersBtn.setManaged(active);
     }
@@ -937,7 +912,7 @@ public final class PopupWindow {
         }
 
         String q = currentQueryRaw == null ? "" : currentQueryRaw.trim();
-        boolean filtersActive = currentScope != ClipViewScope.ALL || currentTypeFilter != null;
+        boolean filtersActive = viewState.filtersActive();
 
         if (!q.isEmpty()) {
             emptyStateLabel.setText(filtersActive
@@ -1054,8 +1029,9 @@ public final class PopupWindow {
         String query = q == null ? "" : q;
         String normQuery = query.trim();
 
-        ClipViewScope scopeSnapshot = currentScope;
-        ClipContentType typeSnapshot = currentTypeFilter;
+        PopupViewState stateSnapshot = viewState;
+        ClipViewScope scopeSnapshot = stateSnapshot.scope();
+        ClipContentType typeSnapshot = stateSnapshot.contentType();
         long requestGeneration = reloadGeneration.incrementAndGet();
 
         currentQueryRaw = normQuery;
@@ -1110,7 +1086,7 @@ public final class PopupWindow {
 
                 if (!ids.isEmpty()) {
                     for (int i = 0; i < items.size(); i++) {
-                        Row r = items.get(i);
+                        PopupRow r = items.get(i);
                         if (r instanceof ClipRow cr && ids.contains(cr.entry().id())) {
                             listView.getSelectionModel().select(i);
                             restoredAny = true;
@@ -1121,7 +1097,7 @@ public final class PopupWindow {
                 // restore anchorIndex from anchorId (if possible)
                 if (snap != null && snap.anchorId() > 0) {
                     for (int i = 0; i < items.size(); i++) {
-                        Row r = items.get(i);
+                        PopupRow r = items.get(i);
                         if (r instanceof ClipRow cr && cr.entry().id() == snap.anchorId()) {
                             selectionAnchorIndex = i;
                             break;
@@ -1145,8 +1121,8 @@ public final class PopupWindow {
         });
     }
 
-    private ObservableList<Row> buildRows(List<ClipEntry> sorted) {
-        ObservableList<Row> out = FXCollections.observableArrayList();
+    private ObservableList<PopupRow> buildRows(List<ClipEntry> sorted) {
+        ObservableList<PopupRow> out = FXCollections.observableArrayList();
 
         boolean anyPinned = sorted.stream().anyMatch(ClipEntry::favorite);
         boolean anyRecent = sorted.stream().anyMatch(e -> !e.favorite());
@@ -1168,9 +1144,9 @@ public final class PopupWindow {
         return out;
     }
 
-    private int countClips(List<Row> rows) {
+    private int countClips(List<PopupRow> rows) {
         int c = 0;
-        for (Row r : rows) if (r instanceof ClipRow) c++;
+        for (PopupRow r : rows) if (r instanceof ClipRow) c++;
         return c;
     }
 
@@ -1188,7 +1164,7 @@ public final class PopupWindow {
         List<ClipEntry> out = new java.util.ArrayList<>();
         for (int idx : idxs) {
             if (idx < 0 || idx >= items.size()) continue;
-            Row r = items.get(idx);
+            PopupRow r = items.get(idx);
             if (r instanceof ClipRow cr) out.add(cr.entry());
         }
         return out;
@@ -1196,7 +1172,7 @@ public final class PopupWindow {
 
 
     private ClipEntry getSelectedClipOrNull() {
-        Row r = listView.getSelectionModel().getSelectedItem();
+        PopupRow r = listView.getSelectionModel().getSelectedItem();
         if (r instanceof ClipRow cr) return cr.entry();
         return null;
     }
@@ -1489,7 +1465,7 @@ public final class PopupWindow {
         // Pinned clips intentionally stay compact. Expand applies only to RECENT rows.
         java.util.List<Long> ids = new java.util.ArrayList<>();
 
-        for (Row r : listView.getSelectionModel().getSelectedItems()) {
+        for (PopupRow r : listView.getSelectionModel().getSelectedItems()) {
             if (r instanceof ClipRow cr && !cr.entry().favorite()) {
                 ids.add(cr.entry().id());
             }
@@ -1499,7 +1475,7 @@ public final class PopupWindow {
             int first = findFirstClipIndex();
             if (first < 0) return;
 
-            Row r = items.get(first);
+            PopupRow r = items.get(first);
             if (r instanceof ClipRow cr && !cr.entry().favorite()) {
                 ids.add(cr.entry().id());
             }
@@ -1550,7 +1526,7 @@ public final class PopupWindow {
     private void clearHistoryNonFavorites() {
         java.util.List<Long> visibleNonFavoriteIds = new java.util.ArrayList<>();
 
-        for (Row r : items) {
+        for (PopupRow r : items) {
             if (r instanceof ClipRow cr && !cr.entry().favorite()) {
                 visibleNonFavoriteIds.add(cr.entry().id());
             }
@@ -1741,7 +1717,7 @@ public final class PopupWindow {
         return new PreviewData(needsToggle, out);
     }
 
-    private final class RowCell extends ListCell<Row> {
+    private final class RowCell extends ListCell<PopupRow> {
 
         // clip row UI
         private final HBox clipRoot = new HBox(12);
@@ -1827,7 +1803,7 @@ public final class PopupWindow {
                 if (isEmpty()) return;
                 if (ev.getButton() != MouseButton.PRIMARY) return;
 
-                Row r = getItem();
+                PopupRow r = getItem();
                 if (!(r instanceof ClipRow)) {
                     ev.consume();
                     return;
@@ -1850,7 +1826,7 @@ public final class PopupWindow {
                 listView.requestFocus();
 
                 int idx = getIndex();
-                MultipleSelectionModel<Row> sm = listView.getSelectionModel();
+                MultipleSelectionModel<PopupRow> sm = listView.getSelectionModel();
 
                 if (ev.isShiftDown()) {
                     if (selectionAnchorIndex < 0 || selectionAnchorIndex >= items.size()) {
@@ -1884,7 +1860,7 @@ public final class PopupWindow {
                 if (isTypeBadgeTarget(ev.getTarget())) return;
 
                 if (ev.getButton() == MouseButton.PRIMARY && ev.getClickCount() == 2) {
-                    Row r = getItem();
+                    PopupRow r = getItem();
                     if (r instanceof ClipRow cr) {
                         pasteEntry(cr.entry());
                         ev.consume();
@@ -1896,7 +1872,7 @@ public final class PopupWindow {
             setOnContextMenuRequested(ev -> {
                 if (isEmpty()) return;
 
-                Row r = getItem();
+                PopupRow r = getItem();
                 if (!(r instanceof ClipRow)) {
                     ctxMenu.hide();
                     return;
@@ -1929,7 +1905,7 @@ public final class PopupWindow {
 
 
         @Override
-        protected void updateItem(Row item, boolean empty) {
+        protected void updateItem(PopupRow item, boolean empty) {
             super.updateItem(item, empty);
             pseudoClassStateChanged(SECTION_PC, false);
             pseudoClassStateChanged(FAVORITE_PC, false);
@@ -1997,7 +1973,7 @@ public final class PopupWindow {
                 typeBadge.setOnMouseClicked(ev -> {
                     if (ev.getButton() != MouseButton.PRIMARY || ev.getClickCount() != 1) return;
 
-                    Row current = getItem();
+                    PopupRow current = getItem();
                     if (!(current instanceof ClipRow currentClip)) return;
 
                     int idx = getIndex();
@@ -2252,7 +2228,7 @@ public final class PopupWindow {
     }
     private int findSectionIndex(String title) {
         for (int i = 0; i < items.size(); i++) {
-            Row r = items.get(i);
+            PopupRow r = items.get(i);
             if (r instanceof SectionRow sr && sr.title().equalsIgnoreCase(title)) return i;
         }
         return -1;
@@ -2300,7 +2276,7 @@ public final class PopupWindow {
     }
 
     private void selectAllClips() {
-        MultipleSelectionModel<Row> sm = listView.getSelectionModel();
+        MultipleSelectionModel<PopupRow> sm = listView.getSelectionModel();
         sm.clearSelection();
 
         int first = -1;
@@ -2319,14 +2295,14 @@ public final class PopupWindow {
     }
 
     private void selectSectionClips(String sectionTitle) {
-        MultipleSelectionModel<Row> sm = listView.getSelectionModel();
+        MultipleSelectionModel<PopupRow> sm = listView.getSelectionModel();
         sm.clearSelection();
 
         boolean inSection = false;
         int firstIndex = -1;
 
         for (int i = 0; i < items.size(); i++) {
-            Row r = items.get(i);
+            PopupRow r = items.get(i);
 
             if (r instanceof SectionRow sr) {
                 inSection = sr.title().equalsIgnoreCase(sectionTitle);
@@ -2353,7 +2329,7 @@ public final class PopupWindow {
         updateSelectionUi();
     }
     private void invertSelection() {
-        MultipleSelectionModel<Row> sm = listView.getSelectionModel();
+        MultipleSelectionModel<PopupRow> sm = listView.getSelectionModel();
 
         java.util.Set<Integer> selected = new java.util.HashSet<>(sm.getSelectedIndices());
         sm.clearSelection();
