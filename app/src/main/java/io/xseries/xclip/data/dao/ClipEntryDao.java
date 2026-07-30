@@ -51,6 +51,7 @@ public final class ClipEntryDao {
      *
      * Reused content keeps its original created_at value, but last_copied_at and
      * use_count are updated so it moves to the top of RECENT without creating a duplicate.
+     * Pinned metadata, including title and pin_order, is intentionally preserved.
      */
     public void insert(String content, String contentNorm, String contentHash, long createdAt) {
         String sql = """
@@ -84,9 +85,16 @@ public final class ClipEntryDao {
 
     public List<ClipEntry> listLatest(int limit) {
         String sql = """
-            SELECT id, content, title, is_favorite, last_copied_at AS created_at
+            SELECT id, content, title, is_favorite, pin_order,
+                   last_copied_at AS created_at
             FROM clip_entries
-            ORDER BY is_favorite DESC, last_copied_at DESC, id DESC
+            ORDER BY is_favorite DESC,
+                     CASE
+                         WHEN is_favorite = 1 THEN COALESCE(pin_order, 2147483647)
+                         ELSE 2147483647
+                     END ASC,
+                     last_copied_at DESC,
+                     id DESC
             LIMIT ?
             """;
         Connection c = conn();
@@ -102,11 +110,18 @@ public final class ClipEntryDao {
 
     public List<ClipEntry> search(String q, int limit) {
         String sql = """
-            SELECT id, content, title, is_favorite, last_copied_at AS created_at
+            SELECT id, content, title, is_favorite, pin_order,
+                   last_copied_at AS created_at
             FROM clip_entries
             WHERE content LIKE ? ESCAPE '\\'
                OR (is_favorite = 1 AND COALESCE(title, '') LIKE ? ESCAPE '\\')
-            ORDER BY is_favorite DESC, last_copied_at DESC, id DESC
+            ORDER BY is_favorite DESC,
+                     CASE
+                         WHEN is_favorite = 1 THEN COALESCE(pin_order, 2147483647)
+                         ELSE 2147483647
+                     END ASC,
+                     last_copied_at DESC,
+                     id DESC
             LIMIT ?
             """;
         String like = "%" + escapeLike(q) + "%";
@@ -124,13 +139,34 @@ public final class ClipEntryDao {
     }
 
     public void deleteById(long id) {
-        String sql = "DELETE FROM clip_entries WHERE id = ?";
         Connection c = conn();
-        try (PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setLong(1, id);
-            ps.executeUpdate();
+        boolean previousAutoCommit;
+
+        try {
+            previousAutoCommit = c.getAutoCommit();
+            c.setAutoCommit(false);
+        } catch (SQLException e) {
+            throw new RuntimeException("delete transaction setup failed", e);
+        }
+
+        try {
+            boolean wasFavorite = isFavorite(c, id);
+            try (PreparedStatement ps = c.prepareStatement(
+                    "DELETE FROM clip_entries WHERE id = ?")) {
+                ps.setLong(1, id);
+                ps.executeUpdate();
+            }
+
+            if (wasFavorite) {
+                persistPinnedOrder(c, loadPinnedIds(c));
+            }
+
+            c.commit();
         } catch (Exception e) {
+            rollbackQuietly(c);
             throw new RuntimeException("delete failed", e);
+        } finally {
+            restoreAutoCommit(c, previousAutoCommit);
         }
     }
 
@@ -148,15 +184,55 @@ public final class ClipEntryDao {
         }
     }
 
+    /**
+     * Pins or unpins a clip while maintaining a dense, deterministic pin order.
+     *
+     * Newly pinned clips are placed at the top. Unpinning clears pin_order but
+     * intentionally keeps optional metadata such as the custom title.
+     */
     public void setFavorite(long id, boolean favorite) {
-        String sql = "UPDATE clip_entries SET is_favorite = ? WHERE id = ?";
         Connection c = conn();
-        try (PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setInt(1, favorite ? 1 : 0);
-            ps.setLong(2, id);
-            ps.executeUpdate();
+        boolean previousAutoCommit;
+
+        try {
+            previousAutoCommit = c.getAutoCommit();
+            c.setAutoCommit(false);
+        } catch (SQLException e) {
+            throw new RuntimeException("favorite transaction setup failed", e);
+        }
+
+        try {
+            boolean currentlyFavorite = isFavorite(c, id);
+
+            if (favorite) {
+                if (!currentlyFavorite) {
+                    try (PreparedStatement ps = c.prepareStatement(
+                            "UPDATE clip_entries SET is_favorite = 1 WHERE id = ?")) {
+                        ps.setLong(1, id);
+                        ps.executeUpdate();
+                    }
+
+                    List<Long> pinnedIds = loadPinnedIds(c);
+                    if (pinnedIds.remove(id)) {
+                        pinnedIds.add(0, id);
+                        persistPinnedOrder(c, pinnedIds);
+                    }
+                }
+            } else if (currentlyFavorite) {
+                try (PreparedStatement ps = c.prepareStatement(
+                        "UPDATE clip_entries SET is_favorite = 0, pin_order = NULL WHERE id = ?")) {
+                    ps.setLong(1, id);
+                    ps.executeUpdate();
+                }
+                persistPinnedOrder(c, loadPinnedIds(c));
+            }
+
+            c.commit();
         } catch (Exception e) {
+            rollbackQuietly(c);
             throw new RuntimeException("favorite update failed", e);
+        } finally {
+            restoreAutoCommit(c, previousAutoCommit);
         }
     }
 
@@ -183,6 +259,108 @@ public final class ClipEntryDao {
             ps.executeUpdate();
         } catch (Exception e) {
             throw new RuntimeException("title update failed", e);
+        }
+    }
+
+    public boolean movePinnedUp(long id) {
+        return movePinned(id, PinMove.UP);
+    }
+
+    public boolean movePinnedDown(long id) {
+        return movePinned(id, PinMove.DOWN);
+    }
+
+    public boolean movePinnedToTop(long id) {
+        return movePinned(id, PinMove.TOP);
+    }
+
+    public boolean movePinnedToBottom(long id) {
+        return movePinned(id, PinMove.BOTTOM);
+    }
+
+    private boolean movePinned(long id, PinMove move) {
+        Connection c = conn();
+        boolean previousAutoCommit;
+
+        try {
+            previousAutoCommit = c.getAutoCommit();
+            c.setAutoCommit(false);
+        } catch (SQLException e) {
+            throw new RuntimeException("pin reorder transaction setup failed", e);
+        }
+
+        try {
+            List<Long> pinnedIds = loadPinnedIds(c);
+            int from = pinnedIds.indexOf(id);
+            if (from < 0 || pinnedIds.size() < 2) {
+                c.commit();
+                return false;
+            }
+
+            int to = switch (move) {
+                case UP -> Math.max(0, from - 1);
+                case DOWN -> Math.min(pinnedIds.size() - 1, from + 1);
+                case TOP -> 0;
+                case BOTTOM -> pinnedIds.size() - 1;
+            };
+
+            if (to == from) {
+                c.commit();
+                return false;
+            }
+
+            Long moved = pinnedIds.remove(from);
+            pinnedIds.add(to, moved);
+            persistPinnedOrder(c, pinnedIds);
+            c.commit();
+            return true;
+        } catch (Exception e) {
+            rollbackQuietly(c);
+            throw new RuntimeException("pin reorder failed", e);
+        } finally {
+            restoreAutoCommit(c, previousAutoCommit);
+        }
+    }
+
+    private boolean isFavorite(Connection c, long id) throws SQLException {
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT is_favorite FROM clip_entries WHERE id = ?")) {
+            ps.setLong(1, id);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() && rs.getInt("is_favorite") != 0;
+            }
+        }
+    }
+
+    private List<Long> loadPinnedIds(Connection c) throws SQLException {
+        String sql = """
+                SELECT id
+                FROM clip_entries
+                WHERE is_favorite = 1
+                ORDER BY COALESCE(pin_order, 2147483647) ASC,
+                         last_copied_at DESC,
+                         id DESC
+                """;
+
+        List<Long> ids = new ArrayList<>();
+        try (PreparedStatement ps = c.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                ids.add(rs.getLong("id"));
+            }
+        }
+        return ids;
+    }
+
+    private void persistPinnedOrder(Connection c, List<Long> pinnedIds) throws SQLException {
+        try (PreparedStatement ps = c.prepareStatement(
+                "UPDATE clip_entries SET pin_order = ? WHERE id = ? AND is_favorite = 1")) {
+            for (int i = 0; i < pinnedIds.size(); i++) {
+                ps.setInt(1, i);
+                ps.setLong(2, pinnedIds.get(i));
+                ps.addBatch();
+            }
+            ps.executeBatch();
         }
     }
 
@@ -214,8 +392,10 @@ public final class ClipEntryDao {
             String content = rs.getString("content");
             String title = rs.getString("title");
             boolean fav = rs.getInt("is_favorite") != 0;
+            int rawPinOrder = rs.getInt("pin_order");
+            Integer pinOrder = rs.wasNull() ? null : rawPinOrder;
             long createdAt = rs.getLong("created_at");
-            list.add(new ClipEntry(id, content, title, fav, createdAt));
+            list.add(new ClipEntry(id, content, title, fav, pinOrder, createdAt));
         }
         return list;
     }
@@ -253,5 +433,26 @@ public final class ClipEntryDao {
         } catch (Exception e) {
             throw new RuntimeException("deleteByIds failed", e);
         }
+    }
+
+    private void rollbackQuietly(Connection c) {
+        try {
+            c.rollback();
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void restoreAutoCommit(Connection c, boolean autoCommit) {
+        try {
+            c.setAutoCommit(autoCommit);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private enum PinMove {
+        UP,
+        DOWN,
+        TOP,
+        BOTTOM
     }
 }

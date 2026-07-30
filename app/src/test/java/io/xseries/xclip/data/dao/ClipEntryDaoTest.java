@@ -18,7 +18,9 @@ import java.sql.Statement;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ClipEntryDaoTest {
 
@@ -113,6 +115,91 @@ class ClipEntryDaoTest {
             dao.closeForCurrentThread();
             db.close();
         }
+    }
+
+
+    @Test
+    void supportsPersistentManualOrderingForPinnedClips() {
+        Path dbPath = tempDir.resolve("manual-order.db");
+        Database db = new Database(dbPath);
+        db.init();
+
+        ClipEntryDao dao = new ClipEntryDao(db.jdbcUrl());
+        try {
+            dao.insert("first", "first", "hash-first", 1_000L);
+            dao.insert("second", "second", "hash-second", 2_000L);
+            dao.insert("third", "third", "hash-third", 3_000L);
+
+            long firstId = idFor(dao, "first");
+            long secondId = idFor(dao, "second");
+            long thirdId = idFor(dao, "third");
+
+            dao.setFavorite(firstId, true);
+            dao.setFavorite(secondId, true);
+            dao.setFavorite(thirdId, true);
+
+            // Each newly pinned clip is placed at the top.
+            assertEquals(List.of("third", "second", "first"), pinnedContents(dao));
+            assertEquals(List.of(0, 1, 2), pinnedOrders(dao));
+
+            // Pinning an already pinned clip is a no-op and keeps manual order.
+            dao.setFavorite(secondId, true);
+            assertEquals(List.of("third", "second", "first"), pinnedContents(dao));
+
+            assertTrue(dao.movePinnedToTop(firstId));
+            assertEquals(List.of("first", "third", "second"), pinnedContents(dao));
+            assertFalse(dao.movePinnedUp(firstId));
+
+            assertTrue(dao.movePinnedDown(thirdId));
+            assertEquals(List.of("first", "second", "third"), pinnedContents(dao));
+
+            assertTrue(dao.movePinnedToBottom(firstId));
+            assertEquals(List.of("second", "third", "first"), pinnedContents(dao));
+
+            // Reusing pinned content updates recency but must not change manual order.
+            dao.insert("second", "second", "hash-second", 9_000L);
+            assertEquals(List.of("second", "third", "first"), pinnedContents(dao));
+            assertEquals(List.of("second", "third", "first"),
+                    dao.search("", 10).stream()
+                            .filter(ClipEntry::favorite)
+                            .map(ClipEntry::content)
+                            .toList());
+
+            dao.setFavorite(secondId, false);
+            assertEquals(List.of("third", "first"), pinnedContents(dao));
+            assertEquals(List.of(0, 1), pinnedOrders(dao));
+
+            // Re-pinning is intentionally treated as a new pin and returns to the top.
+            dao.setFavorite(secondId, true);
+            assertEquals(List.of("second", "third", "first"), pinnedContents(dao));
+            assertEquals(List.of(0, 1, 2), pinnedOrders(dao));
+        } finally {
+            dao.closeForCurrentThread();
+            db.close();
+        }
+    }
+
+
+    private long idFor(ClipEntryDao dao, String content) {
+        return dao.listLatest(100).stream()
+                .filter(e -> content.equals(e.content()))
+                .findFirst()
+                .orElseThrow()
+                .id();
+    }
+
+    private List<String> pinnedContents(ClipEntryDao dao) {
+        return dao.listLatest(100).stream()
+                .filter(ClipEntry::favorite)
+                .map(ClipEntry::content)
+                .toList();
+    }
+
+    private List<Integer> pinnedOrders(ClipEntryDao dao) {
+        return dao.listLatest(100).stream()
+                .filter(ClipEntry::favorite)
+                .map(ClipEntry::pinOrder)
+                .toList();
     }
 
     private int usageCount(String jdbcUrl, String hash) throws Exception {

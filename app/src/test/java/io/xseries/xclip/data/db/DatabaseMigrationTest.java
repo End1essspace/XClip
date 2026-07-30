@@ -15,6 +15,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -27,7 +29,7 @@ class DatabaseMigrationTest {
     Path tempDir;
 
     @Test
-    void migratesLegacySchemaAndBackfillsRecencyFields() throws Exception {
+    void migratesLegacySchemaAndBackfillsRecencyAndPinnedOrder() throws Exception {
         Path dbPath = tempDir.resolve("legacy.db");
         String jdbcUrl = "jdbc:sqlite:" + dbPath.toAbsolutePath();
 
@@ -44,21 +46,12 @@ class DatabaseMigrationTest {
                     )
                     """);
             st.execute("CREATE INDEX idx_clip_hash ON clip_entries(content_hash)");
+            st.execute("PRAGMA user_version = 3");
         }
 
-        try (Connection c = DriverManager.getConnection(jdbcUrl);
-             PreparedStatement ps = c.prepareStatement("""
-                     INSERT INTO clip_entries(
-                         content, content_norm, content_hash, is_favorite, created_at
-                     ) VALUES (?, ?, ?, ?, ?)
-                     """)) {
-            ps.setString(1, "legacy value");
-            ps.setString(2, "legacy value");
-            ps.setString(3, "legacy-hash");
-            ps.setInt(4, 0);
-            ps.setLong(5, 1234L);
-            ps.executeUpdate();
-        }
+        insertLegacy(jdbcUrl, "older pinned", "hash-old", true, 1_000L);
+        insertLegacy(jdbcUrl, "newer pinned", "hash-new", true, 3_000L);
+        insertLegacy(jdbcUrl, "recent", "hash-recent", false, 5_000L);
 
         new Database(dbPath).init();
 
@@ -70,6 +63,7 @@ class DatabaseMigrationTest {
                     "content_hash",
                     "title",
                     "is_favorite",
+                    "pin_order",
                     "created_at",
                     "last_copied_at",
                     "use_count"
@@ -79,23 +73,65 @@ class DatabaseMigrationTest {
                  ResultSet rs = st.executeQuery("""
                          SELECT created_at, last_copied_at, use_count, title
                          FROM clip_entries
-                         WHERE content_hash = 'legacy-hash'
+                         WHERE content_hash = 'hash-old'
                          """)) {
                 assertTrue(rs.next());
-                assertEquals(1234L, rs.getLong("created_at"));
-                assertEquals(1234L, rs.getLong("last_copied_at"));
+                assertEquals(1_000L, rs.getLong("created_at"));
+                assertEquals(1_000L, rs.getLong("last_copied_at"));
                 assertEquals(1, rs.getInt("use_count"));
                 assertNull(rs.getString("title"));
             }
 
+            Map<String, Integer> pinOrders = readPinOrders(c);
+            assertEquals(0, pinOrders.get("newer pinned").intValue());
+            assertEquals(1, pinOrders.get("older pinned").intValue());
+            assertNull(pinOrders.get("recent"));
+
             try (Statement st = c.createStatement();
                  ResultSet rs = st.executeQuery("PRAGMA user_version")) {
                 assertTrue(rs.next());
-                assertEquals(3, rs.getInt(1));
+                assertEquals(4, rs.getInt(1));
             }
 
-            assertTrue(hasUniqueHashIndex(c));
+            assertTrue(hasIndex(c, "idx_clip_hash_unique", true));
+            assertTrue(hasIndex(c, "idx_clip_pinned_order", false));
         }
+    }
+
+    private void insertLegacy(
+            String jdbcUrl,
+            String content,
+            String hash,
+            boolean favorite,
+            long createdAt
+    ) throws Exception {
+        try (Connection c = DriverManager.getConnection(jdbcUrl);
+             PreparedStatement ps = c.prepareStatement("""
+                     INSERT INTO clip_entries(
+                         content, content_norm, content_hash, is_favorite, created_at
+                     ) VALUES (?, ?, ?, ?, ?)
+                     """)) {
+            ps.setString(1, content);
+            ps.setString(2, content);
+            ps.setString(3, hash);
+            ps.setInt(4, favorite ? 1 : 0);
+            ps.setLong(5, createdAt);
+            ps.executeUpdate();
+        }
+    }
+
+    private Map<String, Integer> readPinOrders(Connection c) throws Exception {
+        Map<String, Integer> values = new LinkedHashMap<>();
+        try (Statement st = c.createStatement();
+             ResultSet rs = st.executeQuery("SELECT content, pin_order FROM clip_entries")) {
+            while (rs.next()) {
+                int raw = rs.getInt("pin_order");
+                boolean pinOrderWasNull = rs.wasNull();
+                String content = rs.getString("content");
+                values.put(content, pinOrderWasNull ? null : raw);
+            }
+        }
+        return values;
     }
 
     private Set<String> tableColumns(Connection c) throws Exception {
@@ -109,12 +145,12 @@ class DatabaseMigrationTest {
         return columns;
     }
 
-    private boolean hasUniqueHashIndex(Connection c) throws Exception {
+    private boolean hasIndex(Connection c, String name, boolean unique) throws Exception {
         try (Statement st = c.createStatement();
              ResultSet rs = st.executeQuery("PRAGMA index_list(clip_entries)")) {
             while (rs.next()) {
-                if ("idx_clip_hash_unique".equals(rs.getString("name"))
-                        && rs.getInt("unique") == 1) {
+                if (name.equals(rs.getString("name"))
+                        && (rs.getInt("unique") == 1) == unique) {
                     return true;
                 }
             }

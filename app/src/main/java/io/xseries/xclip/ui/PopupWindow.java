@@ -146,6 +146,12 @@ public final class PopupWindow {
 
     private record ClipRow(ClipEntry entry) implements Row {}
 
+    private enum PinnedMoveAction {
+        UP,
+        DOWN,
+        TOP,
+        BOTTOM
+    }
 
     private record MultiSelectionSnapshot(java.util.Set<Long> ids, long anchorId) {
 
@@ -173,6 +179,11 @@ public final class PopupWindow {
     private final MenuItem miPin = new MenuItem("Pin / Unpin");
     private final MenuItem miRename = new MenuItem("Rename pinned clip…");
     private final MenuItem miClearTitle = new MenuItem("Clear title");
+    private final Menu movePinnedMenu = new Menu("Move pinned clip");
+    private final MenuItem miMoveUp = new MenuItem("Move up");
+    private final MenuItem miMoveDown = new MenuItem("Move down");
+    private final MenuItem miMoveTop = new MenuItem("Move to top");
+    private final MenuItem miMoveBottom = new MenuItem("Move to bottom");
     private final MenuItem miDelete = new MenuItem("Delete");
 
     public PopupWindow(ClipEntryDao dao, ClipboardAccess clipboard, ClipService clipService) {
@@ -323,10 +334,12 @@ public final class PopupWindow {
         • Ctrl+C         Copy selection only
         • Ctrl+P         Pin / Unpin selection
         • F2             Rename one pinned clip
+        • Alt+↑          Move one pinned clip up
+        • Alt+↓          Move one pinned clip down
         • E              Expand / Collapse selected recent clip
         • Delete         Delete selection
         • Double-click   Paste single item
-        • Right-click    Context menu (Paste / Copy / Pin / Rename / Delete)
+        • Right-click    Paste / Copy / Pin / Rename / Move / Delete
 
         Window:
         • Esc            Clear selection → clear search → hide popup (in this order)
@@ -510,6 +523,22 @@ public final class PopupWindow {
                 openSettings();
                 return;
             }
+            if (e.isAltDown() && !e.isControlDown() && !e.isMetaDown()
+                    && e.getCode() == KeyCode.UP) {
+                if (e.getTarget() instanceof TextInputControl) return;
+
+                e.consume();
+                moveSelectedPinned(PinnedMoveAction.UP);
+                return;
+            }
+            if (e.isAltDown() && !e.isControlDown() && !e.isMetaDown()
+                    && e.getCode() == KeyCode.DOWN) {
+                if (e.getTarget() instanceof TextInputControl) return;
+
+                e.consume();
+                moveSelectedPinned(PinnedMoveAction.DOWN);
+                return;
+            }
             if (!e.isControlDown() && !e.isAltDown() && !e.isMetaDown() && e.getCode() == KeyCode.F2) {
                 if (e.getTarget() instanceof TextInputControl) return;
 
@@ -557,6 +586,11 @@ public final class PopupWindow {
         miPin.setOnAction(e -> toggleFavoriteSelected());
         miRename.setOnAction(e -> renameSelectedPinned());
         miClearTitle.setOnAction(e -> clearSelectedTitle());
+        miMoveUp.setOnAction(e -> moveSelectedPinned(PinnedMoveAction.UP));
+        miMoveDown.setOnAction(e -> moveSelectedPinned(PinnedMoveAction.DOWN));
+        miMoveTop.setOnAction(e -> moveSelectedPinned(PinnedMoveAction.TOP));
+        miMoveBottom.setOnAction(e -> moveSelectedPinned(PinnedMoveAction.BOTTOM));
+        movePinnedMenu.getItems().setAll(miMoveUp, miMoveDown, miMoveTop, miMoveBottom);
         miDelete.setOnAction(e -> deleteSelected());
         ctxMenu.getItems().addAll(
                 miPaste,
@@ -565,6 +599,7 @@ public final class PopupWindow {
                 new SeparatorMenuItem(),
                 miRename,
                 miClearTitle,
+                movePinnedMenu,
                 new SeparatorMenuItem(),
                 miDelete
         );
@@ -849,6 +884,7 @@ public final class PopupWindow {
 
             list.sort(
                     Comparator.comparing(ClipEntry::favorite).reversed()
+                            .thenComparingInt(ClipEntry::effectivePinOrder)
                             .thenComparing(Comparator.comparingLong(ClipEntry::createdAt).reversed())
             );
 
@@ -1028,12 +1064,54 @@ public final class PopupWindow {
         boolean shouldPin = selected.stream().anyMatch(e -> !e.favorite());
 
         dbExec.submit(() -> {
-            for (ClipEntry e : selected) {
+            List<ClipEntry> processingOrder = new java.util.ArrayList<>(selected);
+            if (shouldPin) {
+                // setFavorite places each newly pinned item at the top. Processing
+                // bottom-to-top preserves the visual order of a multi-selection.
+                java.util.Collections.reverse(processingOrder);
+            }
+
+            for (ClipEntry e : processingOrder) {
                 dao.setFavorite(e.id(), shouldPin);
             }
             Platform.runLater(() -> {
                 reloadNow(searchField.getText());
                 showToast((shouldPin ? "Pinned" : "Unpinned") + (selected.size() > 1 ? (" (" + selected.size() + ")") : ""));
+            });
+        });
+    }
+
+    private void moveSelectedPinned(PinnedMoveAction action) {
+        List<ClipEntry> selected = getSelectedClipsOrdered();
+        if (selected.size() != 1 || !selected.get(0).favorite()) {
+            showToast("Select one pinned clip");
+            return;
+        }
+
+        ClipEntry entry = selected.get(0);
+        dbExec.submit(() -> {
+            boolean moved = switch (action) {
+                case UP -> dao.movePinnedUp(entry.id());
+                case DOWN -> dao.movePinnedDown(entry.id());
+                case TOP -> dao.movePinnedToTop(entry.id());
+                case BOTTOM -> dao.movePinnedToBottom(entry.id());
+            };
+
+            Platform.runLater(() -> {
+                reloadNow(searchField.getText());
+                if (moved) {
+                    showToast(switch (action) {
+                        case UP -> "Moved up";
+                        case DOWN -> "Moved down";
+                        case TOP -> "Moved to top";
+                        case BOTTOM -> "Moved to bottom";
+                    });
+                } else {
+                    showToast(switch (action) {
+                        case UP, TOP -> "Already at top";
+                        case DOWN, BOTTOM -> "Already at bottom";
+                    });
+                }
             });
         });
     }
@@ -1512,6 +1590,7 @@ public final class PopupWindow {
                 boolean singlePinned = selected.size() == 1 && selected.get(0).favorite();
                 miRename.setDisable(!singlePinned);
                 miClearTitle.setDisable(!singlePinned || !selected.get(0).hasTitle());
+                movePinnedMenu.setDisable(!singlePinned);
 
                 miDelete.setDisable(false);
 

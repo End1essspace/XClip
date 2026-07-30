@@ -22,7 +22,7 @@ import java.util.stream.Collectors;
 
 public final class Database {
 
-    private static final int CURRENT_SCHEMA_VERSION = 3;
+    private static final int CURRENT_SCHEMA_VERSION = 4;
 
     private final Path dbPath;
     private final String jdbcUrl;
@@ -115,6 +115,7 @@ public final class Database {
             ensureColumn(c, "last_copied_at", "INTEGER NOT NULL DEFAULT 0");
             ensureColumn(c, "use_count", "INTEGER NOT NULL DEFAULT 1");
             ensureColumn(c, "title", "TEXT");
+            ensureColumn(c, "pin_order", "INTEGER");
 
             try (Statement st = c.createStatement()) {
                 // Existing v1 rows did not have last_copied_at.
@@ -144,15 +145,42 @@ public final class Database {
                         )
                         """);
 
+                if (existingVersion < 4) {
+                    // Preserve the exact pinned order users saw before manual ordering existed:
+                    // newest pinned clip first, then deterministic id fallback.
+                    st.executeUpdate("""
+                            UPDATE clip_entries AS target
+                            SET pin_order = (
+                                SELECT COUNT(*)
+                                FROM clip_entries AS other
+                                WHERE other.is_favorite = 1
+                                  AND (
+                                      other.last_copied_at > target.last_copied_at
+                                      OR (
+                                          other.last_copied_at = target.last_copied_at
+                                          AND other.id > target.id
+                                      )
+                                  )
+                            )
+                            WHERE target.is_favorite = 1
+                            """);
+                    st.executeUpdate("""
+                            UPDATE clip_entries
+                            SET pin_order = NULL
+                            WHERE is_favorite = 0
+                            """);
+                }
+
                 st.execute("DROP INDEX IF EXISTS idx_clip_hash;");
                 st.execute("DROP INDEX IF EXISTS idx_clip_fav_created;");
+                st.execute("DROP INDEX IF EXISTS idx_clip_fav_last_copied;");
                 st.execute("""
                         CREATE UNIQUE INDEX IF NOT EXISTS idx_clip_hash_unique
                         ON clip_entries(content_hash)
                         """);
                 st.execute("""
-                        CREATE INDEX IF NOT EXISTS idx_clip_fav_last_copied
-                        ON clip_entries(is_favorite, last_copied_at DESC)
+                        CREATE INDEX IF NOT EXISTS idx_clip_pinned_order
+                        ON clip_entries(is_favorite, pin_order, last_copied_at DESC)
                         """);
                 st.execute("PRAGMA user_version = " + CURRENT_SCHEMA_VERSION + ";");
             }

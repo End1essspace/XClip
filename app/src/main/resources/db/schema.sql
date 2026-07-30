@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS clip_entries (
   content_hash   TEXT    NOT NULL,
   title          TEXT,
   is_favorite    INTEGER NOT NULL DEFAULT 0,
+  pin_order      INTEGER,
   created_at     INTEGER NOT NULL,
   last_copied_at INTEGER NOT NULL DEFAULT 0,
   use_count      INTEGER NOT NULL DEFAULT 1
