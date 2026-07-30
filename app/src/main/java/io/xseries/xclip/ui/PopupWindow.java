@@ -1,4 +1,5 @@
 
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -16,6 +17,8 @@ import io.xseries.xclip.ui.popup.PopupRow;
 import io.xseries.xclip.ui.popup.PopupRow.ClipRow;
 import io.xseries.xclip.ui.popup.PopupRow.SectionRow;
 import io.xseries.xclip.ui.popup.PopupViewState;
+import io.xseries.xclip.system.window.WindowChromeController;
+import io.xseries.xclip.system.window.WindowChromeController.WindowBounds;
 import io.xseries.xclip.system.window.WindowsTitleBar;
 import io.xseries.xclip.data.dao.ClipEntryDao;
 import io.xseries.xclip.data.model.ClipEntry;
@@ -62,11 +65,6 @@ public final class PopupWindow {
     private static final int HEIGHT = 420;
     private volatile int uiClipLimit = io.xseries.xclip.config.Config.DEFAULT_UI_CLIP_LIMIT;
 
-    private double lastNormalX = -1;
-    private double lastNormalY = -1;
-    private double lastNormalW = -1;
-    private double lastNormalH = -1;
-
     private int selectionAnchorIndex = -1;
 
     private io.xseries.xclip.config.ConfigService configService;
@@ -94,6 +92,7 @@ public final class PopupWindow {
     private static final int EXPANDED_CHAR_LIMIT = 100_000;
 
     private final Stage stage;
+    private final WindowChromeController windowChrome;
     private final TextField searchField = new TextField();
     private final ListView<PopupRow> listView = new ListView<>();
     private final ObservableList<PopupRow> items = FXCollections.observableArrayList();
@@ -232,6 +231,10 @@ public final class PopupWindow {
         stage.setResizable(true);
         stage.setMinWidth(500);
         stage.setMinHeight(300);
+
+        // R2.1 compatibility foundation: native chrome stays active while all
+        // future title-bar transitions are centralized in one controller.
+        windowChrome = WindowChromeController.forStage(stage, this::hide);
 
         listView.setItems(items);
         ClipRowCell.Controller rowCellController = createRowCellController();
@@ -488,7 +491,7 @@ public final class PopupWindow {
 
         stage.setOnCloseRequest(e -> {
             e.consume();
-            hide();
+            windowChrome.closeToBackground();
         });
 
         // Auto-hide with suppression
@@ -944,38 +947,38 @@ public final class PopupWindow {
         this.config = (config != null) ? config : io.xseries.xclip.config.Config.defaults();
         this.uiClipLimit = this.config.uiClipLimit();
 
-        // initial size from config (до первого show можно поставить)
+        WindowBounds configuredNormalBounds = new WindowBounds(
+                this.config.windowX(),
+                this.config.windowY(),
+                this.config.windowW(),
+                this.config.windowH()
+        );
+        windowChrome.rememberNormalBounds(configuredNormalBounds);
+
+        // Initial restored size can be applied before the first show.
         stage.setWidth(this.config.windowW());
         stage.setHeight(this.config.windowH());
 
-        // debounce handler
         windowSaveDebounce.setOnFinished(e -> persistWindowStateNow());
 
-        // listeners
-        stage.xProperty().addListener((o, ov, nv) -> scheduleWindowPersist());
-        stage.yProperty().addListener((o, ov, nv) -> scheduleWindowPersist());
-        stage.widthProperty().addListener((o, ov, nv) -> scheduleWindowPersist());
-        stage.heightProperty().addListener((o, ov, nv) -> scheduleWindowPersist());
-        stage.maximizedProperty().addListener((o, ov, nv) -> {
-            if (!nv) {
-                // когда выходим из maximize — текущие bounds снова “normal”
-                lastNormalX = stage.getX();
-                lastNormalY = stage.getY();
-                lastNormalW = stage.getWidth();
-                lastNormalH = stage.getHeight();
-                scheduleWindowPersist();
+        stage.xProperty().addListener((o, ov, nv) -> onWindowBoundsChanged());
+        stage.yProperty().addListener((o, ov, nv) -> onWindowBoundsChanged());
+        stage.widthProperty().addListener((o, ov, nv) -> onWindowBoundsChanged());
+        stage.heightProperty().addListener((o, ov, nv) -> onWindowBoundsChanged());
+        stage.maximizedProperty().addListener((o, wasMaximized, isMaximized) -> {
+            if (!isMaximized) {
+                // Native restore updates geometry asynchronously. Capture after
+                // JavaFX has applied the restored rectangle.
+                Platform.runLater(() -> {
+                    windowChrome.captureNormalBounds();
+                    scheduleWindowPersist();
+                });
             } else {
-                // перед уходом в maximize — зафиксировать нормальные bounds (если уже есть)
-                if (!Double.isFinite(lastNormalW) || lastNormalW <= 0) {
-                    lastNormalX = stage.getX();
-                    lastNormalY = stage.getY();
-                    lastNormalW = stage.getWidth();
-                    lastNormalH = stage.getHeight();
-                }
                 scheduleWindowPersist();
             }
         });
     }
+
     public void applyConfig(io.xseries.xclip.config.Config config) {
         if (config == null) return;
         this.config = config.normalized();
@@ -987,80 +990,80 @@ public final class PopupWindow {
             }
         });
     }
+
+    private void onWindowBoundsChanged() {
+        // Native maximize can emit geometry changes before the maximized flag.
+        // Capture on the next pulse so full-screen bounds are not mistaken for
+        // the restored rectangle.
+        Platform.runLater(() -> {
+            windowChrome.captureNormalBounds();
+            scheduleWindowPersist();
+        });
+    }
+
     private void scheduleWindowPersist() {
         if (configService == null || config == null) return;
-        if (!stage.isShowing() || stage.isIconified()) return;
+        if (!stage.isShowing() || windowChrome.isIconified()) return;
         windowSaveDebounce.playFromStart();
     }
 
     private void persistWindowStateNow() {
         if (configService == null || config == null) return;
 
-        // не пишем мусор, когда окно не в нормальном показе
-        if (!stage.isShowing() || stage.isIconified()) return;
+        // Do not persist transient minimized or hidden native geometry.
+        if (!stage.isShowing() || windowChrome.isIconified()) return;
 
-        boolean maximized = stage.isMaximized();
+        boolean maximized = windowChrome.isMaximized();
+        java.util.Optional<WindowBounds> persistedBounds =
+                windowChrome.persistenceBounds();
+        if (persistedBounds.isEmpty()) return;
 
-        double x = stage.getX();
-        double y = stage.getY();
-        double w = stage.getWidth();
-        double h = stage.getHeight();
+        WindowBounds bounds = persistedBounds.get();
+        double x = bounds.x();
+        double y = bounds.y();
+        double w = bounds.width();
+        double h = bounds.height();
 
-        // защита от мусора
-        if (!Double.isFinite(x) || !Double.isFinite(y) || !Double.isFinite(w) || !Double.isFinite(h)) return;
-        if (w <= 0 || h <= 0) return;
-
-        // Если окно maximized — сохраняем "normal bounds" (то, что было до maximize),
-        // иначе при старте setWidth/setHeight даст "почти fullscreen", но не true maximized.
-        if (maximized) {
-            if (lastNormalW > 0 && lastNormalH > 0
-                    && Double.isFinite(lastNormalX) && Double.isFinite(lastNormalY)
-                    && Double.isFinite(lastNormalW) && Double.isFinite(lastNormalH)) {
-                x = lastNormalX;
-                y = lastNormalY;
-                w = lastNormalW;
-                h = lastNormalH;
-            }
-        } else {
-            // Обновляем нормальные bounds в обычном режиме (актуальные)
-            lastNormalX = x;
-            lastNormalY = y;
-            lastNormalW = w;
-            lastNormalH = h;
-        }
-
-        // не сохраняем, если ничего не изменилось (с учётом maximize флага)
-        if (config.windowX() == x &&
-            config.windowY() == y &&
-            config.windowW() == w &&
-            config.windowH() == h &&
-            config.windowMaximized() == maximized) {
+        if (config.windowX() == x
+                && config.windowY() == y
+                && config.windowW() == w
+                && config.windowH() == h
+                && config.windowMaximized() == maximized) {
             return;
         }
 
-        io.xseries.xclip.config.Config updated = config.withWindowState(x, y, w, h, maximized);
+        io.xseries.xclip.config.Config updated =
+                config.withWindowState(x, y, w, h, maximized);
         this.config = updated;
 
-        // важно: persist(), не save()
+        // Window geometry must not reapply unrelated runtime settings.
         configService.persist(updated);
     }
 
     private void applyWindowStateOrFallback() {
         if (configService == null || config == null) {
             positionNearMouse();
+            windowChrome.captureNormalBounds();
             return;
         }
 
-        // размер применяем всегда
         stage.setWidth(config.windowW());
         stage.setHeight(config.windowH());
 
-        if (config.hasWindowPos() && isOnSomeScreen(config.windowX(), config.windowY(), config.windowW(), config.windowH())) {
+        if (config.hasWindowPos()
+                && isOnSomeScreen(
+                        config.windowX(),
+                        config.windowY(),
+                        config.windowW(),
+                        config.windowH()
+                )) {
             stage.setX(config.windowX());
             stage.setY(config.windowY());
         } else {
             positionNearMouse();
         }
+
+        windowChrome.captureNormalBounds();
     }
 
     private boolean isOnSomeScreen(double x, double y, double w, double h) {
@@ -1132,15 +1135,13 @@ public final class PopupWindow {
             WindowsTitleBar.applyDarkTitleBar(stage);
         }
 
-        if (stage.isIconified()) {
-            stage.setIconified(false);
-        }
+        windowChrome.restoreFromMinimized();
 
         if (first) {
             applyWindowStateOrFallback();
 
             if (config != null && config.windowMaximized()) {
-                Platform.runLater(() -> stage.setMaximized(true));
+                Platform.runLater(windowChrome::maximize);
             }
         }
 
