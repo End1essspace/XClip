@@ -18,6 +18,7 @@ public final class ClipEntryDao {
     public ClipEntryDao(String jdbcUrl) {
         this.jdbcUrl = jdbcUrl;
     }
+
     private Connection openConnection() {
         try {
             Connection c = DriverManager.getConnection(jdbcUrl);
@@ -46,16 +47,27 @@ public final class ClipEntryDao {
     }
 
     /**
-     * Insert clip, but do NOT create duplicates by content_hash.
-     * This protects against duplicates across restarts (lastNorm is in-memory only).
+     * Inserts a new clip or refreshes an existing clip with the same content hash.
+     *
+     * Reused content keeps its original created_at value, but last_copied_at and
+     * use_count are updated so it moves to the top of RECENT without creating a duplicate.
      */
     public void insert(String content, String contentNorm, String contentHash, long createdAt) {
         String sql = """
-            INSERT INTO clip_entries(content, content_norm, content_hash, created_at)
-            SELECT ?, ?, ?, ?
-            WHERE NOT EXISTS (
-              SELECT 1 FROM clip_entries WHERE content_hash = ?
+            INSERT INTO clip_entries(
+                content,
+                content_norm,
+                content_hash,
+                created_at,
+                last_copied_at,
+                use_count
             )
+            VALUES (?, ?, ?, ?, ?, 1)
+            ON CONFLICT(content_hash) DO UPDATE SET
+                content = excluded.content,
+                content_norm = excluded.content_norm,
+                last_copied_at = excluded.last_copied_at,
+                use_count = clip_entries.use_count + 1
             """;
         Connection c = conn();
         try (PreparedStatement ps = c.prepareStatement(sql)) {
@@ -63,18 +75,18 @@ public final class ClipEntryDao {
             ps.setString(2, contentNorm);
             ps.setString(3, contentHash);
             ps.setLong(4, createdAt);
-            ps.setString(5, contentHash);
+            ps.setLong(5, createdAt);
             ps.executeUpdate();
         } catch (Exception e) {
-            throw new RuntimeException("Insert failed", e);
+            throw new RuntimeException("Insert/upsert failed", e);
         }
     }
 
     public List<ClipEntry> listLatest(int limit) {
         String sql = """
-            SELECT id, content, is_favorite, created_at
+            SELECT id, content, is_favorite, last_copied_at AS created_at
             FROM clip_entries
-            ORDER BY is_favorite DESC, created_at DESC
+            ORDER BY is_favorite DESC, last_copied_at DESC, id DESC
             LIMIT ?
             """;
         Connection c = conn();
@@ -90,10 +102,10 @@ public final class ClipEntryDao {
 
     public List<ClipEntry> search(String q, int limit) {
         String sql = """
-            SELECT id, content, is_favorite, created_at
+            SELECT id, content, is_favorite, last_copied_at AS created_at
             FROM clip_entries
             WHERE content LIKE ? ESCAPE '\\'
-            ORDER BY is_favorite DESC, created_at DESC
+            ORDER BY is_favorite DESC, last_copied_at DESC, id DESC
             LIMIT ?
             """;
         String like = "%" + escapeLike(q) + "%";
@@ -154,7 +166,7 @@ public final class ClipEntryDao {
               AND id NOT IN (
                 SELECT id FROM clip_entries
                 WHERE is_favorite = 0
-                ORDER BY created_at DESC
+                ORDER BY last_copied_at DESC, id DESC
                 LIMIT ?
               )
             """;

@@ -12,11 +12,17 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 public final class Database {
+
+    private static final int CURRENT_SCHEMA_VERSION = 2;
 
     private final Path dbPath;
     private final String jdbcUrl;
@@ -39,7 +45,7 @@ public final class Database {
 
     /**
      * Initializes database directory, enables WAL,
-     * and applies schema.sql in an idempotent way.
+     * applies the latest base schema, and migrates existing databases.
      */
     public void init() {
         if (!initialized.compareAndSet(false, true)) {
@@ -75,17 +81,113 @@ public final class Database {
             st.execute("PRAGMA temp_store=MEMORY;");
             st.execute("PRAGMA busy_timeout=3000;");
 
-            // --- Apply schema ---
-            String ddl = loadResourceText("/db/schema.sql");
-            for (String sql : ddl.split(";")) {
-                String s = sql.trim();
-                if (!s.isEmpty()) {
-                    st.execute(s + ";");
-                }
-            }
+            applyBaseSchema(st);
+            migrateToLatest(c);
 
         } catch (Exception e) {
             throw new RuntimeException("Failed to initialize SQLite database", e);
+        }
+    }
+
+    private void applyBaseSchema(Statement st) throws SQLException {
+        String ddl = loadResourceText("/db/schema.sql");
+        for (String sql : ddl.split(";")) {
+            String s = sql.trim();
+            if (!s.isEmpty()) {
+                st.execute(s + ";");
+            }
+        }
+    }
+
+    private void migrateToLatest(Connection c) throws SQLException {
+        int existingVersion = readUserVersion(c);
+        if (existingVersion > CURRENT_SCHEMA_VERSION) {
+            throw new SQLException(
+                    "Database schema version " + existingVersion
+                            + " is newer than supported version " + CURRENT_SCHEMA_VERSION
+            );
+        }
+
+        boolean previousAutoCommit = c.getAutoCommit();
+        c.setAutoCommit(false);
+
+        try {
+            ensureColumn(c, "last_copied_at", "INTEGER NOT NULL DEFAULT 0");
+            ensureColumn(c, "use_count", "INTEGER NOT NULL DEFAULT 1");
+
+            try (Statement st = c.createStatement()) {
+                // Existing v1 rows did not have last_copied_at.
+                st.executeUpdate("""
+                        UPDATE clip_entries
+                        SET last_copied_at = created_at
+                        WHERE last_copied_at IS NULL OR last_copied_at <= 0
+                        """);
+
+                // The old schema used a non-unique hash index. Keep the best row
+                // before enforcing uniqueness: pinned first, then most recently used.
+                st.executeUpdate("""
+                        DELETE FROM clip_entries
+                        WHERE id NOT IN (
+                            SELECT keeper.id
+                            FROM clip_entries AS keeper
+                            WHERE keeper.id = (
+                                SELECT candidate.id
+                                FROM clip_entries AS candidate
+                                WHERE candidate.content_hash = keeper.content_hash
+                                ORDER BY candidate.is_favorite DESC,
+                                         candidate.last_copied_at DESC,
+                                         candidate.created_at DESC,
+                                         candidate.id DESC
+                                LIMIT 1
+                            )
+                        )
+                        """);
+
+                st.execute("DROP INDEX IF EXISTS idx_clip_hash;");
+                st.execute("DROP INDEX IF EXISTS idx_clip_fav_created;");
+                st.execute("""
+                        CREATE UNIQUE INDEX IF NOT EXISTS idx_clip_hash_unique
+                        ON clip_entries(content_hash)
+                        """);
+                st.execute("""
+                        CREATE INDEX IF NOT EXISTS idx_clip_fav_last_copied
+                        ON clip_entries(is_favorite, last_copied_at DESC)
+                        """);
+                st.execute("PRAGMA user_version = " + CURRENT_SCHEMA_VERSION + ";");
+            }
+
+            c.commit();
+        } catch (SQLException e) {
+            c.rollback();
+            throw e;
+        } finally {
+            c.setAutoCommit(previousAutoCommit);
+        }
+    }
+
+    private void ensureColumn(Connection c, String columnName, String definition) throws SQLException {
+        if (tableColumns(c, "clip_entries").contains(columnName)) return;
+
+        try (Statement st = c.createStatement()) {
+            st.execute("ALTER TABLE clip_entries ADD COLUMN " + columnName + " " + definition + ";");
+        }
+    }
+
+    private Set<String> tableColumns(Connection c, String tableName) throws SQLException {
+        Set<String> columns = new HashSet<>();
+        try (Statement st = c.createStatement();
+             ResultSet rs = st.executeQuery("PRAGMA table_info(" + tableName + ");")) {
+            while (rs.next()) {
+                columns.add(rs.getString("name"));
+            }
+        }
+        return columns;
+    }
+
+    private int readUserVersion(Connection c) throws SQLException {
+        try (Statement st = c.createStatement();
+             ResultSet rs = st.executeQuery("PRAGMA user_version;")) {
+            return rs.next() ? rs.getInt(1) : 0;
         }
     }
 
