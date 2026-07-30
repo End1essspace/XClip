@@ -52,6 +52,102 @@
 }
 
 /* =========================================================
+   Custom popup window chrome
+   ========================================================= */
+
+.popup-root {
+    -fx-background-color: -x-bg;
+    -fx-border-color: -x-border-strong;
+    -fx-border-width: 1;
+}
+
+.popup-shell-header {
+    -fx-background-color: -x-surface;
+}
+
+.popup-title-bar {
+    -fx-background-color: #11151D;
+    -fx-border-color: transparent transparent -x-border-soft transparent;
+    -fx-border-width: 0 0 1 0;
+    -fx-min-height: 38px;
+    -fx-pref-height: 38px;
+    -fx-max-height: 38px;
+    -fx-padding: 0;
+}
+
+.title-drag-region {
+    -fx-padding: 0 12 0 12;
+    -fx-alignment: center-left;
+}
+
+.title-app-icon {
+    -fx-opacity: 0.96;
+}
+
+.title-app-name {
+    -fx-text-fill: -x-text;
+    -fx-font-size: 12.5px;
+    -fx-font-weight: 700;
+}
+
+.window-controls {
+    -fx-alignment: center-right;
+    -fx-spacing: 0;
+}
+
+.window-control-button {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-background-radius: 0;
+    -fx-border-radius: 0;
+    -fx-padding: 0;
+    -fx-min-width: 46px;
+    -fx-pref-width: 46px;
+    -fx-max-width: 46px;
+    -fx-min-height: 37px;
+    -fx-pref-height: 37px;
+    -fx-max-height: 37px;
+    -fx-text-fill: -x-text-secondary;
+    -fx-font-family: "Segoe UI Symbol", "Segoe UI", sans-serif;
+    -fx-font-size: 14px;
+    -fx-alignment: center;
+}
+
+.window-control-button:hover {
+    -fx-background-color: -x-surface-3;
+    -fx-text-fill: -x-text;
+}
+
+.window-control-button:pressed {
+    -fx-background-color: #303746;
+}
+
+.window-minimize-button {
+    -fx-font-size: 15px;
+    -fx-padding: 0 0 4 0;
+}
+
+.window-maximize-button {
+    -fx-font-size: 15px;
+    -fx-padding: 0 0 1 0;
+}
+
+.window-close-button {
+    -fx-font-size: 19px;
+    -fx-padding: 0 0 2 0;
+}
+
+.window-close-button:hover {
+    -fx-background-color: #C42B1C;
+    -fx-text-fill: white;
+}
+
+.window-close-button:pressed {
+    -fx-background-color: #A5261A;
+    -fx-text-fill: white;
+}
+
+/* =========================================================
    Base controls
    ========================================================= */
 

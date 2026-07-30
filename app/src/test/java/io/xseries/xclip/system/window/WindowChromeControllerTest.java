@@ -135,6 +135,101 @@ class WindowChromeControllerTest {
         assertEquals(visual, controller.currentVisualBounds());
     }
 
+    @Test
+    void detectsResizeEdgesWithCornerPriority() {
+        assertEquals(
+                WindowChromeController.ResizeEdge.NORTH_WEST,
+                WindowChromeController.resizeEdgeFor(2, 2, 800, 600, 6)
+        );
+        assertEquals(
+                WindowChromeController.ResizeEdge.SOUTH_EAST,
+                WindowChromeController.resizeEdgeFor(798, 598, 800, 600, 6)
+        );
+        assertEquals(
+                WindowChromeController.ResizeEdge.EAST,
+                WindowChromeController.resizeEdgeFor(799, 300, 800, 600, 6)
+        );
+        assertEquals(
+                WindowChromeController.ResizeEdge.NONE,
+                WindowChromeController.resizeEdgeFor(400, 300, 800, 600, 6)
+        );
+    }
+
+    @Test
+    void resizesFromSouthEastAndPersistsResult() {
+        FakeWindowHost host = new FakeWindowHost(
+                new WindowChromeController.WindowBounds(100, 80, 800, 600)
+        );
+        WindowChromeController controller =
+                new WindowChromeController(host, () -> {});
+
+        assertTrue(controller.beginResize(
+                WindowChromeController.ResizeEdge.SOUTH_EAST,
+                900,
+                680,
+                500,
+                300
+        ));
+        assertTrue(controller.isResizing());
+        assertTrue(controller.resizeTo(1040, 790));
+
+        assertEquals(
+                new WindowChromeController.WindowBounds(100, 80, 940, 710),
+                host.bounds
+        );
+
+        controller.endResize();
+
+        assertFalse(controller.isResizing());
+        assertEquals(host.bounds, controller.normalBounds().orElseThrow());
+    }
+
+    @Test
+    void clampsNorthWestResizeToMinimumSize() {
+        WindowChromeController.WindowBounds resized =
+                WindowChromeController.resizedBounds(
+                        new WindowChromeController.WindowBounds(100, 100, 800, 600),
+                        WindowChromeController.ResizeEdge.NORTH_WEST,
+                        700,
+                        500,
+                        500,
+                        300
+                );
+
+        assertEquals(
+                new WindowChromeController.WindowBounds(400, 400, 500, 300),
+                resized
+        );
+    }
+
+    @Test
+    void rejectsResizeWhileMaximizedOrDragging() {
+        FakeWindowHost host = new FakeWindowHost(
+                new WindowChromeController.WindowBounds(100, 80, 800, 600)
+        );
+        WindowChromeController controller =
+                new WindowChromeController(host, () -> {});
+
+        host.maximized = true;
+        assertFalse(controller.beginResize(
+                WindowChromeController.ResizeEdge.EAST,
+                900,
+                300,
+                500,
+                300
+        ));
+
+        host.maximized = false;
+        assertTrue(controller.beginDrag(150, 100));
+        assertFalse(controller.beginResize(
+                WindowChromeController.ResizeEdge.EAST,
+                900,
+                300,
+                500,
+                300
+        ));
+    }
+
     private static final class FakeWindowHost
             implements WindowChromeController.WindowHost {
 

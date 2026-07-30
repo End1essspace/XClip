@@ -13,6 +13,7 @@ import io.xseries.xclip.ui.popup.PopupActionBar;
 import io.xseries.xclip.ui.popup.PopupActionsMenu;
 import io.xseries.xclip.ui.popup.PopupFilterBar;
 import io.xseries.xclip.ui.popup.PopupHeader;
+import io.xseries.xclip.ui.popup.PopupTitleBar;
 import io.xseries.xclip.ui.popup.PopupRow;
 import io.xseries.xclip.ui.popup.PopupRow.ClipRow;
 import io.xseries.xclip.ui.popup.PopupRow.SectionRow;
@@ -222,7 +223,7 @@ public final class PopupWindow {
         this.onOpenSettings = (onOpenSettings != null) ? onOpenSettings : (() -> {});
         this.actionsMenu = createPopupActionsMenu();
 
-        stage = new Stage(StageStyle.DECORATED);
+        stage = new Stage(StageStyle.UNDECORATED);
         stage.setTitle("XClip");
         stage.getIcons().add(new javafx.scene.image.Image(
                 PopupWindow.class.getResourceAsStream("/icons/icon.png")
@@ -232,8 +233,8 @@ public final class PopupWindow {
         stage.setMinWidth(500);
         stage.setMinHeight(300);
 
-        // R2.1 compatibility foundation: native chrome stays active while all
-        // future title-bar transitions are centralized in one controller.
+        // R2.2 custom chrome: the undecorated stage is controlled entirely
+        // through one window-state controller and a JavaFX title bar.
         windowChrome = WindowChromeController.forStage(stage, this::hide);
 
         listView.setItems(items);
@@ -432,6 +433,7 @@ public final class PopupWindow {
                 controlGroup,
                 filterBar
         );
+        PopupTitleBar popupTitleBar = new PopupTitleBar(stage, windowChrome);
 
 
         Button pasteBtn = new Button("Paste");
@@ -468,7 +470,11 @@ public final class PopupWindow {
         toast.getStyleClass().add("toast");
 
         BorderPane root = new BorderPane();
-        root.setTop(popupHeader);
+        root.getStyleClass().add("popup-root");
+
+        VBox shellHeader = new VBox(popupTitleBar, popupHeader);
+        shellHeader.getStyleClass().add("popup-shell-header");
+        root.setTop(shellHeader);
 
         BorderPane centerPane = new BorderPane();
         centerPane.setCenter(listView);
@@ -487,6 +493,13 @@ public final class PopupWindow {
                 getClass().getResource("/ui/styles.css").toExternalForm()
         );
 
+        windowChrome.installResizeSupport(
+                scene,
+                6.0,
+                stage.getMinWidth(),
+                stage.getMinHeight()
+        );
+
         stage.setScene(scene);
 
         stage.setOnCloseRequest(e -> {
@@ -499,9 +512,17 @@ public final class PopupWindow {
             if (!suppressAutoHide) hide();
         });
         stage.focusedProperty().addListener((o, was, now) -> {
-            if (suppressAutoHide) return;
-            if (!now) autoHideDelay.playFromStart();
-            else autoHideDelay.stop();
+            if (now) {
+                autoHideDelay.stop();
+                return;
+            }
+
+            // Minimize is a real window operation, not an auto-hide request.
+            // Check on the next pulse because iconified can update after focus.
+            Platform.runLater(() -> {
+                if (suppressAutoHide || windowChrome.isIconified()) return;
+                autoHideDelay.playFromStart();
+            });
         });
 
         // FIX: key handling at STAGE level (always works)
@@ -1132,7 +1153,6 @@ public final class PopupWindow {
 
         if (!stage.isShowing()) {
             stage.show();
-            WindowsTitleBar.applyDarkTitleBar(stage);
         }
 
         windowChrome.restoreFromMinimized();
@@ -1147,7 +1167,6 @@ public final class PopupWindow {
 
         stage.toFront();
         stage.requestFocus();
-        WindowsTitleBar.applyDarkTitleBar(stage);
 
         searchField.requestFocus();
         reloadNow(searchField.getText());

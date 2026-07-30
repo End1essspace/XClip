@@ -6,6 +6,10 @@
 package io.xseries.xclip.system.window;
 
 import javafx.geometry.Rectangle2D;
+import javafx.scene.Cursor;
+import javafx.scene.Scene;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
 import javafx.stage.Screen;
 import javafx.stage.Stage;
 
@@ -14,11 +18,11 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Compatibility-safe window-state controller used by the popup shell.
+ * Central controller for both native and custom JavaFX window chrome.
  *
- * R2.1 keeps the native decorated title bar. This controller centralizes the
- * state transitions and restored-window bounds that the later custom title bar
- * will call, without changing the current visual shell.
+ * R2.2 activates an undecorated popup shell. The controller owns window-state
+ * transitions, restored bounds, title-bar dragging, and manual edge resizing
+ * while keeping the geometry rules independently testable.
  */
 public final class WindowChromeController {
 
@@ -35,6 +39,18 @@ public final class WindowChromeController {
                     && width > 0
                     && height > 0;
         }
+    }
+
+    public enum ResizeEdge {
+        NONE,
+        NORTH,
+        SOUTH,
+        EAST,
+        WEST,
+        NORTH_EAST,
+        NORTH_WEST,
+        SOUTH_EAST,
+        SOUTH_WEST
     }
 
     /**
@@ -56,9 +72,18 @@ public final class WindowChromeController {
     private final Runnable closeToBackground;
 
     private WindowBounds normalBounds;
+
     private boolean dragging;
     private double dragOffsetX;
     private double dragOffsetY;
+
+    private boolean resizing;
+    private ResizeEdge resizeEdge = ResizeEdge.NONE;
+    private WindowBounds resizeStartBounds;
+    private double resizeStartPointerX;
+    private double resizeStartPointerY;
+    private double resizeMinWidth = 1.0;
+    private double resizeMinHeight = 1.0;
 
     WindowChromeController(WindowHost host, Runnable closeToBackground) {
         this.host = Objects.requireNonNull(host, "host");
@@ -158,7 +183,7 @@ public final class WindowChromeController {
 
         captureNormalBounds();
         host.setIconified(true);
-        dragging = false;
+        cancelPointerOperation();
         return true;
     }
 
@@ -174,7 +199,7 @@ public final class WindowChromeController {
 
         captureNormalBounds();
         host.setMaximized(true);
-        dragging = false;
+        cancelPointerOperation();
         return true;
     }
 
@@ -182,7 +207,10 @@ public final class WindowChromeController {
         if (!host.isMaximized()) return false;
 
         host.setMaximized(false);
-        dragging = false;
+        if (normalBounds != null && normalBounds.isValid()) {
+            host.setBounds(normalBounds);
+        }
+        cancelPointerOperation();
         return true;
     }
 
@@ -190,19 +218,16 @@ public final class WindowChromeController {
         return host.isMaximized() ? restore() : maximize();
     }
 
-    /**
-     * Hook for the future custom title-bar double-click handler.
-     */
     public boolean handleTitleBarDoubleClick() {
         return toggleMaximized();
     }
 
     /**
-     * Starts dragging only in restored mode. R2.2 will wire this hook to the
-     * custom title region.
+     * Starts title-bar dragging only in restored mode. Dragging a maximized
+     * window into restored mode is intentionally reserved for R2.3.
      */
     public boolean beginDrag(double pointerScreenX, double pointerScreenY) {
-        if (!host.isShowing() || host.isIconified() || host.isMaximized()) {
+        if (!host.isShowing() || host.isIconified() || host.isMaximized() || resizing) {
             dragging = false;
             return false;
         }
@@ -247,9 +272,281 @@ public final class WindowChromeController {
         return dragging;
     }
 
+    public boolean beginResize(
+            ResizeEdge edge,
+            double pointerScreenX,
+            double pointerScreenY,
+            double minWidth,
+            double minHeight
+    ) {
+        if (edge == null || edge == ResizeEdge.NONE) return false;
+        if (!host.isShowing() || host.isIconified() || host.isMaximized() || dragging) {
+            resizing = false;
+            return false;
+        }
+        if (!Double.isFinite(pointerScreenX) || !Double.isFinite(pointerScreenY)) {
+            resizing = false;
+            return false;
+        }
+
+        WindowBounds current = host.bounds();
+        if (current == null || !current.isValid()) {
+            resizing = false;
+            return false;
+        }
+
+        resizeEdge = edge;
+        resizeStartBounds = current;
+        resizeStartPointerX = pointerScreenX;
+        resizeStartPointerY = pointerScreenY;
+        resizeMinWidth = normalizeMinimum(minWidth);
+        resizeMinHeight = normalizeMinimum(minHeight);
+        resizing = true;
+        return true;
+    }
+
+    public boolean resizeTo(double pointerScreenX, double pointerScreenY) {
+        if (!resizing || resizeStartBounds == null) return false;
+        if (!Double.isFinite(pointerScreenX) || !Double.isFinite(pointerScreenY)) {
+            return false;
+        }
+
+        double deltaX = pointerScreenX - resizeStartPointerX;
+        double deltaY = pointerScreenY - resizeStartPointerY;
+
+        WindowBounds resized = resizedBounds(
+                resizeStartBounds,
+                resizeEdge,
+                deltaX,
+                deltaY,
+                resizeMinWidth,
+                resizeMinHeight
+        );
+        host.setBounds(resized);
+        return true;
+    }
+
+    public void endResize() {
+        if (!resizing) return;
+
+        resizing = false;
+        resizeEdge = ResizeEdge.NONE;
+        resizeStartBounds = null;
+        captureNormalBounds();
+    }
+
+    public boolean isResizing() {
+        return resizing;
+    }
+
+    public ResizeEdge resizeEdge() {
+        return resizeEdge;
+    }
+
+    /**
+     * Installs manual edge resizing required by StageStyle.UNDECORATED.
+     */
+    public void installResizeSupport(
+            Scene scene,
+            double edgeThickness,
+            double minWidth,
+            double minHeight
+    ) {
+        Objects.requireNonNull(scene, "scene");
+
+        double safeThickness = Math.max(1.0, edgeThickness);
+        double safeMinWidth = normalizeMinimum(minWidth);
+        double safeMinHeight = normalizeMinimum(minHeight);
+
+        scene.addEventFilter(MouseEvent.MOUSE_MOVED, event -> {
+            if (isMaximized() || isDragging() || isResizing()) {
+                if (!isResizing()) scene.setCursor(Cursor.DEFAULT);
+                return;
+            }
+
+            ResizeEdge edge = resizeEdgeFor(
+                    event.getSceneX(),
+                    event.getSceneY(),
+                    scene.getWidth(),
+                    scene.getHeight(),
+                    safeThickness
+            );
+            scene.setCursor(cursorFor(edge));
+        });
+
+        scene.addEventFilter(MouseEvent.MOUSE_PRESSED, event -> {
+            if (event.getButton() != MouseButton.PRIMARY || isMaximized()) return;
+
+            ResizeEdge edge = resizeEdgeFor(
+                    event.getSceneX(),
+                    event.getSceneY(),
+                    scene.getWidth(),
+                    scene.getHeight(),
+                    safeThickness
+            );
+
+            if (beginResize(
+                    edge,
+                    event.getScreenX(),
+                    event.getScreenY(),
+                    safeMinWidth,
+                    safeMinHeight
+            )) {
+                scene.setCursor(cursorFor(edge));
+                event.consume();
+            }
+        });
+
+        scene.addEventFilter(MouseEvent.MOUSE_DRAGGED, event -> {
+            if (!isResizing()) return;
+
+            resizeTo(event.getScreenX(), event.getScreenY());
+            event.consume();
+        });
+
+        scene.addEventFilter(MouseEvent.MOUSE_RELEASED, event -> {
+            if (!isResizing()) return;
+
+            endResize();
+            ResizeEdge edge = resizeEdgeFor(
+                    event.getSceneX(),
+                    event.getSceneY(),
+                    scene.getWidth(),
+                    scene.getHeight(),
+                    safeThickness
+            );
+            scene.setCursor(cursorFor(edge));
+            event.consume();
+        });
+
+        scene.addEventFilter(MouseEvent.MOUSE_EXITED, event -> {
+            if (!isResizing()) scene.setCursor(Cursor.DEFAULT);
+        });
+    }
+
     public void closeToBackground() {
-        dragging = false;
+        cancelPointerOperation();
         closeToBackground.run();
+    }
+
+    static ResizeEdge resizeEdgeFor(
+            double sceneX,
+            double sceneY,
+            double sceneWidth,
+            double sceneHeight,
+            double edgeThickness
+    ) {
+        if (!Double.isFinite(sceneX)
+                || !Double.isFinite(sceneY)
+                || !Double.isFinite(sceneWidth)
+                || !Double.isFinite(sceneHeight)
+                || !Double.isFinite(edgeThickness)
+                || sceneWidth <= 0
+                || sceneHeight <= 0
+                || edgeThickness <= 0) {
+            return ResizeEdge.NONE;
+        }
+
+        boolean left = sceneX >= 0 && sceneX <= edgeThickness;
+        boolean right = sceneX <= sceneWidth && sceneX >= sceneWidth - edgeThickness;
+        boolean top = sceneY >= 0 && sceneY <= edgeThickness;
+        boolean bottom = sceneY <= sceneHeight && sceneY >= sceneHeight - edgeThickness;
+
+        if (top && left) return ResizeEdge.NORTH_WEST;
+        if (top && right) return ResizeEdge.NORTH_EAST;
+        if (bottom && left) return ResizeEdge.SOUTH_WEST;
+        if (bottom && right) return ResizeEdge.SOUTH_EAST;
+        if (top) return ResizeEdge.NORTH;
+        if (bottom) return ResizeEdge.SOUTH;
+        if (left) return ResizeEdge.WEST;
+        if (right) return ResizeEdge.EAST;
+        return ResizeEdge.NONE;
+    }
+
+    static WindowBounds resizedBounds(
+            WindowBounds start,
+            ResizeEdge edge,
+            double deltaX,
+            double deltaY,
+            double minWidth,
+            double minHeight
+    ) {
+        Objects.requireNonNull(start, "start");
+        Objects.requireNonNull(edge, "edge");
+
+        double safeMinWidth = normalizeMinimum(minWidth);
+        double safeMinHeight = normalizeMinimum(minHeight);
+
+        double x = start.x();
+        double y = start.y();
+        double width = start.width();
+        double height = start.height();
+
+        boolean west = edge == ResizeEdge.WEST
+                || edge == ResizeEdge.NORTH_WEST
+                || edge == ResizeEdge.SOUTH_WEST;
+        boolean east = edge == ResizeEdge.EAST
+                || edge == ResizeEdge.NORTH_EAST
+                || edge == ResizeEdge.SOUTH_EAST;
+        boolean north = edge == ResizeEdge.NORTH
+                || edge == ResizeEdge.NORTH_WEST
+                || edge == ResizeEdge.NORTH_EAST;
+        boolean south = edge == ResizeEdge.SOUTH
+                || edge == ResizeEdge.SOUTH_WEST
+                || edge == ResizeEdge.SOUTH_EAST;
+
+        if (west) {
+            double candidateWidth = width - deltaX;
+            if (candidateWidth < safeMinWidth) {
+                x = start.x() + start.width() - safeMinWidth;
+                width = safeMinWidth;
+            } else {
+                x = start.x() + deltaX;
+                width = candidateWidth;
+            }
+        } else if (east) {
+            width = Math.max(safeMinWidth, width + deltaX);
+        }
+
+        if (north) {
+            double candidateHeight = height - deltaY;
+            if (candidateHeight < safeMinHeight) {
+                y = start.y() + start.height() - safeMinHeight;
+                height = safeMinHeight;
+            } else {
+                y = start.y() + deltaY;
+                height = candidateHeight;
+            }
+        } else if (south) {
+            height = Math.max(safeMinHeight, height + deltaY);
+        }
+
+        return new WindowBounds(x, y, width, height);
+    }
+
+    private void cancelPointerOperation() {
+        dragging = false;
+        resizing = false;
+        resizeEdge = ResizeEdge.NONE;
+        resizeStartBounds = null;
+    }
+
+    private static double normalizeMinimum(double value) {
+        return Double.isFinite(value) && value > 0 ? value : 1.0;
+    }
+
+    private static Cursor cursorFor(ResizeEdge edge) {
+        return switch (edge) {
+            case NORTH -> Cursor.N_RESIZE;
+            case SOUTH -> Cursor.S_RESIZE;
+            case EAST -> Cursor.E_RESIZE;
+            case WEST -> Cursor.W_RESIZE;
+            case NORTH_EAST -> Cursor.NE_RESIZE;
+            case NORTH_WEST -> Cursor.NW_RESIZE;
+            case SOUTH_EAST -> Cursor.SE_RESIZE;
+            case SOUTH_WEST -> Cursor.SW_RESIZE;
+            case NONE -> Cursor.DEFAULT;
+        };
     }
 
     private static final class StageWindowHost implements WindowHost {
