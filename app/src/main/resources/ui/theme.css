@@ -1,0 +1,52 @@
+/*
+ * XClip — Windows Clipboard Manager
+ * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
+/* =========================================================
+   XClip Dark Theme
+   JavaFX 21
+   ========================================================= */
+
+/* =========================================================
+   Theme tokens
+   ========================================================= */
+
+.root {
+    -fx-font-family: "Segoe UI", "Inter", "Arial", sans-serif;
+
+    -x-bg: #0D1016;
+    -x-bg-deep: #0A0C10;
+
+    -x-surface: #151922;
+    -x-surface-2: #1B202B;
+    -x-surface-3: #242A36;
+
+    -x-input: #111722;
+    -x-input-focus: #131A26;
+
+    -x-border: #2D3442;
+    -x-border-soft: #252B36;
+    -x-border-strong: #3A4352;
+
+    -x-text: #E8ECF3;
+    -x-text-secondary: #C8D0DC;
+    -x-text-muted: #7F8898;
+    -x-text-dim: #697386;
+
+    -x-accent: #F5C542;
+    -x-accent-hover: #FFD866;
+    -x-accent-soft: rgba(245, 197, 66, 0.105);
+    -x-accent-soft-hover: rgba(245, 197, 66, 0.16);
+    -x-accent-border: rgba(245, 197, 66, 0.42);
+
+    -x-danger: #EF5350;
+    -x-danger-text: #FFB8B8;
+    -x-danger-title: #FF7474;
+    -x-danger-soft: rgba(239, 83, 80, 0.14);
+    -x-danger-border: rgba(239, 83, 80, 0.55);
+
+    -fx-background-color: -x-bg;
+    -fx-text-fill: -x-text;
+}

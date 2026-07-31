@@ -1,0 +1,118 @@
+/*
+ * XClip — Windows Clipboard Manager
+ * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
+/* =========================================================
+   Settings window
+   ========================================================= */
+
+.settings-section {
+    -fx-background-color: -x-surface;
+    -fx-border-color: #2B3340;
+    -fx-border-radius: 14;
+    -fx-background-radius: 14;
+    -fx-padding: 18;
+}
+
+.data-path {
+    -fx-background-color: #151B26;
+    -fx-text-fill: #B7C0CE;
+    -fx-prompt-text-fill: -x-text-muted;
+    -fx-border-color: -x-border;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+}
+
+.status-text {
+    -fx-text-fill: -x-accent;
+}
+
+.btn-subtle {
+    -fx-background-color: -x-surface-2;
+    -fx-text-fill: -x-text-secondary;
+    -fx-border-color: -x-border;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-padding: 7 14 7 14;
+}
+
+.btn-subtle:hover {
+    -fx-background-color: -x-surface-3;
+    -fx-text-fill: #EEF2F7;
+    -fx-border-color: -x-accent-border;
+}
+
+.btn-apply {
+    -fx-background-color: -x-accent;
+    -fx-text-fill: #111318;
+    -fx-border-color: transparent;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-padding: 7 14 7 14;
+    -fx-font-weight: 700;
+}
+
+.btn-apply:hover {
+    -fx-background-color: -x-accent-hover;
+}
+
+.btn-apply:disabled {
+    -fx-background-color: #29303B;
+    -fx-text-fill: #6E7786;
+    -fx-opacity: 1.0;
+}
+
+.button-danger {
+    -fx-background-color: transparent;
+    -fx-text-fill: -x-danger-text;
+    -fx-border-color: -x-danger-border;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-padding: 7 12 7 12;
+}
+
+.button-danger:hover {
+    -fx-background-color: -x-danger-soft;
+    -fx-border-color: -x-danger;
+}
+
+.danger-title {
+    -fx-text-fill: -x-danger-title;
+    -fx-font-size: 13px;
+    -fx-font-weight: 800;
+}
+
+/* =========================================================
+   Dialog / Alert
+   ========================================================= */
+
+.x-dialog {
+    -fx-background-color: -x-bg;
+}
+
+.x-dialog > *.header-panel {
+    -fx-background-color: -x-surface;
+}
+
+.x-dialog > *.header-panel *.label {
+    -fx-text-fill: -x-text;
+}
+
+.x-dialog .content.label {
+    -fx-text-fill: -x-text-secondary;
+}
+
+.x-dialog .button-bar .button {
+    -fx-background-color: -x-surface-2;
+    -fx-text-fill: -x-text-secondary;
+    -fx-border-color: -x-border;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+}
+
+.x-dialog .button-bar .button:hover {
+    -fx-background-color: -x-surface-3;
+    -fx-border-color: -x-accent-border;
+}

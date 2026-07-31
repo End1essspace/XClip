@@ -493,10 +493,7 @@ public final class PopupWindow {
         });
         scene.addEventFilter(ScrollEvent.SCROLL, event -> actionsMenu.hide());
 
-        // Shared stylesheet (Popup + Settings)
-        scene.getStylesheets().add(
-                getClass().getResource("/ui/styles.css").toExternalForm()
-        );
+        UiStyles.applyPopup(scene);
 
         windowChrome.installResizeSupport(
                 scene,
@@ -1734,9 +1731,7 @@ public final class PopupWindow {
         dialog.setHeaderText("Give this pinned clip a short title");
         dialog.setContentText("Title:");
 
-        dialog.getDialogPane().getStylesheets().add(
-                getClass().getResource("/ui/styles.css").toExternalForm()
-        );
+        UiStyles.applyDialog(dialog.getDialogPane());
         dialog.getDialogPane().getStyleClass().add("x-dialog");
 
         TextField editor = dialog.getEditor();
@@ -1887,9 +1882,7 @@ public final class PopupWindow {
         autoHideDelay.stop();
 
         Alert a = new Alert(Alert.AlertType.CONFIRMATION);
-        a.getDialogPane().getStylesheets().add(
-                getClass().getResource("/ui/styles.css").toExternalForm()
-        );
+        UiStyles.applyDialog(a.getDialogPane());
         a.getDialogPane().getStyleClass().add("x-dialog");
         a.setTitle("Clear visible history");
         a.setHeaderText("Delete visible non-pinned clips?");
@@ -2228,3 +2221,5 @@ public final class PopupWindow {
         updateSelectionUi();
     }
 }
+
+

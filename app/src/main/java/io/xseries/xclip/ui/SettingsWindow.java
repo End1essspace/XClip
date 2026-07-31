@@ -170,7 +170,7 @@ public final class SettingsWindow {
                 }
             }
         });
-        
+
         uiClipLimit = new Spinner<>(50, 5_000, current.uiClipLimit(), 50);
         uiClipLimit.setEditable(true);
         uiClipLimit.getEditor().setTextFormatter(
@@ -316,9 +316,7 @@ public final class SettingsWindow {
         root.getStyleClass().add("settings-root");
 
         Scene scene = new Scene(root);
-        scene.getStylesheets().add(
-                getClass().getResource("/ui/styles.css").toExternalForm()
-        );
+        UiStyles.applySettings(scene);
 
         stage.setScene(scene);
         stage.setOnHiding(e -> {
@@ -405,7 +403,7 @@ public final class SettingsWindow {
         internalSync = false;
         clearDirty();
     }
-    
+
     private void apply() {
         if (!dirty) {
             showStatus("No changes");
@@ -439,7 +437,7 @@ public final class SettingsWindow {
 
         if (next.watcherEnabled()) watcherController.enable();
         else watcherController.disable();
-        
+
         try {
             onConfigApplied.accept(next);
         } catch (Throwable ignored) {
@@ -506,9 +504,7 @@ public final class SettingsWindow {
         alert.initModality(Modality.WINDOW_MODAL);
         alert.setResizable(false);
 
-        alert.getDialogPane().getStylesheets().add(
-                getClass().getResource("/ui/styles.css").toExternalForm()
-        );
+        UiStyles.applyDialog(alert.getDialogPane());
         alert.getDialogPane().getStyleClass().add("x-dialog");
 
         alert.setOnShown(e -> {
@@ -657,3 +653,5 @@ public final class SettingsWindow {
         uiClipLimit.getEditor().getStyleClass().remove("input-error");
     }
 }
+
+
