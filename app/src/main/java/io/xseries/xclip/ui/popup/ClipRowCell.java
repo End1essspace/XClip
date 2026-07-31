@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -120,6 +121,11 @@ public final class ClipRowCell extends ListCell<PopupRow> {
         configureClipRoot();
         configurePointerBehavior();
 
+        widthProperty().addListener((obs, oldValue, newValue) ->
+                applyResponsiveMetadata(newValue.doubleValue())
+        );
+        applyResponsiveMetadata(0.0);
+
         selectedProperty().addListener((obs, oldValue, newValue) -> updateSelectionIndicator());
         hoverProperty().addListener((obs, oldValue, newValue) -> updateSelectionIndicator());
     }
@@ -231,6 +237,36 @@ public final class ClipRowCell extends ListCell<PopupRow> {
         metadata.getChildren().setAll(collapseButton, typeBadge, timeLabel, moreButton);
 
         clipRoot.getChildren().setAll(pinAccent, leading, clipLeft, metadata);
+    }
+
+    private void applyResponsiveMetadata(double cellWidth) {
+        PopupResponsivePolicy.RowMetadataMode mode =
+                PopupResponsivePolicy.rowMetadataMode(cellWidth);
+
+        double metadataWidth = PopupResponsivePolicy.rowMetadataWidth(cellWidth);
+        metadata.setMinWidth(metadataWidth);
+        metadata.setPrefWidth(metadataWidth);
+        metadata.setMaxWidth(metadataWidth);
+
+        double leadingWidth = PopupResponsivePolicy.rowLeadingWidth(cellWidth);
+        leading.setMinWidth(leadingWidth);
+        leading.setPrefWidth(leadingWidth);
+        leading.setMaxWidth(leadingWidth);
+
+        boolean showTime = PopupResponsivePolicy.showRowTime(cellWidth);
+        timeLabel.setVisible(showTime);
+        timeLabel.setManaged(showTime);
+
+        boolean compact = mode == PopupResponsivePolicy.RowMetadataMode.COMPACT;
+        collapseButton.setText(compact ? "" : "Collapse");
+        collapseButton.setContentDisplay(
+                compact
+                        ? javafx.scene.control.ContentDisplay.GRAPHIC_ONLY
+                        : javafx.scene.control.ContentDisplay.LEFT
+        );
+
+        metadata.setSpacing(compact ? 6 : 10);
+        clipRoot.setSpacing(compact ? 6 : 9);
     }
 
     private void configurePointerBehavior() {
@@ -680,5 +716,3 @@ public final class ClipRowCell extends ListCell<PopupRow> {
         return value;
     }
 }
-
-

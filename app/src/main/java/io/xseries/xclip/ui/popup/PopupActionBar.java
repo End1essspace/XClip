@@ -6,26 +6,23 @@
 package io.xseries.xclip.ui.popup;
 
 import javafx.css.PseudoClass;
+import javafx.geometry.HPos;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.Label;
 import javafx.scene.control.OverrunStyle;
+import javafx.scene.layout.ColumnConstraints;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
-import javafx.scene.layout.Region;
-import javafx.scene.layout.StackPane;
 
 import java.util.Objects;
 
 /**
- * Single-row popup footer.
- *
- * Workflow actions stay on the left, state/destructive actions stay on the
- * right, and the otherwise empty center becomes a responsive status zone.
- * The zone normally shows keyboard hints and temporarily displays operation
- * feedback without adding a second footer strip or covering clipboard rows.
+ * Responsive popup footer. Wide layouts keep one horizontal row; compact
+ * layouts split workflow and state actions so controls never leave the window.
  */
-public final class PopupActionBar extends StackPane {
+public final class PopupActionBar extends GridPane {
 
     private static final String FULL_HINTS =
             "↑↓ Navigate   •   Enter Paste   •   Ctrl+C Copy   •   Del Delete";
@@ -54,6 +51,7 @@ public final class PopupActionBar extends StackPane {
     private boolean messageMode;
     private String messageText = "";
     private StatusTone statusTone = StatusTone.NEUTRAL;
+    private PopupResponsivePolicy.LayoutMode appliedMode;
 
     public PopupActionBar(
             Node paste,
@@ -76,14 +74,6 @@ public final class PopupActionBar extends StackPane {
         right.setAlignment(Pos.CENTER_RIGHT);
         right.getStyleClass().add("action-group-right");
 
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
-
-        HBox actionRow = new HBox(left, spacer, right);
-        actionRow.setAlignment(Pos.CENTER_LEFT);
-        actionRow.setMaxWidth(Double.MAX_VALUE);
-        actionRow.getStyleClass().add("actions-row");
-
         statusLabel.setAlignment(Pos.CENTER);
         statusLabel.setTextOverrun(OverrunStyle.ELLIPSIS);
         statusLabel.setMaxWidth(Double.MAX_VALUE);
@@ -92,15 +82,21 @@ public final class PopupActionBar extends StackPane {
         statusLabel.setAccessibleText("Keyboard shortcuts and operation status");
         statusLabel.getStyleClass().add("actions-status");
 
-        StackPane.setAlignment(actionRow, Pos.CENTER);
-        StackPane.setAlignment(statusLabel, Pos.CENTER);
-        getChildren().setAll(actionRow, statusLabel);
+        setAlignment(Pos.CENTER_LEFT);
+        setMaxWidth(Double.MAX_VALUE);
+        setHgap(12);
+        setVgap(6);
+        getChildren().setAll(left, statusLabel, right);
         getStyleClass().add("actions-bar");
 
-        widthProperty().addListener((obs, oldValue, newValue) -> refreshPresentation());
+        widthProperty().addListener((obs, oldValue, newValue) -> {
+            applyResponsiveLayout(newValue.doubleValue());
+            refreshPresentation();
+        });
         left.widthProperty().addListener((obs, oldValue, newValue) -> refreshPresentation());
         right.widthProperty().addListener((obs, oldValue, newValue) -> refreshPresentation());
 
+        applyResponsiveLayout(0.0);
         showHints();
     }
 
@@ -128,6 +124,73 @@ public final class PopupActionBar extends StackPane {
         return messageMode;
     }
 
+    private void applyResponsiveLayout(double width) {
+        PopupResponsivePolicy.LayoutMode mode =
+                PopupResponsivePolicy.layoutMode(width);
+        if (mode == appliedMode) return;
+        appliedMode = mode;
+
+        resetGridConstraints(left);
+        resetGridConstraints(statusLabel);
+        resetGridConstraints(right);
+        getColumnConstraints().clear();
+
+        if (PopupResponsivePolicy.stackFooter(width)) {
+            ColumnConstraints flexible = new ColumnConstraints();
+            flexible.setHgrow(Priority.ALWAYS);
+            flexible.setFillWidth(true);
+            getColumnConstraints().setAll(flexible);
+
+            GridPane.setRowIndex(left, 0);
+            GridPane.setColumnIndex(left, 0);
+            GridPane.setHalignment(left, HPos.LEFT);
+
+            GridPane.setRowIndex(right, 1);
+            GridPane.setColumnIndex(right, 0);
+            GridPane.setHalignment(right, HPos.RIGHT);
+
+            GridPane.setRowIndex(statusLabel, 2);
+            GridPane.setColumnIndex(statusLabel, 0);
+            GridPane.setHalignment(statusLabel, HPos.CENTER);
+            GridPane.setHgrow(statusLabel, Priority.ALWAYS);
+        } else {
+            ColumnConstraints leftColumn = new ColumnConstraints();
+            leftColumn.setHgrow(Priority.NEVER);
+
+            ColumnConstraints centerColumn = new ColumnConstraints();
+            centerColumn.setHgrow(Priority.ALWAYS);
+            centerColumn.setFillWidth(true);
+
+            ColumnConstraints rightColumn = new ColumnConstraints();
+            rightColumn.setHgrow(Priority.NEVER);
+            getColumnConstraints().setAll(leftColumn, centerColumn, rightColumn);
+
+            GridPane.setRowIndex(left, 0);
+            GridPane.setColumnIndex(left, 0);
+            GridPane.setHalignment(left, HPos.LEFT);
+
+            GridPane.setRowIndex(statusLabel, 0);
+            GridPane.setColumnIndex(statusLabel, 1);
+            GridPane.setHalignment(statusLabel, HPos.CENTER);
+            GridPane.setHgrow(statusLabel, Priority.ALWAYS);
+
+            GridPane.setRowIndex(right, 0);
+            GridPane.setColumnIndex(right, 2);
+            GridPane.setHalignment(right, HPos.RIGHT);
+        }
+
+        getStyleClass().removeAll(
+                "responsive-compact",
+                "responsive-balanced",
+                "responsive-wide"
+        );
+        getStyleClass().add(switch (mode) {
+            case COMPACT -> "responsive-compact";
+            case BALANCED -> "responsive-balanced";
+            case WIDE -> "responsive-wide";
+        });
+    }
+
     private void applyStatusPseudoClasses() {
         statusLabel.pseudoClassStateChanged(MESSAGE_PC, messageMode);
         statusLabel.pseudoClassStateChanged(
@@ -145,11 +208,12 @@ public final class PopupActionBar extends StackPane {
     }
 
     private void refreshPresentation() {
-        double sideWidth = Math.max(left.getWidth(), right.getWidth());
-        double available = Math.max(
-                0.0,
-                getWidth() - (sideWidth * 2.0) - 56.0
-        );
+        boolean compact = PopupResponsivePolicy.stackFooter(getWidth());
+        double available = compact
+                ? Math.max(0.0, getWidth() - 28.0)
+                : Math.max(0.0, getWidth()
+                        - Math.max(left.getWidth(), right.getWidth()) * 2.0
+                        - 56.0);
         statusLabel.setMaxWidth(available);
 
         String text = messageMode
@@ -169,5 +233,13 @@ public final class PopupActionBar extends StackPane {
         if (!Double.isFinite(available) || available < 330.0) return "";
         return available >= 520.0 ? FULL_HINTS : COMPACT_HINTS;
     }
-}
 
+    private static void resetGridConstraints(Node node) {
+        GridPane.setRowIndex(node, null);
+        GridPane.setColumnIndex(node, null);
+        GridPane.setRowSpan(node, null);
+        GridPane.setColumnSpan(node, null);
+        GridPane.setHalignment(node, null);
+        GridPane.setHgrow(node, null);
+    }
+}

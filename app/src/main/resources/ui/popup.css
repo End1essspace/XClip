@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -2046,5 +2047,68 @@
     -fx-border-width: 1;
     -fx-border-radius: 8;
     -fx-effect: dropshadow(gaussian, rgba(245, 197, 66, 0.46), 7, 0.22, 0, 0);
+}
+
+/* =========================================================
+   R10 responsive shell and bounded-layout overrides
+   ========================================================= */
+
+.search-wrap {
+    -fx-min-width: 0;
+}
+
+.popup-header.responsive-compact .top-bar {
+    -fx-padding: 8 10 8 10;
+}
+
+.popup-header.responsive-compact .popup-status-group {
+    -fx-spacing: 8;
+}
+
+.popup-header.responsive-compact .popup-control-group {
+    -fx-spacing: 6;
+}
+
+.popup-header.responsive-compact .topbar-btn {
+    -fx-padding: 7 10 7 10;
+}
+
+.filter-bar.responsive-compact {
+    -fx-padding: 7 10 8 10;
+}
+
+.filter-bar.responsive-compact .filter-type-wrap {
+    -fx-min-width: 0;
+    -fx-pref-width: 0;
+    -fx-max-width: 100000;
+}
+
+.actions-bar {
+    -fx-padding: 7 16 6 16;
+}
+
+.actions-bar.responsive-compact {
+    -fx-padding: 7 10 7 10;
+}
+
+.actions-bar.responsive-compact .action-btn {
+    -fx-min-width: 82px;
+    -fx-padding: 0 10 0 10;
+}
+
+.actions-bar.responsive-compact .action-state {
+    -fx-min-width: 108px;
+}
+
+.actions-bar.responsive-compact .action-danger {
+    -fx-min-width: 94px;
+}
+
+.actions-bar.responsive-compact .actions-status {
+    -fx-padding: 1 6 0 6;
+}
+
+.clip-list .list-cell .clip-time {
+    -fx-opacity: 0.92;
 }
 

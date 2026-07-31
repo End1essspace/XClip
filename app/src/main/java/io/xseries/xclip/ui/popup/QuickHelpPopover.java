@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -8,7 +9,9 @@ package io.xseries.xclip.ui.popup;
 import io.xseries.xclip.ui.components.SvgIcon;
 import io.xseries.xclip.ui.components.UiIcon;
 import javafx.application.Platform;
+import javafx.geometry.Bounds;
 import javafx.geometry.Pos;
+import javafx.geometry.Rectangle2D;
 import javafx.geometry.Side;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
@@ -20,6 +23,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
+import javafx.stage.Screen;
 
 import java.util.Objects;
 
@@ -58,7 +62,40 @@ public final class QuickHelpPopover {
             return;
         }
 
+        applyViewportBounds(owner);
         menu.show(owner, Side.BOTTOM, 0, 6);
+    }
+
+    private void applyViewportBounds(Node owner) {
+        if (scrollPane == null) return;
+
+        Rectangle2D visualBounds = Screen.getPrimary().getVisualBounds();
+        try {
+            Bounds ownerBounds = owner.localToScreen(owner.getBoundsInLocal());
+            if (ownerBounds != null) {
+                visualBounds = Screen.getScreensForRectangle(
+                                ownerBounds.getMinX(),
+                                ownerBounds.getMinY(),
+                                Math.max(1.0, ownerBounds.getWidth()),
+                                Math.max(1.0, ownerBounds.getHeight())
+                        )
+                        .stream()
+                        .findFirst()
+                        .orElse(Screen.getPrimary())
+                        .getVisualBounds();
+            }
+        } catch (RuntimeException ignored) {
+        }
+
+        PopupOverlayPolicy.OverlaySize size =
+                PopupOverlayPolicy.quickHelpViewport(
+                        visualBounds.getWidth(),
+                        visualBounds.getHeight()
+                );
+        scrollPane.setPrefViewportWidth(size.width());
+        scrollPane.setPrefViewportHeight(size.height());
+        scrollPane.setMaxWidth(size.width());
+        scrollPane.setMaxHeight(size.height());
     }
 
     public void hide() {
@@ -142,5 +179,3 @@ public final class QuickHelpPopover {
         return scrollPane;
     }
 }
-
-

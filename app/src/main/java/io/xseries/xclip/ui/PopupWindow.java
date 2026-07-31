@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -15,6 +16,10 @@ import io.xseries.xclip.ui.popup.QuickHelpPopover;
 import io.xseries.xclip.ui.popup.ClipPreviewPolicy;
 import io.xseries.xclip.ui.popup.PopupHeader;
 import io.xseries.xclip.ui.popup.PopupKeyBindings;
+import io.xseries.xclip.ui.popup.PopupPerformancePolicy;
+import io.xseries.xclip.ui.popup.PopupRows;
+import io.xseries.xclip.ui.popup.ReloadRequestGate;
+import io.xseries.xclip.ui.popup.BoundedLruCache;
 import io.xseries.xclip.ui.popup.PopupTitleBar;
 import io.xseries.xclip.ui.popup.PopupRow;
 import io.xseries.xclip.ui.popup.PopupRow.ClipRow;
@@ -100,7 +105,6 @@ public final class PopupWindow {
 
     // Pinned clips remain intentionally compact even when their content is large.
     private static final int PINNED_TITLE_MAX_LENGTH = 120;
-    private static final int TYPE_FILTER_SCAN_LIMIT = 5_000;
 
     private final Stage stage;
     private final WindowChromeController windowChrome;
@@ -129,11 +133,16 @@ public final class PopupWindow {
 
     // per-entry expand state for "More/Less"
     private final Map<Long, Boolean> expandedById = new HashMap<>();
-    // Cache for preview/needsToggle to avoid split("\\R") per cell repaint
-    private final Map<Long, PreviewData> previewCache = new HashMap<>();
+    // Strictly bounded caches keep memory stable with 10k/50k histories.
+    private final BoundedLruCache<Long, PreviewData> previewCache =
+            new BoundedLruCache<>(PopupPerformancePolicy.PREVIEW_CACHE_CAPACITY);
 
-    private record ContentTypeCache(String content, ClipContentType type) {}
-    private final Map<Long, ContentTypeCache> contentTypeCache = new ConcurrentHashMap<>();
+    private record ContentTypeCache(
+            PopupPerformancePolicy.ContentFingerprint fingerprint,
+            ClipContentType type
+    ) {}
+    private final BoundedLruCache<Long, ContentTypeCache> contentTypeCache =
+            new BoundedLruCache<>(PopupPerformancePolicy.CONTENT_TYPE_CACHE_CAPACITY);
 
     // v1.1 UX state
     private final Label countLabel = new Label();
@@ -164,8 +173,7 @@ public final class PopupWindow {
     });
 
     private volatile ScheduledFuture<?> pendingSearch;
-    private final java.util.concurrent.atomic.AtomicLong reloadGeneration =
-            new java.util.concurrent.atomic.AtomicLong();
+    private final ReloadRequestGate reloadGate = new ReloadRequestGate();
 
     private final PauseTransition autoHideDelay = new PauseTransition(Duration.millis(160));
 
@@ -401,7 +409,7 @@ public final class PopupWindow {
         StackPane.setAlignment(clearSearchBtn, Pos.CENTER_RIGHT);
         StackPane.setMargin(clearSearchBtn, new Insets(0, 8, 0, 0));
 
-        searchWrap.setMinWidth(420);
+        searchWrap.setMinWidth(0);
         searchWrap.setPrefWidth(820);
         searchWrap.setMaxWidth(Double.MAX_VALUE);
         HBox.setHgrow(searchWrap, Priority.ALWAYS);
@@ -1596,6 +1604,10 @@ public final class PopupWindow {
     }
 
     public void shutdown() {
+        reloadGate.invalidate();
+        if (pendingSearch != null) pendingSearch.cancel(false);
+        previewCache.clear();
+        contentTypeCache.clear();
         pasteService.close();
         dbExec.shutdownNow();
         debounceExec.shutdownNow();
@@ -1656,7 +1668,11 @@ public final class PopupWindow {
         String q = searchField.getText();
         MultiSelectionSnapshot snap = MultiSelectionSnapshot.capture(listView, items, selectionAnchorIndex);
         if (pendingSearch != null) pendingSearch.cancel(false);
-        pendingSearch = debounceExec.schedule(() -> reloadNow(q, snap), 150, TimeUnit.MILLISECONDS);
+        pendingSearch = debounceExec.schedule(
+                () -> reloadNow(q, snap),
+                PopupPerformancePolicy.SEARCH_DEBOUNCE_MS,
+                TimeUnit.MILLISECONDS
+        );
     }
 
     private void reloadNow(String q) {
@@ -1670,7 +1686,7 @@ public final class PopupWindow {
         PopupViewState stateSnapshot = viewState;
         ClipViewScope scopeSnapshot = stateSnapshot.scope();
         ClipContentType typeSnapshot = stateSnapshot.contentType();
-        long requestGeneration = reloadGeneration.incrementAndGet();
+        long requestGeneration = reloadGate.nextRequest();
 
         currentQueryRaw = normQuery;
         currentQueryLower = normQuery.isEmpty() ? "" : normQuery.toLowerCase(Locale.ROOT);
@@ -1679,9 +1695,10 @@ public final class PopupWindow {
 
         dbExec.submit(() -> {
             int limit = Math.max(1, uiClipLimit);
-            int candidateLimit = typeSnapshot == null
-                    ? limit
-                    : Math.max(limit, TYPE_FILTER_SCAN_LIMIT);
+            int candidateLimit = PopupPerformancePolicy.candidateLimit(
+                    limit,
+                    typeSnapshot != null
+            );
 
             int totalClipCount = dao.countAll();
 
@@ -1703,11 +1720,13 @@ public final class PopupWindow {
                             .thenComparing(Comparator.comparingLong(ClipEntry::createdAt).reversed())
             );
 
-            Platform.runLater(() -> {
-                if (requestGeneration != reloadGeneration.get()) return;
+            List<PopupRow> preparedRows = PopupRows.build(list);
+            int visibleClipCount = list.size();
 
-                items.setAll(buildRows(list));
-                int visibleClipCount = countClips(items);
+            Platform.runLater(() -> {
+                if (!reloadGate.isCurrent(requestGeneration)) return;
+
+                items.setAll(preparedRows);
                 countLabel.setText("Clips " + totalClipCount);
                 countLabel.setAccessibleText(
                         visibleClipCount < totalClipCount
@@ -1768,39 +1787,6 @@ public final class PopupWindow {
                 updateSelectionUi();
             });
         });
-    }
-
-    private ObservableList<PopupRow> buildRows(List<ClipEntry> sorted) {
-        ObservableList<PopupRow> out = FXCollections.observableArrayList();
-
-        int pinnedCount = 0;
-        int recentCount = 0;
-        for (ClipEntry entry : sorted) {
-            if (entry.favorite()) pinnedCount++;
-            else recentCount++;
-        }
-
-        if (pinnedCount > 0) {
-            out.add(new SectionRow("PINNED", pinnedCount));
-            for (ClipEntry entry : sorted) {
-                if (entry.favorite()) out.add(new ClipRow(entry));
-            }
-        }
-
-        if (recentCount > 0) {
-            out.add(new SectionRow("RECENT", recentCount));
-            for (ClipEntry entry : sorted) {
-                if (!entry.favorite()) out.add(new ClipRow(entry));
-            }
-        }
-
-        return out;
-    }
-
-    private int countClips(List<PopupRow> rows) {
-        int c = 0;
-        for (PopupRow r : rows) if (r instanceof ClipRow) c++;
-        return c;
     }
 
     private int findFirstClipIndex() {
@@ -2224,8 +2210,8 @@ public final class PopupWindow {
                 Platform.runLater(() -> {
                     java.util.Set<Long> removed = new java.util.HashSet<>(visibleNonFavoriteIds);
                     expandedById.keySet().removeIf(removed::contains);
-                    previewCache.keySet().removeIf(removed::contains);
-                    contentTypeCache.keySet().removeIf(removed::contains);
+                    previewCache.removeKeys(removed);
+                    contentTypeCache.removeKeys(removed);
                     clearSelection();
                     reloadNow(searchField.getText());
                     showToast(
@@ -2312,14 +2298,16 @@ public final class PopupWindow {
         if (entry == null) return ClipContentType.TEXT;
 
         String content = entry.content() == null ? "" : entry.content();
+        PopupPerformancePolicy.ContentFingerprint fingerprint =
+                PopupPerformancePolicy.fingerprint(content);
         ContentTypeCache cached = contentTypeCache.get(entry.id());
 
-        if (cached != null && java.util.Objects.equals(cached.content(), content)) {
+        if (cached != null && cached.fingerprint().equals(fingerprint)) {
             return cached.type();
         }
 
         ClipContentType type = ClipContentClassifier.classify(content);
-        contentTypeCache.put(entry.id(), new ContentTypeCache(content, type));
+        contentTypeCache.put(entry.id(), new ContentTypeCache(fingerprint, type));
         return type;
     }
 
@@ -2558,4 +2546,3 @@ public final class PopupWindow {
         updateSelectionUi();
     }
 }
-
