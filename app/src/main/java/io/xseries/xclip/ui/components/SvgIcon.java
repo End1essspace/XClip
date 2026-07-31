@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -26,7 +27,6 @@ import org.w3c.dom.NodeList;
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -44,15 +44,13 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class SvgIcon extends StackPane {
 
-    private static final String RESOURCE_ROOT = "/icons/ui/";
-    private static final double DEFAULT_VIEWBOX_SIZE = 24.0;
-    private static final Map<String, IconDefinition> CACHE = new ConcurrentHashMap<>();
+    private static final Map<UiIcon, IconDefinition> CACHE = new ConcurrentHashMap<>();
 
-    private final String iconName;
+    private final UiIcon icon;
     private final double iconSize;
 
-    private SvgIcon(String iconName, double iconSize, String... extraStyleClasses) {
-        this.iconName = normalizeIconName(iconName);
+    private SvgIcon(UiIcon icon, double iconSize, String... extraStyleClasses) {
+        this.icon = Objects.requireNonNull(icon, "icon");
         this.iconSize = normalizeSize(iconSize);
 
         getStyleClass().add("svg-icon");
@@ -72,18 +70,22 @@ public final class SvgIcon extends StackPane {
         setPickOnBounds(false);
 
         IconDefinition definition = CACHE.computeIfAbsent(
-                this.iconName,
+                this.icon,
                 SvgIcon::loadDefinition
         );
         getChildren().setAll(buildGraphic(definition, this.iconSize));
     }
 
-    public static SvgIcon of(String iconName, double iconSize, String... extraStyleClasses) {
-        return new SvgIcon(iconName, iconSize, extraStyleClasses);
+    public static SvgIcon of(UiIcon icon, double iconSize, String... extraStyleClasses) {
+        return new SvgIcon(icon, iconSize, extraStyleClasses);
+    }
+
+    public UiIcon icon() {
+        return icon;
     }
 
     public String iconName() {
-        return iconName;
+        return icon.resourceName();
     }
 
     public double iconSize() {
@@ -91,14 +93,14 @@ public final class SvgIcon extends StackPane {
     }
 
     private static Node buildGraphic(IconDefinition definition, double requestedSize) {
-        if (definition.shapes().isEmpty()) {
-            return new Group();
-        }
-
         List<Node> nodes = new ArrayList<>(definition.shapes().size());
         for (ShapeSpec spec : definition.shapes()) {
             Shape shape = createShape(spec, definition.defaults());
             if (shape != null) nodes.add(shape);
+        }
+
+        if (nodes.isEmpty()) {
+            throw new IllegalStateException("SVG icon has no renderable vector shapes");
         }
 
         Group graphic = new Group(nodes);
@@ -210,12 +212,12 @@ public final class SvgIcon extends StackPane {
         return values;
     }
 
-    private static IconDefinition loadDefinition(String iconName) {
-        String resourcePath = RESOURCE_ROOT + iconName + ".svg";
+    private static IconDefinition loadDefinition(UiIcon icon) {
+        String resourcePath = icon.resourcePath();
 
         try (InputStream stream = SvgIcon.class.getResourceAsStream(resourcePath)) {
             if (stream == null) {
-                return IconDefinition.empty();
+                throw new IllegalStateException("Missing packaged UI icon: " + resourcePath);
             }
 
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
@@ -224,12 +226,17 @@ public final class SvgIcon extends StackPane {
 
             Document document = factory.newDocumentBuilder().parse(stream);
             Element root = document.getDocumentElement();
-            if (root == null) return IconDefinition.empty();
+            if (root == null || !"svg".equalsIgnoreCase(root.getTagName())) {
+                throw new IllegalStateException("Invalid SVG root: " + resourcePath);
+            }
 
-            ViewBox viewBox = parseViewBox(root.getAttribute("viewBox"));
+            ViewBox viewBox = parseViewBox(root.getAttribute("viewBox"), resourcePath);
             Map<String, String> defaults = attributes(root);
             List<ShapeSpec> shapes = new ArrayList<>();
             collectShapeSpecs(root.getChildNodes(), shapes);
+            if (shapes.isEmpty()) {
+                throw new IllegalStateException("SVG icon has no supported shapes: " + resourcePath);
+            }
 
             return new IconDefinition(
                     viewBox.width(),
@@ -237,8 +244,10 @@ public final class SvgIcon extends StackPane {
                     Map.copyOf(defaults),
                     List.copyOf(shapes)
             );
-        } catch (Exception ignored) {
-            return IconDefinition.empty();
+        } catch (IllegalStateException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to load packaged UI icon: " + resourcePath, e);
         }
     }
 
@@ -284,26 +293,33 @@ public final class SvgIcon extends StackPane {
         return result;
     }
 
-    private static ViewBox parseViewBox(String raw) {
+    private static ViewBox parseViewBox(String raw, String resourcePath) {
         if (raw == null || raw.isBlank()) {
-            return new ViewBox(DEFAULT_VIEWBOX_SIZE, DEFAULT_VIEWBOX_SIZE);
+            throw new IllegalStateException("Missing SVG viewBox: " + resourcePath);
         }
 
         String[] parts = raw.trim().split("[\\s,]+");
         if (parts.length != 4) {
-            return new ViewBox(DEFAULT_VIEWBOX_SIZE, DEFAULT_VIEWBOX_SIZE);
+            throw new IllegalStateException("Invalid SVG viewBox: " + resourcePath);
         }
 
         try {
+            double minX = Double.parseDouble(parts[0]);
+            double minY = Double.parseDouble(parts[1]);
             double width = Double.parseDouble(parts[2]);
             double height = Double.parseDouble(parts[3]);
-            if (!Double.isFinite(width) || width <= 0
+
+            if (!Double.isFinite(minX) || !Double.isFinite(minY)
+                    || !Double.isFinite(width) || width <= 0
                     || !Double.isFinite(height) || height <= 0) {
-                return new ViewBox(DEFAULT_VIEWBOX_SIZE, DEFAULT_VIEWBOX_SIZE);
+                throw new IllegalStateException("Invalid SVG viewBox values: " + resourcePath);
+            }
+            if (minX != 0.0 || minY != 0.0) {
+                throw new IllegalStateException("Unsupported non-zero SVG viewBox origin: " + resourcePath);
             }
             return new ViewBox(width, height);
-        } catch (NumberFormatException ignored) {
-            return new ViewBox(DEFAULT_VIEWBOX_SIZE, DEFAULT_VIEWBOX_SIZE);
+        } catch (NumberFormatException e) {
+            throw new IllegalStateException("Invalid SVG viewBox numbers: " + resourcePath, e);
         }
     }
 
@@ -334,20 +350,6 @@ public final class SvgIcon extends StackPane {
         } catch (NumberFormatException ignored) {
             return fallback;
         }
-    }
-
-    private static String normalizeIconName(String iconName) {
-        String value = Objects.requireNonNullElse(iconName, "").trim();
-        if (value.endsWith(".svg")) {
-            value = value.substring(0, value.length() - 4);
-        }
-        if (value.isBlank()
-                || value.contains("/")
-                || value.contains("\\")
-                || value.contains("..")) {
-            throw new IllegalArgumentException("Invalid SVG icon name: " + iconName);
-        }
-        return value;
     }
 
     private static double normalizeSize(double iconSize) {
@@ -387,14 +389,6 @@ public final class SvgIcon extends StackPane {
             double viewHeight,
             Map<String, String> defaults,
             List<ShapeSpec> shapes
-    ) {
-        private static IconDefinition empty() {
-            return new IconDefinition(
-                    DEFAULT_VIEWBOX_SIZE,
-                    DEFAULT_VIEWBOX_SIZE,
-                    Collections.emptyMap(),
-                    Collections.emptyList()
-            );
-        }
-    }
+    ) {}
 }
+

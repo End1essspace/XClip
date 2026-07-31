@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -6,6 +7,7 @@
 package io.xseries.xclip.ui.popup;
 
 import io.xseries.xclip.ui.components.SvgIcon;
+import io.xseries.xclip.ui.components.UiIcon;
 import javafx.geometry.Pos;
 import javafx.geometry.Side;
 import javafx.scene.Node;
@@ -70,7 +72,7 @@ public final class QuickHelpPopover {
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
         Button close = new Button();
-        close.setGraphic(SvgIcon.of("x", 13, "quick-help-close-icon"));
+        close.setGraphic(SvgIcon.of(UiIcon.X, 13, "quick-help-close-icon"));
         close.setFocusTraversable(false);
         close.setAccessibleText("Close quick help");
         close.getStyleClass().add("quick-help-close");
@@ -124,3 +126,4 @@ public final class QuickHelpPopover {
         return scroll;
     }
 }
+

@@ -1,0 +1,10 @@
+XClip Third-Party Notices
+
+Lucide Icons
+Copyright (c) 2026 Lucide Icons and Contributors
+License: ISC
+Project: https://lucide.dev/
+Source: https://github.com/lucide-icons/lucide
+
+XClip bundles selected Lucide SVG icon assets. The complete ISC license text is
+included at META-INF/licenses/LUCIDE-ISC.txt inside the application JAR.

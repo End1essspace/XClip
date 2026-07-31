@@ -1,4 +1,5 @@
 
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -21,6 +22,7 @@ import io.xseries.xclip.ui.popup.PopupRow.SectionRow;
 import io.xseries.xclip.ui.popup.PopupViewState;
 import io.xseries.xclip.ui.components.SplitActionButton;
 import io.xseries.xclip.ui.components.SvgIcon;
+import io.xseries.xclip.ui.components.UiIcon;
 import io.xseries.xclip.system.window.WindowChromeController;
 import io.xseries.xclip.system.window.WindowChromeController.WindowBounds;
 import io.xseries.xclip.system.window.WindowsTitleBar;
@@ -287,7 +289,7 @@ public final class PopupWindow {
         searchField.getStyleClass().add("search-field");
 
         Button clearSearchBtn = new Button();
-        clearSearchBtn.setGraphic(SvgIcon.of("x", 12, "search-clear-icon"));
+        clearSearchBtn.setGraphic(SvgIcon.of(UiIcon.X, 12, "search-clear-icon"));
         clearSearchBtn.setFocusTraversable(false);
         clearSearchBtn.setAccessibleText("Clear search");
         clearSearchBtn.setTooltip(new Tooltip("Clear search"));
@@ -295,7 +297,7 @@ public final class PopupWindow {
         clearSearchBtn.setVisible(false);
         clearSearchBtn.setManaged(false);
 
-        SvgIcon searchIcon = SvgIcon.of("search", 16, "search-leading-icon");
+        SvgIcon searchIcon = SvgIcon.of(UiIcon.SEARCH, 16, "search-leading-icon");
         Label searchShortcut = new Label("Ctrl + K");
         searchShortcut.getStyleClass().add("search-shortcut");
         searchShortcut.setMouseTransparent(true);
@@ -343,7 +345,7 @@ public final class PopupWindow {
         });
 
         // Help is a real, scroll-safe popover instead of a long tooltip that can be clipped.
-        Button help = iconButton("circle-question-mark", "Quick help", "topbar-help");
+        Button help = iconButton(UiIcon.CIRCLE_QUESTION_MARK, "Quick help", "topbar-help");
         help.addEventFilter(MouseEvent.MOUSE_PRESSED, event -> {
             if (event.getButton() == MouseButton.PRIMARY && quickHelp.isShowing()) {
                 quickHelp.hide();
@@ -353,18 +355,18 @@ public final class PopupWindow {
         help.setOnAction(event -> quickHelp.toggle(help));
 
         Button pauseBtn = new Button("Pause");
-        pauseBtn.setGraphic(SvgIcon.of("pause", 15, "toolbar-icon", "pause-icon"));
+        pauseBtn.setGraphic(SvgIcon.of(UiIcon.PAUSE, 15, "toolbar-icon", "pause-icon"));
         pauseBtn.setContentDisplay(ContentDisplay.LEFT);
         pauseBtn.setFocusTraversable(false);
         pauseBtn.setOnAction(e -> onTogglePaused.run());
         pauseBtn.getStyleClass().addAll("topbar-btn", "pause-button");
         this.pauseBtnRef = pauseBtn;
 
-        Button settingsBtn = iconButton("settings", "Open settings", "topbar-settings");
+        Button settingsBtn = iconButton(UiIcon.SETTINGS, "Open settings", "topbar-settings");
         settingsBtn.setOnAction(e -> openSettings());
 
         Button clearBtn = new Button("Clear");
-        clearBtn.setGraphic(SvgIcon.of("trash-2", 15, "toolbar-icon", "clear-icon"));
+        clearBtn.setGraphic(SvgIcon.of(UiIcon.TRASH_2, 15, "toolbar-icon", "clear-icon"));
         clearBtn.setContentDisplay(ContentDisplay.LEFT);
         clearBtn.setFocusTraversable(false);
         clearBtn.setTooltip(new Tooltip("Clear visible non-pinned clips"));
@@ -412,13 +414,13 @@ public final class PopupWindow {
         PopupTitleBar popupTitleBar = new PopupTitleBar(stage, windowChrome);
 
         Button pasteBtn = new Button("Paste");
-        pasteBtn.setGraphic(SvgIcon.of("clipboard-paste", 15, "action-icon"));
+        pasteBtn.setGraphic(SvgIcon.of(UiIcon.CLIPBOARD_PASTE, 15, "action-icon"));
         pasteBtn.setContentDisplay(ContentDisplay.LEFT);
         pasteBtn.setOnAction(e -> pasteSelectedOrFirst());
         pasteBtn.getStyleClass().addAll("action-btn", "action-primary");
 
         Button copyBtn = new Button("Copy");
-        copyBtn.setGraphic(SvgIcon.of("copy", 15, "action-icon"));
+        copyBtn.setGraphic(SvgIcon.of(UiIcon.COPY, 15, "action-icon"));
         copyBtn.setContentDisplay(ContentDisplay.LEFT);
         copyBtn.setOnAction(e -> copySelectedOrFirst());
         copyBtn.getStyleClass().addAll("action-btn", "action-neutral");
@@ -428,9 +430,9 @@ public final class PopupWindow {
         actionsText.getStyleClass().add("action-button-label");
         HBox actionsGraphic = new HBox(
                 6,
-                SvgIcon.of("zap", 15, "action-icon"),
+                SvgIcon.of(UiIcon.ZAP, 15, "action-icon"),
                 actionsText,
-                SvgIcon.of("chevron-down", 12, "action-chevron-icon")
+                SvgIcon.of(UiIcon.CHEVRON_DOWN, 12, "action-chevron-icon")
         );
         actionsGraphic.setAlignment(Pos.CENTER);
         actionsBtn.setGraphic(actionsGraphic);
@@ -440,13 +442,13 @@ public final class PopupWindow {
         actionsBtn.getStyleClass().addAll("action-btn", "action-neutral", "actions-menu-button");
 
         Button favBtn = new Button("Pin / Unpin");
-        favBtn.setGraphic(SvgIcon.of("pin", 15, "action-icon", "favorite-action-icon"));
+        favBtn.setGraphic(SvgIcon.of(UiIcon.PIN, 15, "action-icon", "favorite-action-icon"));
         favBtn.setContentDisplay(ContentDisplay.LEFT);
         favBtn.setOnAction(e -> toggleFavoriteSelected());
         favBtn.getStyleClass().addAll("action-btn", "action-neutral", "action-state");
 
         Button delBtn = new Button("Delete");
-        delBtn.setGraphic(SvgIcon.of("trash-2", 15, "action-icon", "danger-action-icon"));
+        delBtn.setGraphic(SvgIcon.of(UiIcon.TRASH_2, 15, "action-icon", "danger-action-icon"));
         delBtn.setContentDisplay(ContentDisplay.LEFT);
         delBtn.setOnAction(e -> deleteSelected());
         delBtn.getStyleClass().addAll("action-btn", "action-danger");
@@ -897,9 +899,9 @@ public final class PopupWindow {
         );
     }
 
-    private Button iconButton(String iconName, String accessibleText, String extraStyleClass) {
+    private Button iconButton(UiIcon icon, String accessibleText, String extraStyleClass) {
         Button button = new Button();
-        button.setGraphic(SvgIcon.of(iconName, 15, "toolbar-icon"));
+        button.setGraphic(SvgIcon.of(icon, 15, "toolbar-icon"));
         button.setFocusTraversable(false);
         button.setAccessibleText(accessibleText);
         button.setTooltip(new Tooltip(accessibleText));
@@ -965,7 +967,7 @@ public final class PopupWindow {
             setFilterState(viewState.scope(), type, true);
         });
 
-        resetFiltersBtn.setGraphic(SvgIcon.of("rotate-ccw", 13, "filter-icon", "filter-reset-icon"));
+        resetFiltersBtn.setGraphic(SvgIcon.of(UiIcon.ROTATE_CCW, 13, "filter-icon", "filter-reset-icon"));
         resetFiltersBtn.setContentDisplay(ContentDisplay.LEFT);
         resetFiltersBtn.setFocusTraversable(false);
         resetFiltersBtn.getStyleClass().add("filter-reset");
@@ -979,12 +981,12 @@ public final class PopupWindow {
         button.setUserData(scope);
         button.setFocusTraversable(false);
         button.setContentDisplay(ContentDisplay.LEFT);
-        String iconName = switch (scope) {
-            case ALL -> "list";
-            case PINNED -> "pin";
-            case RECENT -> "rotate-ccw-clock";
+        UiIcon icon = switch (scope) {
+            case ALL -> UiIcon.LIST;
+            case PINNED -> UiIcon.PIN;
+            case RECENT -> UiIcon.ROTATE_CCW_CLOCK;
         };
-        button.setGraphic(SvgIcon.of(iconName, 13, "filter-icon"));
+        button.setGraphic(SvgIcon.of(icon, 13, "filter-icon"));
         button.getStyleClass().add("filter-toggle");
     }
 
@@ -1223,7 +1225,7 @@ public final class PopupWindow {
             if (pauseBtnRef != null) {
                 pauseBtnRef.setText(paused ? "Resume" : "Pause");
                 pauseBtnRef.setGraphic(SvgIcon.of(
-                        paused ? "play" : "pause",
+                        paused ? UiIcon.PLAY : UiIcon.PAUSE,
                         17,
                         "toolbar-icon",
                         paused ? "resume-icon" : "pause-icon"
@@ -2124,7 +2126,7 @@ public final class PopupWindow {
         if (!has) {
             favBtnRef.setText("Pin / Unpin");
             favBtnRef.setGraphic(SvgIcon.of(
-                    "pin",
+                    UiIcon.PIN,
                     17,
                     "action-icon",
                     "favorite-action-icon"
@@ -2135,7 +2137,7 @@ public final class PopupWindow {
         boolean shouldPin = selected.stream().anyMatch(e -> !e.favorite());
         favBtnRef.setText(shouldPin ? "Pin" : "Unpin");
         favBtnRef.setGraphic(SvgIcon.of(
-                shouldPin ? "pin" : "pin-off",
+                shouldPin ? UiIcon.PIN : UiIcon.PIN_OFF,
                 17,
                 "action-icon",
                 "favorite-action-icon"
@@ -2221,5 +2223,6 @@ public final class PopupWindow {
         updateSelectionUi();
     }
 }
+
 
 

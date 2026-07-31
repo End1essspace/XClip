@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -10,6 +11,7 @@ import io.xseries.xclip.domain.model.ClipContentType;
 import io.xseries.xclip.domain.model.ClipPrimaryAction;
 import io.xseries.xclip.domain.service.ClipContentActionService;
 import io.xseries.xclip.ui.components.SvgIcon;
+import io.xseries.xclip.ui.components.UiIcon;
 import io.xseries.xclip.ui.popup.PopupRow.ClipRow;
 import io.xseries.xclip.ui.popup.PopupRow.SectionRow;
 import javafx.css.PseudoClass;
@@ -143,14 +145,14 @@ public final class ClipRowCell extends ListCell<PopupRow> {
         pinAccent.setMaxWidth(2);
         pinAccent.setMaxHeight(Double.MAX_VALUE);
 
-        SvgIcon checkGlyph = SvgIcon.of("check", 11, "selection-check-icon");
+        SvgIcon checkGlyph = SvgIcon.of(UiIcon.CHECK, 11, "selection-check-icon");
         selectionIndicator.getChildren().add(checkGlyph);
         selectionIndicator.getStyleClass().add("selection-indicator");
         selectionIndicator.setMinSize(18, 18);
         selectionIndicator.setPrefSize(18, 18);
         selectionIndicator.setMaxSize(18, 18);
 
-        SvgIcon pinGlyph = SvgIcon.of("pin", 12, "row-pin-icon");
+        SvgIcon pinGlyph = SvgIcon.of(UiIcon.PIN, 12, "row-pin-icon");
         pinIndicator.getChildren().add(pinGlyph);
         pinIndicator.getStyleClass().add("row-pin-indicator");
         pinIndicator.setMinSize(18, 18);
@@ -197,7 +199,7 @@ public final class ClipRowCell extends ListCell<PopupRow> {
         timeLabel.setWrapText(false);
         timeLabel.setMinWidth(76);
 
-        SvgIcon collapseIcon = SvgIcon.of("chevron-down", 12, "row-collapse-icon");
+        SvgIcon collapseIcon = SvgIcon.of(UiIcon.CHEVRON_DOWN, 12, "row-collapse-icon");
         collapseIcon.setRotate(180);
         collapseButton.setGraphic(collapseIcon);
         collapseButton.setContentDisplay(javafx.scene.control.ContentDisplay.LEFT);
@@ -209,7 +211,7 @@ public final class ClipRowCell extends ListCell<PopupRow> {
         collapseButton.setVisible(false);
         collapseButton.setOnAction(event -> collapseCurrentPreview(event));
 
-        moreButton.setGraphic(SvgIcon.of("ellipsis-vertical", 13, "row-more-icon"));
+        moreButton.setGraphic(SvgIcon.of(UiIcon.ELLIPSIS_VERTICAL, 13, "row-more-icon"));
         moreButton.setFocusTraversable(false);
         moreButton.setAccessibleText("More actions");
         moreButton.setTooltip(new Tooltip("More actions"));
@@ -313,7 +315,7 @@ public final class ClipRowCell extends ListCell<PopupRow> {
 
         boolean pinned = "PINNED".equalsIgnoreCase(row.title());
         sectionIcon.getChildren().setAll(SvgIcon.of(
-                pinned ? "pin" : "rotate-ccw-clock",
+                pinned ? UiIcon.PIN : UiIcon.ROTATE_CCW_CLOCK,
                 13,
                 "section-icon",
                 pinned ? "section-icon-pinned" : "section-icon-recent"
@@ -637,3 +639,4 @@ public final class ClipRowCell extends ListCell<PopupRow> {
         return value;
     }
 }
+

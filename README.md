@@ -1,3 +1,4 @@
+
 [ENG]
 
 📋 **XClip**
@@ -142,6 +143,8 @@ GitHub: [End1essspace](https://github.com/End1essspace)
 XClip is licensed under the GNU General Public License v3.0 (GPL-3.0).
 
 You are free to use, modify, and distribute this software under the terms of the GPL v3. Any distributed modifications must also be licensed under GPL v3 and include source code.
+
+Selected UI icons are provided by the Lucide project under the ISC License. See [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
 
 🧾 **Copyright**
@@ -295,7 +298,10 @@ XClip распространяется под лицензией GNU General Pub
 
 Вы можете использовать, изменять и распространять это программное обеспечение в соответствии с условиями GPL v3. Любые распространяемые модифицированные версии также должны быть лицензированы под GPL v3 и сопровождаться исходным кодом.
 
+Часть UI-иконок предоставлена проектом Lucide по лицензии ISC. Подробности: [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
+
 
 🧾 **Copyright**
 
 Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
+

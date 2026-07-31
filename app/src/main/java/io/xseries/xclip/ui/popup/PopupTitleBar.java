@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -7,6 +8,7 @@ package io.xseries.xclip.ui.popup;
 
 import io.xseries.xclip.system.window.WindowChromeController;
 import io.xseries.xclip.ui.components.SvgIcon;
+import io.xseries.xclip.ui.components.UiIcon;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
@@ -47,21 +49,21 @@ public final class PopupTitleBar extends HBox {
         HBox.setHgrow(dragRegion, Priority.ALWAYS);
 
         Button minimizeButton = createWindowButton(
-                "minus",
+                UiIcon.MINUS,
                 "Minimize",
                 "window-minimize-button"
         );
         minimizeButton.setOnAction(event -> chrome.minimize());
 
         maximizeButton = createWindowButton(
-                "square",
+                UiIcon.SQUARE,
                 "Maximize",
                 "window-maximize-button"
         );
         maximizeButton.setOnAction(event -> chrome.toggleMaximized());
 
         Button closeButton = createWindowButton(
-                "x",
+                UiIcon.X,
                 "Close to tray",
                 "window-close-button"
         );
@@ -121,12 +123,12 @@ public final class PopupTitleBar extends HBox {
     }
 
     private Button createWindowButton(
-            String iconName,
+            UiIcon icon,
             String tooltip,
             String extraStyleClass
     ) {
         Button button = new Button();
-        button.setGraphic(SvgIcon.of(iconName, 13, "window-control-icon"));
+        button.setGraphic(SvgIcon.of(icon, 13, "window-control-icon"));
         button.setFocusTraversable(false);
         button.setAccessibleText(tooltip);
         button.setTooltip(new Tooltip(tooltip));
@@ -135,10 +137,10 @@ public final class PopupTitleBar extends HBox {
     }
 
     private void updateMaximizeButton(boolean maximized) {
-        String iconName = maximized ? "copy" : "square";
+        UiIcon icon = maximized ? UiIcon.COPY : UiIcon.SQUARE;
         String label = maximized ? "Restore" : "Maximize";
 
-        maximizeButton.setGraphic(SvgIcon.of(iconName, 12, "window-control-icon"));
+        maximizeButton.setGraphic(SvgIcon.of(icon, 12, "window-control-icon"));
         maximizeButton.setAccessibleText(label);
         maximizeButton.setTooltip(new Tooltip(label));
     }
@@ -160,3 +162,4 @@ public final class PopupTitleBar extends HBox {
         }
     }
 }
+

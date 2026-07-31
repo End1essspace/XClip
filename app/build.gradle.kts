@@ -1,5 +1,8 @@
 
+
 import java.io.File
+import java.util.Locale
+import java.util.zip.ZipFile
 import org.gradle.jvm.tasks.Jar
 import org.gradle.internal.os.OperatingSystem
 import org.gradle.jvm.toolchain.JavaLanguageVersion
@@ -72,6 +75,87 @@ tasks.jar {
     }
 }
 
+val requiredPackagedUiResources = listOf(
+    "ui/theme.css",
+    "ui/controls.css",
+    "ui/popup.css",
+    "ui/dialogs.css",
+    "META-INF/THIRD-PARTY-NOTICES.txt",
+    "META-INF/licenses/LUCIDE-ISC.txt"
+)
+
+fun verifyUiResourcesInJar(jarFile: File) {
+    if (!jarFile.isFile) {
+        throw GradleException("Application JAR not found: ${jarFile.absolutePath}")
+    }
+
+    val iconSourceDir = file("src/main/resources/icons/ui")
+    val iconFiles = iconSourceDir.listFiles { candidate ->
+        candidate.isFile && candidate.extension.equals("svg", ignoreCase = true)
+    }?.sortedBy { it.name } ?: emptyList()
+
+    if (iconFiles.size < 32) {
+        throw GradleException(
+            "Expected at least 32 Lucide SVG resources, found ${iconFiles.size} in ${iconSourceDir.path}"
+        )
+    }
+
+    ZipFile(jarFile).use { zip ->
+        val expectedEntries = requiredPackagedUiResources +
+            iconFiles.map { "icons/ui/${it.name}" }
+
+        for (entryName in expectedEntries) {
+            val entry = zip.getEntry(entryName)
+                ?: throw GradleException("Missing packaged resource: $entryName")
+            val bytes = zip.getInputStream(entry).use { it.readBytes() }
+            if (bytes.isEmpty()) {
+                throw GradleException("Empty packaged resource: $entryName")
+            }
+        }
+
+        for (iconFile in iconFiles) {
+            val entryName = "icons/ui/${iconFile.name}"
+            val entry = zip.getEntry(entryName)
+                ?: throw GradleException("Missing packaged SVG: $entryName")
+            val source = zip.getInputStream(entry)
+                .use { it.readBytes().toString(Charsets.UTF_8) }
+                .lowercase(Locale.ROOT)
+
+            if (!source.contains("<svg")) {
+                throw GradleException("Invalid packaged SVG root: $entryName")
+            }
+            if (source.contains("<image") || source.contains("<script")
+                || source.contains("<foreignobject") || source.contains("<!doctype")) {
+                throw GradleException("Unsafe or raster SVG content: $entryName")
+            }
+
+            val renderable = listOf(
+                "<path", "<line", "<circle", "<ellipse",
+                "<rect", "<polyline", "<polygon"
+            ).any(source::contains)
+            if (!renderable) {
+                throw GradleException("SVG has no supported vector shapes: $entryName")
+            }
+        }
+    }
+}
+
+val verifyPackagedUiResources = tasks.register("verifyPackagedUiResources") {
+    group = "verification"
+    description = "Verifies CSS, Lucide SVG, and license resources inside the application JAR."
+    dependsOn(tasks.named("jar"))
+
+    doLast {
+        val jarFile = tasks.named<Jar>("jar").get().archiveFile.get().asFile
+        verifyUiResourcesInJar(jarFile)
+        println("PACKAGED_UI_RESOURCES_OK: ${jarFile.absolutePath}")
+    }
+}
+
+tasks.named("check") {
+    dependsOn(verifyPackagedUiResources)
+}
+
 // -------------------------
 // Packaging config
 // -------------------------
@@ -102,6 +186,19 @@ tasks.register<Copy>("prepareJpackageInput") {
     from(configurations.runtimeClasspath)
 }
 
+val verifyJpackageInput = tasks.register("verifyJpackageInput") {
+    group = "verification"
+    description = "Verifies the staged application JAR used by jpackage."
+    dependsOn("prepareJpackageInput", "verifyPackagedUiResources")
+
+    doLast {
+        val jarFile = tasks.named<Jar>("jar").get().archiveFile.get().asFile
+        val stagedJar = File(jpackageInputDir.get().asFile, jarFile.name)
+        verifyUiResourcesInJar(stagedJar)
+        println("JPACKAGE_INPUT_UI_RESOURCES_OK: ${stagedJar.absolutePath}")
+    }
+}
+
 /**
  * Creates minimal runtime image (bundled JRE) with JavaFX modules included.
  * This runtime will be embedded into MSI, so target machines do NOT need Java installed.
@@ -110,7 +207,7 @@ tasks.register("createRuntimeImage") {
     group = "distribution"
     description = "Creates bundled runtime image using jlink (includes JavaFX)."
 
-    dependsOn("prepareJpackageInput")
+    dependsOn("prepareJpackageInput", "verifyPackagedUiResources")
 
     doLast {
         if (!OperatingSystem.current().isWindows) {
@@ -191,6 +288,54 @@ tasks.register("createRuntimeImage") {
     }
 }
 
+val verifyRuntimeImage = tasks.register("verifyRuntimeImage") {
+    group = "verification"
+    description = "Verifies the jlink runtime required by the packaged XClip application."
+    dependsOn("createRuntimeImage")
+
+    doLast {
+        if (!OperatingSystem.current().isWindows) {
+            throw GradleException("verifyRuntimeImage is Windows-only.")
+        }
+
+        val runtimeDir = runtimeImageDir.get().asFile
+        val javaExe = File(runtimeDir, "bin/java.exe")
+        val javawExe = File(runtimeDir, "bin/javaw.exe")
+        if (!javaExe.isFile || !javawExe.isFile) {
+            throw GradleException("Incomplete runtime image: ${runtimeDir.absolutePath}")
+        }
+
+        val process = ProcessBuilder(javaExe.absolutePath, "--list-modules")
+            .redirectErrorStream(true)
+            .start()
+        val output = process.inputStream.bufferedReader().use { it.readText() }
+        val code = process.waitFor()
+        if (code != 0) {
+            throw GradleException("Runtime module verification failed with exit code $code\n$output")
+        }
+
+        val modules = output.lineSequence()
+            .map { it.substringBefore('@').trim() }
+            .filter { it.isNotEmpty() }
+            .toSet()
+        val requiredModules = setOf(
+            "java.base",
+            "java.desktop",
+            "java.sql",
+            "java.xml",
+            "javafx.base",
+            "javafx.graphics",
+            "javafx.controls"
+        )
+        val missing = requiredModules - modules
+        if (missing.isNotEmpty()) {
+            throw GradleException("Runtime image is missing modules: ${missing.sorted()}")
+        }
+
+        println("JLINK_RUNTIME_OK: ${runtimeDir.absolutePath}")
+    }
+}
+
 /**
  * Builds MSI using jpackage + bundled runtime image.
  */
@@ -198,7 +343,12 @@ tasks.register("packageMsi") {
     group = "distribution"
     description = "Builds MSI installer with bundled runtime (works without Java installed)."
 
-    dependsOn("createRuntimeImage", "prepareJpackageInput")
+    dependsOn(
+        "createRuntimeImage",
+        "prepareJpackageInput",
+        "verifyJpackageInput",
+        "verifyRuntimeImage"
+    )
 
     doLast {
         if (!OperatingSystem.current().isWindows) {
@@ -261,5 +411,15 @@ tasks.register("packageMsi") {
 
         val code = p.waitFor()
         if (code != 0) throw GradleException("jpackage failed with exit code $code")
+
+        val installers = outDir.listFiles { candidate ->
+            candidate.isFile && candidate.extension.equals("msi", ignoreCase = true)
+        }?.toList() ?: emptyList()
+        if (installers.isEmpty()) {
+            throw GradleException("jpackage completed without producing an MSI in ${outDir.absolutePath}")
+        }
+
+        println("MSI_PACKAGE_OK: ${installers.maxBy { it.lastModified() }.absolutePath}")
     }
 }
+

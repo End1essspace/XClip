@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -8,6 +9,7 @@ package io.xseries.xclip.ui.popup;
 import io.xseries.xclip.data.model.ClipEntry;
 import io.xseries.xclip.domain.model.ClipPrimaryAction;
 import io.xseries.xclip.ui.components.SvgIcon;
+import io.xseries.xclip.ui.components.UiIcon;
 import javafx.geometry.Side;
 import javafx.scene.Node;
 import javafx.scene.control.ContextMenu;
@@ -41,21 +43,21 @@ public final class PopupActionsMenu {
     private final Actions actions;
     private final ContextMenu contextMenu = new ContextMenu();
 
-    private final MenuItem pasteItem = item("Paste", "clipboard-paste");
-    private final MenuItem copyItem = item("Copy", "copy");
+    private final MenuItem pasteItem = item("Paste", UiIcon.CLIPBOARD_PASTE);
+    private final MenuItem copyItem = item("Copy", UiIcon.COPY);
     private final MenuItem typeActionItem = new MenuItem();
-    private final MenuItem pinItem = item("Pin selected", "pin");
-    private final MenuItem renameItem = item("Rename pinned clip…", "pencil");
-    private final MenuItem clearTitleItem = item("Clear title", "x");
+    private final MenuItem pinItem = item("Pin selected", UiIcon.PIN);
+    private final MenuItem renameItem = item("Rename pinned clip…", UiIcon.PENCIL);
+    private final MenuItem clearTitleItem = item("Clear title", UiIcon.X);
     private final Menu movePinnedMenu = new Menu(
             "Move pinned clip",
-            SvgIcon.of("list", 13, "menu-item-icon")
+            SvgIcon.of(UiIcon.LIST, 13, "menu-item-icon")
     );
     private final MenuItem moveUpItem = new MenuItem("Move up");
     private final MenuItem moveDownItem = new MenuItem("Move down");
     private final MenuItem moveTopItem = new MenuItem("Move to top");
     private final MenuItem moveBottomItem = new MenuItem("Move to bottom");
-    private final MenuItem deleteItem = item("Delete", "trash-2");
+    private final MenuItem deleteItem = item("Delete", UiIcon.TRASH_2);
 
     public PopupActionsMenu(Actions actions) {
         this.actions = Objects.requireNonNull(actions, "actions");
@@ -148,7 +150,7 @@ public final class PopupActionsMenu {
         boolean shouldPin = selected.stream().anyMatch(entry -> !entry.favorite());
         pinItem.setText(shouldPin ? "Pin selected" : "Unpin selected");
         pinItem.setGraphic(SvgIcon.of(
-                shouldPin ? "pin" : "pin-off",
+                shouldPin ? UiIcon.PIN : UiIcon.PIN_OFF,
                 13,
                 "menu-item-icon",
                 shouldPin ? "menu-pin-icon" : "menu-unpin-icon"
@@ -169,21 +171,22 @@ public final class PopupActionsMenu {
         contextMenu.hide();
     }
 
-    private static MenuItem item(String text, String iconName) {
+    private static MenuItem item(String text, UiIcon icon) {
         return new MenuItem(
                 text,
-                SvgIcon.of(iconName, 13, "menu-item-icon")
+                SvgIcon.of(icon, 13, "menu-item-icon")
         );
     }
 
-    private static String iconFor(ClipPrimaryAction action) {
+    private static UiIcon iconFor(ClipPrimaryAction action) {
         return switch (action) {
-            case OPEN_URL -> "external-link";
-            case REVEAL_PATH -> "folder-open";
-            case COPY_FORMATTED_JSON -> "braces";
-            case COPY_CODE -> "code-xml";
-            case COPY_COMMAND -> "terminal";
-            case NONE -> "zap";
+            case OPEN_URL -> UiIcon.EXTERNAL_LINK;
+            case REVEAL_PATH -> UiIcon.FOLDER_OPEN;
+            case COPY_FORMATTED_JSON -> UiIcon.BRACES;
+            case COPY_CODE -> UiIcon.CODE_XML;
+            case COPY_COMMAND -> UiIcon.TERMINAL;
+            case NONE -> UiIcon.ZAP;
         };
     }
 }
+

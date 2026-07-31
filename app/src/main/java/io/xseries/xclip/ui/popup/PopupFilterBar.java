@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -6,6 +7,7 @@
 package io.xseries.xclip.ui.popup;
 
 import io.xseries.xclip.ui.components.SvgIcon;
+import io.xseries.xclip.ui.components.UiIcon;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
@@ -52,7 +54,7 @@ public final class PopupFilterBar extends HBox {
         typeCombo.setMaxWidth(Double.MAX_VALUE);
         StackPane.setAlignment(typeCombo, Pos.CENTER_LEFT);
 
-        SvgIcon typeIcon = SvgIcon.of("funnel", 13, "filter-type-icon");
+        SvgIcon typeIcon = SvgIcon.of(UiIcon.FUNNEL, 13, "filter-type-icon");
         StackPane.setAlignment(typeIcon, Pos.CENTER_LEFT);
         StackPane.setMargin(typeIcon, new Insets(0, 0, 0, 11));
 
@@ -70,3 +72,4 @@ public final class PopupFilterBar extends HBox {
         getStyleClass().add("filter-bar");
     }
 }
+
