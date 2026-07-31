@@ -1,5 +1,3 @@
-
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -122,6 +120,7 @@ public final class PopupWindow {
     private final ToggleButton filterPinnedBtn = new ToggleButton("Pinned");
     private final ToggleButton filterRecentBtn = new ToggleButton("Recent");
     private final ComboBox<ContentTypeOption> typeFilterCombo = new ComboBox<>();
+    private final ComboBox<TagFilterOption> tagFilterCombo = new ComboBox<>();
     private final Button resetFiltersBtn = new Button("Reset filters");
 
     private volatile PopupViewState viewState = PopupViewState.defaults();
@@ -184,6 +183,13 @@ public final class PopupWindow {
     private final PauseTransition autoHideDelay = new PauseTransition(Duration.millis(160));
 
     private record ContentTypeOption(ClipContentType type, String label) {
+        @Override
+        public String toString() {
+            return label;
+        }
+    }
+
+    private record TagFilterOption(Long tagId, String label) {
         @Override
         public String toString() {
             return label;
@@ -462,6 +468,7 @@ public final class PopupWindow {
                 filterPinnedBtn,
                 filterRecentBtn,
                 typeFilterCombo,
+                tagFilterCombo,
                 resetFiltersBtn
         );
         PopupHeader popupHeader = new PopupHeader(
@@ -647,6 +654,7 @@ public final class PopupWindow {
         keyboardFocusOrder.add(filterPinnedBtn);
         keyboardFocusOrder.add(filterRecentBtn);
         keyboardFocusOrder.add(typeFilterCombo);
+        keyboardFocusOrder.add(tagFilterCombo);
         keyboardFocusOrder.add(resetFiltersBtn);
         keyboardFocusOrder.add(listView);
         keyboardFocusOrder.add(pasteControl.mainButton());
@@ -1242,7 +1250,7 @@ public final class PopupWindow {
 
             Object value = newToggle.getUserData();
             ClipViewScope scope = value instanceof ClipViewScope s ? s : ClipViewScope.ALL;
-            setFilterState(scope, viewState.contentType(), true);
+            setFilterState(scope, viewState.contentType(), viewState.tagId(), true);
         });
 
         ObservableList<ContentTypeOption> typeOptions = FXCollections.observableArrayList();
@@ -1262,16 +1270,32 @@ public final class PopupWindow {
         typeFilterCombo.valueProperty().addListener((obs, oldValue, newValue) -> {
             if (filterUiSync) return;
             ClipContentType type = newValue == null ? null : newValue.type();
-            setFilterState(viewState.scope(), type, true);
+            setFilterState(viewState.scope(), type, viewState.tagId(), true);
+        });
+
+        tagFilterCombo.setItems(FXCollections.observableArrayList(
+                new TagFilterOption(null, "Tag: All tags")
+        ));
+        tagFilterCombo.getSelectionModel().selectFirst();
+        tagFilterCombo.setFocusTraversable(true);
+        tagFilterCombo.setAccessibleText("Clipboard tag filter");
+        tagFilterCombo.setAccessibleHelp("Choose a tag or show clips with any tag.");
+        tagFilterCombo.setPrefWidth(180);
+        tagFilterCombo.setMinWidth(150);
+        tagFilterCombo.getStyleClass().add("filter-tag-combo");
+        tagFilterCombo.valueProperty().addListener((obs, oldValue, newValue) -> {
+            if (filterUiSync) return;
+            Long tagId = newValue == null ? null : newValue.tagId();
+            setFilterState(viewState.scope(), viewState.contentType(), tagId, true);
         });
 
         resetFiltersBtn.setGraphic(SvgIcon.of(UiIcon.ROTATE_CCW, 13, "filter-icon", "filter-reset-icon"));
         resetFiltersBtn.setContentDisplay(ContentDisplay.LEFT);
         resetFiltersBtn.setFocusTraversable(true);
         resetFiltersBtn.setAccessibleText("Reset clipboard filters");
-        resetFiltersBtn.setAccessibleHelp("Return to All clips and All types.");
+        resetFiltersBtn.setAccessibleHelp("Return to All clips, All types, and All tags.");
         resetFiltersBtn.getStyleClass().add("filter-reset");
-        resetFiltersBtn.setOnAction(e -> setFilterState(ClipViewScope.ALL, null, true));
+        resetFiltersBtn.setOnAction(e -> setFilterState(ClipViewScope.ALL, null, null, true));
 
         updateFilterControlState();
     }
@@ -1295,10 +1319,11 @@ public final class PopupWindow {
     private void setFilterState(
             ClipViewScope scope,
             ClipContentType contentType,
+            Long tagId,
             boolean reload
     ) {
         ClipViewScope effectiveScope = scope == null ? ClipViewScope.ALL : scope;
-        PopupViewState nextState = new PopupViewState(effectiveScope, contentType);
+        PopupViewState nextState = new PopupViewState(effectiveScope, contentType, tagId);
         boolean changed = !viewState.equals(nextState);
 
         viewState = nextState;
@@ -1318,6 +1343,14 @@ public final class PopupWindow {
                         ? null
                         : typeFilterCombo.getItems().get(0));
         typeFilterCombo.getSelectionModel().select(targetType);
+
+        TagFilterOption targetTag = tagFilterCombo.getItems().stream()
+                .filter(option -> java.util.Objects.equals(option.tagId(), tagId))
+                .findFirst()
+                .orElseGet(() -> tagFilterCombo.getItems().isEmpty()
+                        ? null
+                        : tagFilterCombo.getItems().get(0));
+        tagFilterCombo.getSelectionModel().select(targetTag);
         filterUiSync = false;
 
         updateFilterControlState();
@@ -1325,6 +1358,41 @@ public final class PopupWindow {
 
         if (reload && changed) {
             reloadNow(searchField.getText());
+        }
+    }
+
+    private void syncTagFilterOptions(List<ClipTag> tags) {
+        Long selectedTagId = viewState.tagId();
+
+        ObservableList<TagFilterOption> options = FXCollections.observableArrayList();
+        options.add(new TagFilterOption(null, "Tag: All tags"));
+        if (tags != null) {
+            for (ClipTag tag : tags) {
+                if (tag != null) {
+                    options.add(new TagFilterOption(tag.id(), "Tag: " + tag.name()));
+                }
+            }
+        }
+
+        filterUiSync = true;
+        if (!tagFilterCombo.getItems().equals(options)) {
+            tagFilterCombo.setItems(options);
+        }
+        TagFilterOption target = tagFilterCombo.getItems().stream()
+                .filter(option -> java.util.Objects.equals(option.tagId(), selectedTagId))
+                .findFirst()
+                .orElse(tagFilterCombo.getItems().get(0));
+        if (!java.util.Objects.equals(tagFilterCombo.getValue(), target)) {
+            tagFilterCombo.getSelectionModel().select(target);
+        }
+        filterUiSync = false;
+
+        if (selectedTagId != null && target.tagId() == null) {
+            viewState = new PopupViewState(
+                    viewState.scope(),
+                    viewState.contentType(),
+                    null
+            );
         }
     }
 
@@ -1729,6 +1797,7 @@ public final class PopupWindow {
         PopupViewState stateSnapshot = viewState;
         ClipViewScope scopeSnapshot = stateSnapshot.scope();
         ClipContentType typeSnapshot = stateSnapshot.contentType();
+        Long tagSnapshot = stateSnapshot.tagId();
         long requestGeneration = reloadGate.nextRequest();
 
         currentQueryRaw = normQuery;
@@ -1745,9 +1814,12 @@ public final class PopupWindow {
 
             int totalClipCount = dao.countAll();
 
-            List<ClipEntry> candidates = normQuery.isBlank()
-                    ? dao.listLatest(candidateLimit, scopeSnapshot.favoriteFilter())
-                    : dao.search(normQuery, candidateLimit, scopeSnapshot.favoriteFilter());
+            List<ClipEntry> candidates = dao.queryLatest(
+                    normQuery,
+                    candidateLimit,
+                    scopeSnapshot.favoriteFilter(),
+                    tagSnapshot
+            );
 
             List<ClipEntry> list = new java.util.ArrayList<>(ClipFilterEngine.apply(
                     candidates,
@@ -1763,12 +1835,22 @@ public final class PopupWindow {
                             .thenComparing(Comparator.comparingLong(ClipEntry::createdAt).reversed())
             );
 
-            List<PopupRow> preparedRows = PopupRows.build(list);
+            Map<Long, List<ClipTag>> tagsByClipId = tagDao == null
+                    ? Map.of()
+                    : tagDao.listForClips(
+                            list.stream().map(ClipEntry::id).toList()
+                    );
+            List<ClipTag> availableTags = tagDao == null
+                    ? List.of()
+                    : tagDao.listAll();
+
+            List<PopupRow> preparedRows = PopupRows.build(list, tagsByClipId);
             int visibleClipCount = list.size();
 
             Platform.runLater(() -> {
                 if (!reloadGate.isCurrent(requestGeneration)) return;
 
+                syncTagFilterOptions(availableTags);
                 items.setAll(preparedRows);
                 countLabel.setText("Clips " + totalClipCount);
                 countLabel.setAccessibleText(
@@ -2007,10 +2089,8 @@ public final class PopupWindow {
         dbExec.submit(() -> {
             try {
                 List<ClipTag> allTags = tagDao.listAll();
-                Map<Long, List<ClipTag>> assignmentsByClip = new LinkedHashMap<>();
-                for (Long clipId : clipIds) {
-                    assignmentsByClip.put(clipId, tagDao.listForClip(clipId));
-                }
+                Map<Long, List<ClipTag>> assignmentsByClip =
+                        new LinkedHashMap<>(tagDao.listForClips(clipIds));
 
                 Platform.runLater(() -> {
                     if (!stage.isShowing()) return;
@@ -2050,7 +2130,7 @@ public final class PopupWindow {
                 );
 
                 Platform.runLater(() -> {
-                    listView.refresh();
+                    reloadNow(searchField.getText());
 
                     int changedExisting = plan.assignTagIds().size()
                             + plan.removeTagIds().size();
@@ -2682,5 +2762,6 @@ public final class PopupWindow {
         updateSelectionUi();
     }
 }
+
 
 

@@ -1,7 +1,6 @@
-
 # XClip UI Contract v1.3.0
 
-**Status:** Frozen R11 baseline, deliberately extended by Milestone 2.2
+**Status:** Frozen R11 baseline, deliberately extended by Milestones 2.2 and 2.3
 **Scope:** Popup, custom window chrome, modal surfaces, Settings styling, keyboard workflow, responsive behavior, and packaged UI resources.
 
 This document is the human-readable counterpart of `/ui/ui-contract-v1.3.0.properties`. Any intentional contract change must update both files and the `UiContractFreezeTest` expectations in the same reviewed milestone.
@@ -39,7 +38,7 @@ Row time appears at `700` logical pixels or wider. Layout changes must not cause
 
 1. Custom title bar.
 2. Product/status header.
-3. Search and scope/type filters.
+3. Search and scope/type/tag filters.
 4. Virtualized clip list with `PINNED` and `RECENT` sections.
 5. Selection/status and action footer.
 6. Contextual menus, Quick Help, and modal dialogs.
@@ -119,3 +118,25 @@ the R11 shell.
 - Duplicate names are resolved case-insensitively and select the existing tag.
 - The R11 responsive shell, keyboard workflow, preview budgets, and safety
   invariants remain unchanged.
+
+
+
+## 10. Tags display and filtering extension — contract revision 3
+
+Milestone 2.3 adds tag metadata to the frozen popup without changing the
+clipboard-content safety model.
+
+- A clip row renders at most `3` visible tag chips.
+- Remaining assigned tags are represented by one deterministic `+N` overflow chip.
+- Tags are loaded in one bounded batch after the visible clip list is prepared;
+  virtualized cells never query SQLite directly.
+- Tag chips follow deterministic case-insensitive DAO ordering.
+- The filter toolbar includes `Tag: All tags` plus every persisted tag.
+- Selecting a tag restricts results by stable tag id, not by display text.
+- Popup search matches clip content, pinned titles, and assigned tag names.
+- Scope, content type, text search, and tag filter are combined in one
+  deterministic reload snapshot.
+- Reset clears scope, content type, and tag filters together.
+- Empty states distinguish text-search misses from filter-only misses.
+- The R11 preview bounds, Direct Paste workflow, asynchronous stale-result gate,
+  and no-content-hover-tooltip invariant remain unchanged.

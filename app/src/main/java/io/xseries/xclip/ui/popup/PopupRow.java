@@ -6,7 +6,9 @@
 package io.xseries.xclip.ui.popup;
 
 import io.xseries.xclip.data.model.ClipEntry;
+import io.xseries.xclip.data.model.ClipTag;
 
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -21,9 +23,14 @@ public sealed interface PopupRow permits PopupRow.SectionRow, PopupRow.ClipRow {
         }
     }
 
-    record ClipRow(ClipEntry entry) implements PopupRow {
+    record ClipRow(ClipEntry entry, List<ClipTag> tags) implements PopupRow {
         public ClipRow {
             Objects.requireNonNull(entry, "entry");
+            tags = tags == null ? List.of() : List.copyOf(tags);
+        }
+
+        public ClipRow(ClipEntry entry) {
+            this(entry, List.of());
         }
     }
 }

@@ -1,4 +1,3 @@
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -7,6 +6,7 @@
 package io.xseries.xclip.ui.popup;
 
 import io.xseries.xclip.data.model.ClipEntry;
+import io.xseries.xclip.data.model.ClipTag;
 import io.xseries.xclip.domain.model.ClipContentType;
 import io.xseries.xclip.domain.model.ClipPrimaryAction;
 import io.xseries.xclip.domain.service.ClipContentActionService;
@@ -44,6 +44,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Locale;
 
 /**
@@ -99,6 +100,7 @@ public final class ClipRowCell extends ListCell<PopupRow> {
     private final StackPane pinIndicator = new StackPane();
     private final Region pinAccent = new Region();
     private final VBox clipLeft = new VBox(3);
+    private final HBox tagChips = new HBox(5);
     private final HBox metadata = new HBox(10);
     private final Label timeLabel = new Label();
     private final Label typeBadge = new Label();
@@ -113,6 +115,7 @@ public final class ClipRowCell extends ListCell<PopupRow> {
     private ClipContentType renderedType;
     private String renderedTime = "";
     private boolean renderedExpanded;
+    private List<ClipTag> renderedTags = List.of();
 
     public ClipRowCell(Controller controller) {
         this.controller = java.util.Objects.requireNonNull(controller, "controller");
@@ -179,6 +182,12 @@ public final class ClipRowCell extends ListCell<PopupRow> {
         clipLeft.setAlignment(Pos.CENTER_LEFT);
         clipLeft.setMaxWidth(Double.MAX_VALUE);
         HBox.setHgrow(clipLeft, Priority.ALWAYS);
+
+        tagChips.setAlignment(Pos.CENTER_LEFT);
+        tagChips.setMaxWidth(Double.MAX_VALUE);
+        tagChips.getStyleClass().add("clip-tag-chips");
+        tagChips.setManaged(false);
+        tagChips.setVisible(false);
 
         toggleLink.getStyleClass().add("clip-toggle");
         toggleLink.setPadding(Insets.EMPTY);
@@ -341,6 +350,10 @@ public final class ClipRowCell extends ListCell<PopupRow> {
             renderedType = null;
             renderedTime = "";
             renderedExpanded = false;
+            renderedTags = List.of();
+            tagChips.getChildren().clear();
+            tagChips.setManaged(false);
+            tagChips.setVisible(false);
             setAccessibleText(null);
             setAccessibleHelp(null);
             setText(null);
@@ -355,7 +368,7 @@ public final class ClipRowCell extends ListCell<PopupRow> {
             return;
         }
 
-        renderClip(((ClipRow) item).entry());
+        renderClip((ClipRow) item);
     }
 
     private void renderSection(SectionRow row) {
@@ -384,7 +397,10 @@ public final class ClipRowCell extends ListCell<PopupRow> {
         setFocusTraversable(false);
     }
 
-    private void renderClip(ClipEntry entry) {
+    private void renderClip(ClipRow row) {
+        ClipEntry entry = row.entry();
+        renderTagChips(row.tags());
+
         setDisable(false);
         setFocusTraversable(true);
         setMouseTransparent(false);
@@ -434,8 +450,10 @@ public final class ClipRowCell extends ListCell<PopupRow> {
         } else {
             renderRecent(entry, full, id);
         }
+        appendTagChips();
 
         renderedEntry = entry;
+        renderedTags = row.tags();
         renderedType = contentType;
         renderedTime = formatTime(entry.createdAt());
         renderedExpanded = !entry.favorite() && controller.isExpanded(entry.id());
@@ -546,6 +564,69 @@ public final class ClipRowCell extends ListCell<PopupRow> {
         }
     }
 
+    private void renderTagChips(List<ClipTag> tags) {
+        TagChipPolicy.Summary summary = TagChipPolicy.summarize(tags);
+        tagChips.getChildren().clear();
+
+        for (ClipTag tag : summary.visibleTags()) {
+            Label chip = new Label(tag.name());
+            chip.getStyleClass().add("clip-tag-chip");
+            String query = controller.currentQueryLower();
+            if (query != null
+                    && !query.isBlank()
+                    && tag.name().toLowerCase(Locale.ROOT).contains(query)) {
+                chip.getStyleClass().add("clip-tag-match");
+            }
+            chip.setTextOverrun(OverrunStyle.ELLIPSIS);
+            chip.setMaxWidth(128);
+            chip.setAccessibleText("Tag " + tag.name());
+            tagChips.getChildren().add(chip);
+        }
+
+        if (summary.hiddenCount() > 0) {
+            Label overflow = new Label("+" + summary.hiddenCount());
+            overflow.getStyleClass().addAll("clip-tag-chip", "clip-tag-overflow");
+            String query = controller.currentQueryLower();
+            if (query != null && !query.isBlank()) {
+                boolean hiddenMatch = tags.stream()
+                        .skip(summary.visibleTags().size())
+                        .anyMatch(tag -> tag.name().toLowerCase(Locale.ROOT).contains(query));
+                if (hiddenMatch) overflow.getStyleClass().add("clip-tag-match");
+            }
+            overflow.setAccessibleText(summary.hiddenCount() + " more tags");
+            String hiddenNames = overflowTooltip(tags, summary.visibleTags().size());
+            if (!hiddenNames.isBlank()) {
+                Tooltip.install(overflow, new Tooltip(hiddenNames));
+            }
+            tagChips.getChildren().add(overflow);
+        }
+
+        boolean visible = summary.hasTags();
+        tagChips.setManaged(visible);
+        tagChips.setVisible(visible);
+    }
+
+    private void appendTagChips() {
+        if (tagChips.isManaged()) {
+            clipLeft.getChildren().add(tagChips);
+        }
+    }
+
+    private String overflowTooltip(List<ClipTag> tags, int fromIndex) {
+        if (tags == null || fromIndex >= tags.size()) return "";
+
+        int end = Math.min(tags.size(), fromIndex + 12);
+        StringBuilder text = new StringBuilder("More tags: ");
+        for (int index = fromIndex; index < end; index++) {
+            if (index > fromIndex) text.append(", ");
+            text.append(tags.get(index).name());
+        }
+        if (end < tags.size()) {
+            text.append(" and ").append(tags.size() - end).append(" more");
+        }
+        return text.toString();
+    }
+
     private void setCollapseButtonVisible(boolean visible) {
         collapseButton.setManaged(visible);
         collapseButton.setVisible(visible);
@@ -595,13 +676,26 @@ public final class ClipRowCell extends ListCell<PopupRow> {
 
     private void updateAccessibleDescription() {
         if (renderedEntry == null) return;
-        setAccessibleText(PopupAccessibility.clipLabel(
+        String description = PopupAccessibility.clipLabel(
                 renderedEntry,
                 renderedType,
                 renderedTime,
                 isSelected(),
                 renderedExpanded
-        ));
+        );
+        if (renderedTags != null && !renderedTags.isEmpty()) {
+            description += ", Tags "
+                    + renderedTags.stream()
+                    .map(ClipTag::name)
+                    .limit(TagChipPolicy.MAX_VISIBLE_CHIPS)
+                    .collect(java.util.stream.Collectors.joining(", "));
+            if (renderedTags.size() > TagChipPolicy.MAX_VISIBLE_CHIPS) {
+                description += ", and "
+                        + (renderedTags.size() - TagChipPolicy.MAX_VISIBLE_CHIPS)
+                        + " more";
+            }
+        }
+        setAccessibleText(description);
     }
 
     private boolean isTypeBadgeTarget(Object target) {
@@ -716,3 +810,4 @@ public final class ClipRowCell extends ListCell<PopupRow> {
         return value;
     }
 }
+

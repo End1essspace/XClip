@@ -127,6 +127,91 @@ public final class ClipEntryDao {
     }
 
     /**
+     * Unified popup query supporting scope, tag filtering, and tag-name search.
+     *
+     * Search matches clip content, pinned titles, and assigned tag names.
+     * A selected tag is applied independently, so text search can still match
+     * any assigned tag while the result remains restricted to that tag.
+     */
+    public List<ClipEntry> queryLatest(
+            String q,
+            int limit,
+            Boolean favoriteFilter,
+            Long tagId
+    ) {
+        if (tagId != null && tagId <= 0) {
+            throw new IllegalArgumentException("tagId must be positive");
+        }
+
+        String normalizedQuery = q == null ? "" : q.trim();
+        String like = "%" + escapeLike(normalizedQuery) + "%";
+
+        String sql = """
+            SELECT ce.id, ce.content, ce.title, ce.is_favorite, ce.pin_order,
+                   ce.last_copied_at AS created_at
+            FROM clip_entries AS ce
+            WHERE (? IS NULL OR ce.is_favorite = ?)
+              AND (
+                    ? IS NULL
+                    OR EXISTS (
+                        SELECT 1
+                        FROM clip_tags AS selected_ct
+                        WHERE selected_ct.clip_id = ce.id
+                          AND selected_ct.tag_id = ?
+                    )
+                  )
+              AND (
+                    ? = ''
+                    OR ce.content LIKE ? ESCAPE '\\'
+                    OR (
+                        ce.is_favorite = 1
+                        AND COALESCE(ce.title, '') LIKE ? ESCAPE '\\'
+                    )
+                    OR EXISTS (
+                        SELECT 1
+                        FROM clip_tags AS search_ct
+                        JOIN tags AS search_tag ON search_tag.id = search_ct.tag_id
+                        WHERE search_ct.clip_id = ce.id
+                          AND search_tag.name LIKE ? ESCAPE '\\'
+                    )
+                  )
+            ORDER BY ce.is_favorite DESC,
+                     CASE
+                         WHEN ce.is_favorite = 1 THEN COALESCE(ce.pin_order, 2147483647)
+                         ELSE 2147483647
+                     END ASC,
+                     ce.last_copied_at DESC,
+                     ce.id DESC
+            LIMIT ?
+            """;
+
+        Connection c = conn();
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            bindOptionalFavorite(ps, 1, favoriteFilter);
+
+            if (tagId == null) {
+                ps.setNull(3, Types.INTEGER);
+                ps.setNull(4, Types.INTEGER);
+            } else {
+                ps.setLong(3, tagId);
+                ps.setLong(4, tagId);
+            }
+
+            ps.setString(5, normalizedQuery);
+            ps.setString(6, like);
+            ps.setString(7, like);
+            ps.setString(8, like);
+            ps.setInt(9, Math.max(1, limit));
+
+            try (ResultSet rs = ps.executeQuery()) {
+                return map(rs);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("queryLatest failed", e);
+        }
+    }
+
+    /**
      * Searches content and pinned titles with an optional pinned-state restriction.
      */
     public List<ClipEntry> search(String q, int limit, Boolean favoriteFilter) {
@@ -507,3 +592,4 @@ public final class ClipEntryDao {
         BOTTOM
     }
 }
+

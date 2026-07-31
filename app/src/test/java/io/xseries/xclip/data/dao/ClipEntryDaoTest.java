@@ -243,6 +243,56 @@ class ClipEntryDaoTest {
     }
 
 
+    @Test
+    void unifiedPopupQueryFiltersByTagAndSearchesAssignedTagNames() {
+        Path dbPath = tempDir.resolve("tag-query.db");
+        Database db = new Database(dbPath);
+        db.init();
+
+        ClipEntryDao clips = new ClipEntryDao(db.jdbcUrl());
+        TagDao tags = new TagDao(db.jdbcUrl());
+        try {
+            clips.insert("release notes", "release notes", "hash-release", 1_000L);
+            clips.insert("private token", "private token", "hash-private", 2_000L);
+            clips.insert("unrelated", "unrelated", "hash-unrelated", 3_000L);
+
+            long releaseId = idFor(clips, "release notes");
+            long privateId = idFor(clips, "private token");
+
+            var work = tags.createOrGet("Work");
+            var secret = tags.createOrGet("Private");
+            tags.addTagToClip(releaseId, work.id());
+            tags.addTagToClip(privateId, secret.id());
+
+            assertEquals(
+                    List.of("release notes"),
+                    clips.queryLatest("", 20, null, work.id()).stream()
+                            .map(ClipEntry::content)
+                            .toList()
+            );
+            assertEquals(
+                    List.of("private token"),
+                    clips.queryLatest("priv", 20, null, null).stream()
+                            .map(ClipEntry::content)
+                            .toList()
+            );
+            assertTrue(clips.queryLatest("private", 20, null, work.id()).isEmpty());
+
+            clips.setFavorite(releaseId, true);
+            assertEquals(
+                    List.of("release notes"),
+                    clips.queryLatest("work", 20, true, null).stream()
+                            .map(ClipEntry::content)
+                            .toList()
+            );
+            assertTrue(clips.queryLatest("work", 20, false, null).isEmpty());
+        } finally {
+            tags.closeForCurrentThread();
+            clips.closeForCurrentThread();
+            db.close();
+        }
+    }
+
     private long idFor(ClipEntryDao dao, String content) {
         return dao.listLatest(100).stream()
                 .filter(e -> content.equals(e.content()))
@@ -275,3 +325,4 @@ class ClipEntryDaoTest {
         }
     }
 }
+

@@ -1,4 +1,3 @@
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -16,6 +15,7 @@ import io.xseries.xclip.ui.popup.PopupActionBar;
 import io.xseries.xclip.ui.popup.PopupKeyBindings;
 import io.xseries.xclip.ui.popup.PopupPerformancePolicy;
 import io.xseries.xclip.ui.popup.PopupResponsivePolicy;
+import io.xseries.xclip.ui.popup.TagChipPolicy;
 import io.xseries.xclip.ui.popup.TagEditorModel;
 import org.junit.jupiter.api.Test;
 
@@ -36,7 +36,7 @@ class UiContractFreezeTest {
     void frozenContractMatchesRuntimeConstantsAndEnums() throws Exception {
         Properties contract = loadContract();
 
-        assertEquals("2", contract.getProperty("contract.version"));
+        assertEquals("3", contract.getProperty("contract.version"));
         assertEquals("1.3.0", contract.getProperty("product.version"));
         assertEquals(Config.MIN_WINDOW_W, intValue(contract, "window.minWidth"));
         assertEquals(Config.MIN_WINDOW_H, intValue(contract, "window.minHeight"));
@@ -95,6 +95,16 @@ class UiContractFreezeTest {
         assertEquals(
                 List.of("ACTIONS_MENU", "ROW_CONTEXT_MENU", "MULTI_SELECTION"),
                 values(contract, "tags.entryPoints")
+        );
+        assertEquals(
+                TagChipPolicy.MAX_VISIBLE_CHIPS,
+                intValue(contract, "tags.maxVisibleChips")
+        );
+        assertEquals("CHIPS_WITH_OVERFLOW", required(contract, "tags.rowMetadata"));
+        assertEquals("TAG_ID", required(contract, "tags.filterMode"));
+        assertEquals(
+                List.of("CONTENT", "PINNED_TITLE", "TAG_NAME"),
+                values(contract, "tags.searchFields")
         );
         assertEquals(UiStyles.popupResourcePaths(), values(contract, "popup.stylesheets"));
         assertEquals(UiStyles.settingsResourcePaths(), values(contract, "settings.stylesheets"));
@@ -169,5 +179,6 @@ class UiContractFreezeTest {
         return value;
     }
 }
+
 
 

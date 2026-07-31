@@ -12,21 +12,29 @@ import io.xseries.xclip.domain.model.ClipViewScope;
  * Immutable snapshot of popup filters.
  *
  * An immutable value prevents asynchronous reloads from observing a partially
- * updated scope/type pair while the user changes filters quickly.
+ * updated scope/type/tag combination while the user changes filters quickly.
  */
 public record PopupViewState(
         ClipViewScope scope,
-        ClipContentType contentType
+        ClipContentType contentType,
+        Long tagId
 ) {
     public PopupViewState {
         scope = scope == null ? ClipViewScope.ALL : scope;
+        if (tagId != null && tagId <= 0) {
+            throw new IllegalArgumentException("tagId must be positive");
+        }
+    }
+
+    public PopupViewState(ClipViewScope scope, ClipContentType contentType) {
+        this(scope, contentType, null);
     }
 
     public static PopupViewState defaults() {
-        return new PopupViewState(ClipViewScope.ALL, null);
+        return new PopupViewState(ClipViewScope.ALL, null, null);
     }
 
     public boolean filtersActive() {
-        return scope != ClipViewScope.ALL || contentType != null;
+        return scope != ClipViewScope.ALL || contentType != null || tagId != null;
     }
 }

@@ -1,4 +1,3 @@
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -200,6 +199,39 @@ class TagDaoTest {
         }
     }
 
+    @Test
+    void batchAssignmentLookupPreservesRequestedClipsAndTagOrder() {
+        TestContext ctx = createContext("batch-tag-read.db");
+        try {
+            long firstClip = insertClip(ctx.clips, "first", "hash-first", 1_000L);
+            long secondClip = insertClip(ctx.clips, "second", "hash-second", 2_000L);
+            long untaggedClip = insertClip(ctx.clips, "untagged", "hash-untagged", 3_000L);
+
+            ClipTag beta = ctx.tags.createOrGet("Beta");
+            ClipTag alpha = ctx.tags.createOrGet("Alpha");
+            ctx.tags.addTagToClip(firstClip, beta.id());
+            ctx.tags.addTagToClip(firstClip, alpha.id());
+            ctx.tags.addTagToClip(secondClip, beta.id());
+
+            var assignments = ctx.tags.listForClips(
+                    List.of(secondClip, firstClip, untaggedClip, secondClip)
+            );
+
+            assertEquals(
+                    List.of("Beta"),
+                    assignments.get(secondClip).stream().map(ClipTag::name).toList()
+            );
+            assertEquals(
+                    List.of("Alpha", "Beta"),
+                    assignments.get(firstClip).stream().map(ClipTag::name).toList()
+            );
+            assertTrue(assignments.get(untaggedClip).isEmpty());
+            assertEquals(3, assignments.size());
+        } finally {
+            ctx.close();
+        }
+    }
+
     private TestContext createContext(String fileName) {
         Path dbPath = tempDir.resolve(fileName);
         Database db = new Database(dbPath);
@@ -247,5 +279,6 @@ class TagDaoTest {
         }
     }
 }
+
 
 

@@ -1,22 +1,28 @@
-
 # Changelog
 
 All notable changes to this project will be documented in this file.
 
 
-## [Unreleased] — Tags assignment and frozen UI extension
+## [Unreleased] — Tags display, filtering, and frozen UI extension
 
 ### Added
 
+* Added compact tag chips under clip previews with a strict three-chip budget and `+N` overflow.
+* Added a `Tag: All tags` popup filter with deterministic tag ordering.
+* Added tag-name matching to the existing popup search without changing content/title search behavior.
+* Added batch assignment loading so virtualized rows never issue one database query per cell.
 * Added a single-clip and multi-selection tag editor available from Actions and row context menus.
 * Added inline tag creation, validation, case-insensitive duplicate resolution, and assignment removal.
 * Added tri-state multi-selection semantics: assign to all, remove from all, or preserve mixed assignments.
 * Added one-transaction tag creation and batch assignment through `TagDao.applyEdit`.
 * Extended the machine-readable UI contract for the Milestone 2.2 Tags surface.
+* Extended the frozen UI contract to revision 3 for Milestone 2.3 tag chips and filtering.
 * Added deterministic tests for tag-name normalization, editor planning, atomic saves, and rollback.
 
 ### Changed
 
+* Popup reload now combines scope, content type, text search, tag-name search, and selected-tag filtering in one deterministic pipeline.
+* Popup rows now carry immutable tag metadata prepared off the JavaFX Application Thread.
 * The popup now receives the existing schema-v5 `TagDao` and exposes visible Tags UI without changing clipboard content.
 * The R11 shell remains frozen; Milestone 2.2 is an explicit contract revision rather than a popup redesign.
 
@@ -174,5 +180,6 @@ All notable changes to this project will be documented in this file.
 - Clipboard polling backoff improvements
 - Connection reuse for SQLite
 - Preview rendering optimization
+
 
 

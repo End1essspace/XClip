@@ -23,13 +23,14 @@ import javafx.scene.layout.StackPane;
 import java.util.Objects;
 
 /**
- * Responsive filter toolbar. Compact layouts stack scope and type controls
- * instead of allowing either group to leave the visible window.
+ * Responsive filter toolbar. Compact layouts stack scope, content type, and
+ * tag controls instead of allowing any group to leave the visible window.
  */
 public final class PopupFilterBar extends GridPane {
 
     private final HBox scopeButtons;
     private final StackPane typeControl;
+    private final StackPane tagControl;
     private final Button resetButton;
 
     private PopupResponsivePolicy.LayoutMode appliedMode;
@@ -39,36 +40,38 @@ public final class PopupFilterBar extends GridPane {
             ToggleButton pinnedButton,
             ToggleButton recentButton,
             ComboBox<?> typeCombo,
+            ComboBox<?> tagCombo,
             Button resetButton
     ) {
         Objects.requireNonNull(allButton, "allButton");
         Objects.requireNonNull(pinnedButton, "pinnedButton");
         Objects.requireNonNull(recentButton, "recentButton");
         Objects.requireNonNull(typeCombo, "typeCombo");
+        Objects.requireNonNull(tagCombo, "tagCombo");
         this.resetButton = Objects.requireNonNull(resetButton, "resetButton");
 
         scopeButtons = new HBox(allButton, pinnedButton, recentButton);
         scopeButtons.getStyleClass().add("filter-segment");
 
-        typeControl = new StackPane();
-        typeControl.setAlignment(Pos.CENTER_LEFT);
-        typeControl.getStyleClass().add("filter-type-wrap");
-
-        typeCombo.setMaxWidth(Double.MAX_VALUE);
-        StackPane.setAlignment(typeCombo, Pos.CENTER_LEFT);
-
-        SvgIcon typeIcon = SvgIcon.of(UiIcon.FUNNEL, 13, "filter-type-icon");
-        StackPane.setAlignment(typeIcon, Pos.CENTER_LEFT);
-        StackPane.setMargin(typeIcon, new Insets(0, 0, 0, 11));
-
-        typeControl.getChildren().setAll(typeCombo, typeIcon);
+        typeControl = createComboControl(
+                typeCombo,
+                UiIcon.FUNNEL,
+                "filter-type-wrap",
+                "filter-type-icon"
+        );
+        tagControl = createComboControl(
+                tagCombo,
+                UiIcon.TAG,
+                "filter-tag-wrap",
+                "filter-tag-icon"
+        );
 
         setAlignment(Pos.CENTER_LEFT);
         setHgap(8);
         setVgap(7);
         setMaxWidth(Double.MAX_VALUE);
         getStyleClass().add("filter-bar");
-        getChildren().setAll(scopeButtons, typeControl, resetButton);
+        getChildren().setAll(scopeButtons, typeControl, tagControl, resetButton);
 
         widthProperty().addListener((obs, oldValue, newValue) ->
                 applyAvailableWidth(newValue.doubleValue())
@@ -84,6 +87,7 @@ public final class PopupFilterBar extends GridPane {
 
         resetGridConstraints(scopeButtons);
         resetGridConstraints(typeControl);
+        resetGridConstraints(tagControl);
         resetGridConstraints(resetButton);
         getColumnConstraints().clear();
 
@@ -102,32 +106,24 @@ public final class PopupFilterBar extends GridPane {
             GridPane.setColumnSpan(scopeButtons, 2);
             GridPane.setHalignment(scopeButtons, HPos.LEFT);
 
-            GridPane.setRowIndex(typeControl, 1);
-            GridPane.setColumnIndex(typeControl, 0);
-            GridPane.setHgrow(typeControl, Priority.ALWAYS);
-            typeControl.setMinWidth(0);
-            typeControl.setPrefWidth(0);
-            typeControl.setMaxWidth(Double.MAX_VALUE);
+            configureStackedCombo(typeControl, 1, true);
+            configureStackedCombo(tagControl, 2, false);
 
-            GridPane.setRowIndex(resetButton, 1);
+            GridPane.setRowIndex(resetButton, 2);
             GridPane.setColumnIndex(resetButton, 1);
             GridPane.setHalignment(resetButton, HPos.RIGHT);
         } else {
-            getColumnConstraints().setAll(flexible, content, content);
+            getColumnConstraints().setAll(flexible, content, content, content);
 
             GridPane.setRowIndex(scopeButtons, 0);
             GridPane.setColumnIndex(scopeButtons, 0);
             GridPane.setHalignment(scopeButtons, HPos.LEFT);
 
-            GridPane.setRowIndex(typeControl, 0);
-            GridPane.setColumnIndex(typeControl, 1);
-            GridPane.setHalignment(typeControl, HPos.RIGHT);
-            typeControl.setMinWidth(190);
-            typeControl.setPrefWidth(210);
-            typeControl.setMaxWidth(235);
+            configureWideCombo(typeControl, 1, 180, 200, 220);
+            configureWideCombo(tagControl, 2, 170, 190, 220);
 
             GridPane.setRowIndex(resetButton, 0);
-            GridPane.setColumnIndex(resetButton, 2);
+            GridPane.setColumnIndex(resetButton, 3);
             GridPane.setHalignment(resetButton, HPos.RIGHT);
         }
 
@@ -141,6 +137,56 @@ public final class PopupFilterBar extends GridPane {
             case BALANCED -> "responsive-balanced";
             case WIDE -> "responsive-wide";
         });
+    }
+
+    private StackPane createComboControl(
+            ComboBox<?> combo,
+            UiIcon icon,
+            String wrapStyleClass,
+            String iconStyleClass
+    ) {
+        StackPane control = new StackPane();
+        control.setAlignment(Pos.CENTER_LEFT);
+        control.getStyleClass().add(wrapStyleClass);
+
+        combo.setMaxWidth(Double.MAX_VALUE);
+        StackPane.setAlignment(combo, Pos.CENTER_LEFT);
+
+        SvgIcon leadingIcon = SvgIcon.of(icon, 13, iconStyleClass);
+        StackPane.setAlignment(leadingIcon, Pos.CENTER_LEFT);
+        StackPane.setMargin(leadingIcon, new Insets(0, 0, 0, 11));
+
+        control.getChildren().setAll(combo, leadingIcon);
+        return control;
+    }
+
+    private void configureStackedCombo(
+            StackPane control,
+            int row,
+            boolean spanResetColumn
+    ) {
+        GridPane.setRowIndex(control, row);
+        GridPane.setColumnIndex(control, 0);
+        GridPane.setColumnSpan(control, spanResetColumn ? 2 : 1);
+        GridPane.setHgrow(control, Priority.ALWAYS);
+        control.setMinWidth(0);
+        control.setPrefWidth(0);
+        control.setMaxWidth(Double.MAX_VALUE);
+    }
+
+    private void configureWideCombo(
+            StackPane control,
+            int column,
+            double minWidth,
+            double prefWidth,
+            double maxWidth
+    ) {
+        GridPane.setRowIndex(control, 0);
+        GridPane.setColumnIndex(control, column);
+        GridPane.setHalignment(control, HPos.RIGHT);
+        control.setMinWidth(minWidth);
+        control.setPrefWidth(prefWidth);
+        control.setMaxWidth(maxWidth);
     }
 
     private static void resetGridConstraints(Node node) {

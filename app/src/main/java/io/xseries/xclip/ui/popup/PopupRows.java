@@ -6,11 +6,13 @@
 package io.xseries.xclip.ui.popup;
 
 import io.xseries.xclip.data.model.ClipEntry;
+import io.xseries.xclip.data.model.ClipTag;
 import io.xseries.xclip.ui.popup.PopupRow.ClipRow;
 import io.xseries.xclip.ui.popup.PopupRow.SectionRow;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Builds immutable sectioned popup rows off the JavaFX Application Thread.
@@ -20,7 +22,17 @@ public final class PopupRows {
     private PopupRows() {}
 
     public static List<PopupRow> build(List<ClipEntry> sorted) {
+        return build(sorted, Map.of());
+    }
+
+    public static List<PopupRow> build(
+            List<ClipEntry> sorted,
+            Map<Long, List<ClipTag>> tagsByClipId
+    ) {
         if (sorted == null || sorted.isEmpty()) return List.of();
+
+        Map<Long, List<ClipTag>> effectiveTags =
+                tagsByClipId == null ? Map.of() : tagsByClipId;
 
         int pinnedCount = 0;
         int recentCount = 0;
@@ -37,14 +49,18 @@ public final class PopupRows {
         if (pinnedCount > 0) {
             out.add(new SectionRow("PINNED", pinnedCount));
             for (ClipEntry entry : sorted) {
-                if (entry != null && entry.favorite()) out.add(new ClipRow(entry));
+                if (entry != null && entry.favorite()) {
+                    out.add(new ClipRow(entry, effectiveTags.get(entry.id())));
+                }
             }
         }
 
         if (recentCount > 0) {
             out.add(new SectionRow("RECENT", recentCount));
             for (ClipEntry entry : sorted) {
-                if (entry != null && !entry.favorite()) out.add(new ClipRow(entry));
+                if (entry != null && !entry.favorite()) {
+                    out.add(new ClipRow(entry, effectiveTags.get(entry.id())));
+                }
             }
         }
 

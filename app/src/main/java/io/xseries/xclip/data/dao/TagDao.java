@@ -1,4 +1,3 @@
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -17,9 +16,12 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -143,6 +145,68 @@ public final class TagDao {
         } catch (Exception e) {
             throw new RuntimeException("listForClip failed", e);
         }
+    }
+
+    /**
+     * Loads assignments for a bounded set of clips without issuing one query
+     * per virtualized row. Input order is preserved and every returned tag list
+     * is sorted by the same deterministic order as listForClip.
+     */
+    public Map<Long, List<ClipTag>> listForClips(List<Long> clipIds) {
+        List<Long> uniqueClipIds = uniquePositiveIds(clipIds, "clipIds");
+        if (uniqueClipIds.isEmpty()) return Map.of();
+
+        LinkedHashMap<Long, List<ClipTag>> result = new LinkedHashMap<>();
+        for (Long clipId : uniqueClipIds) {
+            result.put(clipId, new ArrayList<>());
+        }
+
+        final int batchSize = 500;
+        Connection c = conn();
+
+        for (int offset = 0; offset < uniqueClipIds.size(); offset += batchSize) {
+            int end = Math.min(uniqueClipIds.size(), offset + batchSize);
+            List<Long> batch = uniqueClipIds.subList(offset, end);
+
+            StringBuilder sql = new StringBuilder("""
+                    SELECT ct.clip_id, t.id, t.name, t.created_at
+                    FROM clip_tags AS ct
+                    JOIN tags AS t ON t.id = ct.tag_id
+                    WHERE ct.clip_id IN (
+                    """);
+            for (int index = 0; index < batch.size(); index++) {
+                if (index > 0) sql.append(", ");
+                sql.append("?");
+            }
+            sql.append("""
+                    )
+                    ORDER BY ct.clip_id ASC,
+                             t.name COLLATE NOCASE ASC,
+                             t.id ASC
+                    """);
+
+            try (PreparedStatement ps = c.prepareStatement(sql.toString())) {
+                for (int index = 0; index < batch.size(); index++) {
+                    ps.setLong(index + 1, batch.get(index));
+                }
+
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        long clipId = rs.getLong("clip_id");
+                        List<ClipTag> tags = result.get(clipId);
+                        if (tags != null) tags.add(mapTag(rs));
+                    }
+                }
+            } catch (Exception e) {
+                throw new RuntimeException("listForClips failed", e);
+            }
+        }
+
+        LinkedHashMap<Long, List<ClipTag>> immutable = new LinkedHashMap<>();
+        for (Map.Entry<Long, List<ClipTag>> entry : result.entrySet()) {
+            immutable.put(entry.getKey(), List.copyOf(entry.getValue()));
+        }
+        return Collections.unmodifiableMap(immutable);
     }
 
     /**
@@ -531,5 +595,6 @@ public final class TagDao {
     }
 
 }
+
 
 
