@@ -1,5 +1,6 @@
 
 
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -11,6 +12,7 @@ import io.xseries.xclip.config.AppPaths;
 import io.xseries.xclip.config.Config;
 import io.xseries.xclip.config.ConfigService;
 import io.xseries.xclip.data.dao.ClipEntryDao;
+import io.xseries.xclip.data.dao.TagDao;
 import io.xseries.xclip.data.db.Database;
 import io.xseries.xclip.domain.service.ClipService;
 import io.xseries.xclip.domain.service.PasteService;
@@ -62,6 +64,7 @@ public final class XClipApp extends Application {
 
         // --- services ---
         ClipEntryDao dao = new ClipEntryDao(db.jdbcUrl());
+        TagDao tagDao = new TagDao(db.jdbcUrl());
         ClipService clipService = new ClipService(dao);
         clipService.applyConfig(config);
 
@@ -82,7 +85,7 @@ public final class XClipApp extends Application {
 
         final Runnable[] openSettingsRef = new Runnable[1];
 
-        this.popup = new PopupWindow(dao, clipboard, clipService, () -> {
+        this.popup = new PopupWindow(dao, tagDao, clipboard, clipService, () -> {
             Runnable r = openSettingsRef[0];
             if (r != null) r.run();
         }, tray::togglePaused, pasteService);
@@ -174,3 +177,5 @@ public final class XClipApp extends Application {
         launch(args);
     }
 }
+
+

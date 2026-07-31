@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -243,3 +244,147 @@
     -fx-effect: dropshadow(gaussian, rgba(245, 197, 66, 0.58), 7, 0.25, 0, 0);
 }
 
+
+
+
+/* =========================================================
+   Milestone 2.2 — tag assignment editor
+   ========================================================= */
+
+.x-dialog.tag-editor-dialog .tag-editor-content {
+    -fx-spacing: 10;
+}
+
+.x-dialog.tag-editor-dialog .tag-editor-add-button {
+    -fx-min-height: 34px;
+    -fx-padding: 7 13 7 13;
+    -fx-background-color: #1A2431;
+    -fx-text-fill: #D4DEEA;
+    -fx-border-color: #3A4A60;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-font-weight: 700;
+}
+
+.x-dialog.tag-editor-dialog .tag-editor-add-button:hover {
+    -fx-background-color: #243246;
+    -fx-text-fill: #F3F7FB;
+    -fx-border-color: #5A7697;
+}
+
+.x-dialog.tag-editor-dialog .tag-editor-validation {
+    -fx-text-fill: #E88989;
+    -fx-font-size: 10.5px;
+}
+
+.x-dialog.tag-editor-dialog .tag-editor-scroll {
+    -fx-background-color: transparent;
+    -fx-border-color: #2D394B;
+    -fx-border-width: 1;
+    -fx-border-radius: 9;
+    -fx-background-radius: 9;
+    -fx-padding: 0;
+}
+
+.x-dialog.tag-editor-dialog .tag-editor-scroll > .viewport {
+    -fx-background-color: #101722;
+    -fx-background-radius: 9;
+}
+
+.x-dialog.tag-editor-dialog .tag-editor-option-list {
+    -fx-background-color: #101722;
+    -fx-padding: 6;
+}
+
+.x-dialog.tag-editor-dialog .tag-editor-option-row,
+.x-dialog.tag-editor-dialog .tag-editor-pending-row {
+    -fx-min-height: 34px;
+    -fx-padding: 6 8 6 8;
+    -fx-background-color: transparent;
+    -fx-background-radius: 7;
+}
+
+.x-dialog.tag-editor-dialog .tag-editor-option-row:hover,
+.x-dialog.tag-editor-dialog .tag-editor-pending-row:hover {
+    -fx-background-color: #182230;
+}
+
+.x-dialog.tag-editor-dialog .tag-editor-check-box {
+    -fx-text-fill: #D7E0EB;
+    -fx-font-size: 12px;
+}
+
+.x-dialog.tag-editor-dialog .tag-editor-check-box .box {
+    -fx-background-color: #111A26;
+    -fx-border-color: #45556C;
+    -fx-border-radius: 4;
+    -fx-background-radius: 4;
+}
+
+.x-dialog.tag-editor-dialog .tag-editor-check-box:selected .box,
+.x-dialog.tag-editor-dialog .tag-editor-check-box:indeterminate .box {
+    -fx-background-color: #2F70BC;
+    -fx-border-color: #67A0DF;
+}
+
+.x-dialog.tag-editor-dialog .tag-editor-state-hint {
+    -fx-text-fill: #7E91A9;
+    -fx-font-size: 9.5px;
+    -fx-font-weight: 700;
+}
+
+.x-dialog.tag-editor-dialog .tag-editor-pending-list {
+    -fx-background-color: #101722;
+    -fx-border-color: #2D394B;
+    -fx-border-width: 1;
+    -fx-border-radius: 9;
+    -fx-background-radius: 9;
+    -fx-padding: 5;
+}
+
+.x-dialog.tag-editor-dialog .tag-editor-pending-name {
+    -fx-text-fill: #DCE5EF;
+    -fx-font-size: 12px;
+}
+
+.x-dialog.tag-editor-dialog .tag-editor-new-badge {
+    -fx-background-color: rgba(47, 112, 188, 0.20);
+    -fx-text-fill: #80B8F1;
+    -fx-border-color: rgba(103, 160, 223, 0.48);
+    -fx-border-radius: 5;
+    -fx-background-radius: 5;
+    -fx-padding: 2 6 2 6;
+    -fx-font-size: 8.5px;
+    -fx-font-weight: 800;
+}
+
+.x-dialog.tag-editor-dialog .tag-editor-remove-button {
+    -fx-min-width: 26px;
+    -fx-min-height: 26px;
+    -fx-max-width: 26px;
+    -fx-max-height: 26px;
+    -fx-padding: 0;
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-background-radius: 6;
+    -fx-border-radius: 6;
+    -x-icon-color: #8696AA;
+}
+
+.x-dialog.tag-editor-dialog .tag-editor-remove-button:hover {
+    -fx-background-color: rgba(205, 82, 82, 0.16);
+    -x-icon-color: #F09A9A;
+}
+
+.x-dialog.tag-editor-dialog .tag-editor-empty {
+    -fx-text-fill: #71839A;
+    -fx-font-size: 11px;
+    -fx-padding: 14 10 14 10;
+}
+
+.x-dialog.tag-editor-dialog .tag-editor-add-button:focused,
+.x-dialog.tag-editor-dialog .tag-editor-remove-button:focused,
+.x-dialog.tag-editor-dialog .tag-editor-check-box:focused .box {
+    -fx-border-color: -x-accent;
+    -fx-effect: dropshadow(gaussian, rgba(245, 197, 66, 0.58), 7, 0.25, 0, 0);
+}

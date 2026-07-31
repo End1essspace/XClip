@@ -1,6 +1,7 @@
+
 # XClip UI Contract v1.3.0
 
-**Status:** Freeze candidate; becomes frozen after the R11 exit gate passes
+**Status:** Frozen R11 baseline, deliberately extended by Milestone 2.2
 **Scope:** Popup, custom window chrome, modal surfaces, Settings styling, keyboard workflow, responsive behavior, and packaged UI resources.
 
 This document is the human-readable counterpart of `/ui/ui-contract-v1.3.0.properties`. Any intentional contract change must update both files and the `UiContractFreezeTest` expectations in the same reviewed milestone.
@@ -98,3 +99,23 @@ After R11, visual or interaction changes require all of the following:
 7. separate commit and push.
 
 Tags UI may extend the popup after R11, but it must preserve this frozen baseline unless the contract is deliberately versioned.
+
+
+
+
+## 9. Tags UI extension — contract revision 2
+
+Milestone 2.2 deliberately extends the frozen popup contract without redesigning
+the R11 shell.
+
+- Tag names use one shared normalization policy with a maximum of `64` characters.
+- Tag editing is available from the footer Actions menu and each row context menu.
+- The same editor supports one clip and the current multi-selection.
+- Multi-selection exposes `UNASSIGNED`, `ASSIGNED`, and `MIXED` states.
+- `MIXED` means existing per-clip differences remain unchanged.
+- New tags are not persisted until Save.
+- Creation plus all assignment/removal changes commit in one SQLite transaction.
+- A failed save rolls back the complete edit.
+- Duplicate names are resolved case-insensitively and select the existing tag.
+- The R11 responsive shell, keyboard workflow, preview budgets, and safety
+  invariants remain unchanged.

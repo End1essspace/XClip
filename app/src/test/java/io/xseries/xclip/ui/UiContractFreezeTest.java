@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -8,12 +9,14 @@ package io.xseries.xclip.ui;
 import io.xseries.xclip.config.Config;
 import io.xseries.xclip.domain.model.ClipContentType;
 import io.xseries.xclip.domain.model.ClipViewScope;
+import io.xseries.xclip.domain.service.TagNamePolicy;
 import io.xseries.xclip.ui.components.UiIcon;
 import io.xseries.xclip.ui.popup.ClipPreviewPolicy;
 import io.xseries.xclip.ui.popup.PopupActionBar;
 import io.xseries.xclip.ui.popup.PopupKeyBindings;
 import io.xseries.xclip.ui.popup.PopupPerformancePolicy;
 import io.xseries.xclip.ui.popup.PopupResponsivePolicy;
+import io.xseries.xclip.ui.popup.TagEditorModel;
 import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;
@@ -33,7 +36,7 @@ class UiContractFreezeTest {
     void frozenContractMatchesRuntimeConstantsAndEnums() throws Exception {
         Properties contract = loadContract();
 
-        assertEquals("1", contract.getProperty("contract.version"));
+        assertEquals("2", contract.getProperty("contract.version"));
         assertEquals("1.3.0", contract.getProperty("product.version"));
         assertEquals(Config.MIN_WINDOW_W, intValue(contract, "window.minWidth"));
         assertEquals(Config.MIN_WINDOW_H, intValue(contract, "window.minHeight"));
@@ -77,6 +80,22 @@ class UiContractFreezeTest {
         assertEquals(enumNames(ClipContentType.values()), values(contract, "popup.contentTypes"));
         assertEquals(enumNames(PopupActionBar.StatusTone.values()), values(contract, "popup.statusTones"));
         assertEquals(enumNames(UiDialogs.Tone.values()), values(contract, "dialog.tones"));
+        assertEquals(
+                TagNamePolicy.MAX_NAME_LENGTH,
+                intValue(contract, "tags.maxNameLength")
+        );
+        assertEquals(
+                enumNames(TagEditorModel.SelectionState.values()),
+                values(contract, "tags.selectionStates")
+        );
+        assertEquals(
+                "ATOMIC_MULTI_CLIP_EDIT",
+                required(contract, "tags.assignmentMode")
+        );
+        assertEquals(
+                List.of("ACTIONS_MENU", "ROW_CONTEXT_MENU", "MULTI_SELECTION"),
+                values(contract, "tags.entryPoints")
+        );
         assertEquals(UiStyles.popupResourcePaths(), values(contract, "popup.stylesheets"));
         assertEquals(UiStyles.settingsResourcePaths(), values(contract, "settings.stylesheets"));
         assertEquals(UiIcon.values().length, intValue(contract, "popup.iconCount"));
@@ -150,3 +169,5 @@ class UiContractFreezeTest {
         return value;
     }
 }
+
+

@@ -1,4 +1,5 @@
 
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -19,6 +20,7 @@ import io.xseries.xclip.ui.popup.PopupKeyBindings;
 import io.xseries.xclip.ui.popup.PopupPerformancePolicy;
 import io.xseries.xclip.ui.popup.PopupRows;
 import io.xseries.xclip.ui.popup.ReloadRequestGate;
+import io.xseries.xclip.ui.popup.TagEditorModel.EditPlan;
 import io.xseries.xclip.ui.popup.BoundedLruCache;
 import io.xseries.xclip.ui.popup.PopupTitleBar;
 import io.xseries.xclip.ui.popup.PopupRow;
@@ -31,7 +33,9 @@ import io.xseries.xclip.ui.components.UiIcon;
 import io.xseries.xclip.system.window.WindowChromeController;
 import io.xseries.xclip.system.window.WindowChromeController.WindowBounds;
 import io.xseries.xclip.data.dao.ClipEntryDao;
+import io.xseries.xclip.data.dao.TagDao;
 import io.xseries.xclip.data.model.ClipEntry;
+import io.xseries.xclip.data.model.ClipTag;
 import io.xseries.xclip.domain.model.ClipContentType;
 import io.xseries.xclip.domain.model.ClipPrimaryAction;
 import io.xseries.xclip.domain.model.ClipViewScope;
@@ -67,6 +71,7 @@ import javafx.util.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -123,6 +128,7 @@ public final class PopupWindow {
     private boolean filterUiSync = false;
 
     private final ClipEntryDao dao;
+    private final TagDao tagDao;
     private final ClipboardAccess clipboard;
     private final ClipService clipService;
     private final PasteService pasteService;
@@ -218,9 +224,15 @@ public final class PopupWindow {
         this(dao, clipboard, clipService, () -> {});
     }
 
-    public PopupWindow(ClipEntryDao dao, ClipboardAccess clipboard, ClipService clipService, Runnable onOpenSettings) {
+    public PopupWindow(
+            ClipEntryDao dao,
+            ClipboardAccess clipboard,
+            ClipService clipService,
+            Runnable onOpenSettings
+    ) {
         this(
                 dao,
+                null,
                 clipboard,
                 clipService,
                 onOpenSettings,
@@ -236,7 +248,7 @@ public final class PopupWindow {
             Runnable onOpenSettings,
             PasteService pasteService
     ) {
-        this(dao, clipboard, clipService, onOpenSettings, () -> {}, pasteService);
+        this(dao, null, clipboard, clipService, onOpenSettings, () -> {}, pasteService);
     }
 
     public PopupWindow(
@@ -247,8 +259,29 @@ public final class PopupWindow {
             Runnable onTogglePaused,
             PasteService pasteService
     ) {
-        this.dao = dao;
-        this.clipboard = clipboard;
+        this(
+                dao,
+                null,
+                clipboard,
+                clipService,
+                onOpenSettings,
+                onTogglePaused,
+                pasteService
+        );
+    }
+
+    public PopupWindow(
+            ClipEntryDao dao,
+            TagDao tagDao,
+            ClipboardAccess clipboard,
+            ClipService clipService,
+            Runnable onOpenSettings,
+            Runnable onTogglePaused,
+            PasteService pasteService
+    ) {
+        this.dao = java.util.Objects.requireNonNull(dao, "dao");
+        this.tagDao = tagDao;
+        this.clipboard = java.util.Objects.requireNonNull(clipboard, "clipboard");
         this.clipService = clipService;
         this.pasteService = java.util.Objects.requireNonNull(pasteService);
         this.onOpenSettings = (onOpenSettings != null) ? onOpenSettings : (() -> {});
@@ -921,6 +954,16 @@ public final class PopupWindow {
             @Override
             public void performPrimaryTypeAction() {
                 performPrimaryTypeActionForSelection();
+            }
+
+            @Override
+            public void editTags() {
+                editTagsSelected();
+            }
+
+            @Override
+            public boolean tagsAvailable() {
+                return tagDao != null;
             }
 
             @Override
@@ -1950,6 +1993,99 @@ public final class PopupWindow {
         }
     }
 
+    private void editTagsSelected() {
+        List<ClipEntry> selected = getSelectedClipsOrdered();
+        if (selected.isEmpty()) return;
+        if (tagDao == null) {
+            showToast("Tags are unavailable", StatusTone.WARNING);
+            return;
+        }
+
+        List<Long> clipIds = selected.stream().map(ClipEntry::id).toList();
+        showToast("Loading tags…", StatusTone.NEUTRAL);
+
+        dbExec.submit(() -> {
+            try {
+                List<ClipTag> allTags = tagDao.listAll();
+                Map<Long, List<ClipTag>> assignmentsByClip = new LinkedHashMap<>();
+                for (Long clipId : clipIds) {
+                    assignmentsByClip.put(clipId, tagDao.listForClip(clipId));
+                }
+
+                Platform.runLater(() -> {
+                    if (!stage.isShowing()) return;
+
+                    java.util.Optional<EditPlan> result = showPopupModal(() ->
+                            TagEditorDialog.show(
+                                    stage,
+                                    clipIds,
+                                    allTags,
+                                    assignmentsByClip
+                            )
+                    );
+                    result.ifPresent(plan -> saveTagEdit(clipIds, plan));
+                });
+            } catch (Throwable failure) {
+                Platform.runLater(() -> showOperationError(
+                        "Tags unavailable",
+                        "Load tags failed",
+                        "Tags could not be loaded",
+                        "No clipboard data was changed. Reopen XClip and try again."
+                ));
+            }
+        });
+    }
+
+    private void saveTagEdit(List<Long> clipIds, EditPlan plan) {
+        if (tagDao == null || plan == null || plan.isEmpty()) return;
+
+        showToast("Saving tags…", StatusTone.NEUTRAL);
+        dbExec.submit(() -> {
+            try {
+                List<ClipTag> resolvedNewTags = tagDao.applyEdit(
+                        clipIds,
+                        plan.assignTagIds(),
+                        plan.removeTagIds(),
+                        plan.createAndAssignNames()
+                );
+
+                Platform.runLater(() -> {
+                    listView.refresh();
+
+                    int changedExisting = plan.assignTagIds().size()
+                            + plan.removeTagIds().size();
+                    int created = resolvedNewTags.size();
+                    String message;
+                    if (created > 0 && changedExisting > 0) {
+                        message = "Tags updated · " + created + " created";
+                    } else if (created > 0) {
+                        message = created == 1 ? "Tag created and assigned" : created + " tags created";
+                    } else {
+                        message = "Tags updated";
+                    }
+                    showToast(message, StatusTone.SUCCESS);
+                });
+            } catch (IllegalArgumentException invalid) {
+                Platform.runLater(() -> showOperationError(
+                        "Tag save failed",
+                        "Save tags failed",
+                        "The tag changes were not saved",
+                        java.util.Objects.requireNonNullElse(
+                                invalid.getMessage(),
+                                "One or more tag values are invalid."
+                        )
+                ));
+            } catch (Throwable failure) {
+                Platform.runLater(() -> showOperationError(
+                        "Tag save failed",
+                        "Save tags failed",
+                        "The tag changes were not saved",
+                        "The operation was rolled back, so existing assignments remain unchanged."
+                ));
+            }
+        });
+    }
+
     private void toggleFavoriteSelected() {
         List<ClipEntry> selected = getSelectedClipsOrdered();
         if (selected.isEmpty()) return;
@@ -2546,3 +2682,5 @@ public final class PopupWindow {
         updateSelectionUi();
     }
 }
+
+

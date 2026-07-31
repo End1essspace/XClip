@@ -1,4 +1,5 @@
 
+
 [ENG]
 
 📋 **XClip**
@@ -26,6 +27,12 @@ Unlike simple clipboard utilities, XClip focuses on engineering quality: layered
 - Mark entries as favorites
 - Favorites are preserved during history pruning
 - Clear visual separation of pinned items
+
+🏷 **Create and Assign Tags**
+- Create tags directly from the popup Actions menu
+- Assign or remove tags for one clip or a multi-selection
+- Tri-state batch editing preserves mixed assignments
+- Case-insensitive duplicate prevention and atomic database saves
 
 🧠 **Multi-Selection Support**
 - **Shift** — range selection
@@ -181,6 +188,12 @@ Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
 - Избранные записи сохраняются при очистке и ограничении истории
 - Чёткое визуальное разделение закреплённых элементов
 
+🏷 **Создание и назначение тегов**
+- Создание тегов прямо через меню Actions в popup
+- Назначение и снятие тегов для одного клипа или множественного выбора
+- Tri-state пакетное редактирование сохраняет смешанные назначения
+- Защита от дубликатов без учёта регистра и атомарное сохранение в БД
+
 🧠 **Поддержка множественного выбора**
 - **Shift** — выбор диапазона
 - **Ctrl** — переключение выбора отдельной записи
@@ -304,4 +317,6 @@ XClip распространяется под лицензией GNU General Pub
 🧾 **Copyright**
 
 Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
+
+
 

@@ -1,11 +1,26 @@
+
 # Changelog
 
 All notable changes to this project will be documented in this file.
 
 
-## [Unreleased] — Popup UI freeze and regression gate
+## [Unreleased] — Tags assignment and frozen UI extension
 
 ### Added
+
+* Added a single-clip and multi-selection tag editor available from Actions and row context menus.
+* Added inline tag creation, validation, case-insensitive duplicate resolution, and assignment removal.
+* Added tri-state multi-selection semantics: assign to all, remove from all, or preserve mixed assignments.
+* Added one-transaction tag creation and batch assignment through `TagDao.applyEdit`.
+* Extended the machine-readable UI contract for the Milestone 2.2 Tags surface.
+* Added deterministic tests for tag-name normalization, editor planning, atomic saves, and rollback.
+
+### Changed
+
+* The popup now receives the existing schema-v5 `TagDao` and exposes visible Tags UI without changing clipboard content.
+* The R11 shell remains frozen; Milestone 2.2 is an explicit contract revision rather than a popup redesign.
+
+### R11 baseline
 
 * Added a versioned machine-readable UI contract for the v1.3.0 popup baseline.
 * Added a 38-case R11 regression matrix and a canonical screenshot evidence set.
@@ -159,3 +174,5 @@ All notable changes to this project will be documented in this file.
 - Clipboard polling backoff improvements
 - Connection reuse for SQLite
 - Preview rendering optimization
+
+

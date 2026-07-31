@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -6,6 +7,8 @@
 package io.xseries.xclip.data.dao;
 
 import io.xseries.xclip.data.model.ClipTag;
+import io.xseries.xclip.domain.service.TagNamePolicy;
+import io.xseries.xclip.domain.service.TagNamePolicy.NormalizedTagName;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -30,7 +33,7 @@ import java.util.Set;
  */
 public final class TagDao {
 
-    public static final int MAX_TAG_NAME_LENGTH = 64;
+    public static final int MAX_TAG_NAME_LENGTH = TagNamePolicy.MAX_NAME_LENGTH;
 
     private final String jdbcUrl;
     private final ThreadLocal<Connection> tlConn = ThreadLocal.withInitial(this::openConnection);
@@ -71,27 +74,12 @@ public final class TagDao {
      * Repeated calls do not change the existing display casing or created_at.
      */
     public ClipTag createOrGet(String rawName) {
-        NormalizedTagName normalized = normalizeName(rawName);
+        NormalizedTagName normalized = TagNamePolicy.normalize(rawName);
         Connection c = conn();
         boolean previousAutoCommit = beginTransaction(c, "tag create transaction setup failed");
 
         try {
-            try (PreparedStatement ps = c.prepareStatement("""
-                    INSERT INTO tags(name, name_norm, created_at)
-                    VALUES (?, ?, ?)
-                    ON CONFLICT(name_norm) DO NOTHING
-                    """)) {
-                ps.setString(1, normalized.displayName());
-                ps.setString(2, normalized.normalizedName());
-                ps.setLong(3, System.currentTimeMillis());
-                ps.executeUpdate();
-            }
-
-            ClipTag tag = findByNormalizedName(c, normalized.normalizedName());
-            if (tag == null) {
-                throw new SQLException("Tag insert completed but row could not be loaded");
-            }
-
+            ClipTag tag = createOrGet(c, normalized);
             c.commit();
             return tag;
         } catch (Exception e) {
@@ -100,6 +88,25 @@ public final class TagDao {
         } finally {
             restoreAutoCommit(c, previousAutoCommit);
         }
+    }
+
+    private ClipTag createOrGet(Connection c, NormalizedTagName normalized) throws SQLException {
+        try (PreparedStatement ps = c.prepareStatement("""
+                INSERT INTO tags(name, name_norm, created_at)
+                VALUES (?, ?, ?)
+                ON CONFLICT(name_norm) DO NOTHING
+                """)) {
+            ps.setString(1, normalized.displayName());
+            ps.setString(2, normalized.identity());
+            ps.setLong(3, System.currentTimeMillis());
+            ps.executeUpdate();
+        }
+
+        ClipTag tag = findByNormalizedName(c, normalized.identity());
+        if (tag == null) {
+            throw new SQLException("Tag insert completed but row could not be loaded");
+        }
+        return tag;
     }
 
     public List<ClipTag> listAll() {
@@ -198,7 +205,7 @@ public final class TagDao {
      */
     public void replaceTagsForClip(long clipId, List<Long> tagIds) {
         requirePositiveId(clipId, "clipId");
-        List<Long> uniqueTagIds = uniquePositiveIds(tagIds);
+        List<Long> uniqueTagIds = uniquePositiveIds(tagIds, "tagIds");
 
         Connection c = conn();
         boolean previousAutoCommit = beginTransaction(c, "replace tags transaction setup failed");
@@ -241,12 +248,101 @@ public final class TagDao {
     }
 
     /**
+     * Atomically applies one tag-editor save across every selected clip.
+     *
+     * Existing mixed assignments can be preserved by omitting a tag from both
+     * assignTagIds and removeTagIds. New names are created (or resolved to an
+     * existing case-insensitive match) and assigned to every selected clip in
+     * the same transaction, so Cancel or a failed save cannot leave orphaned
+     * tags or partially updated selections.
+     */
+    public List<ClipTag> applyEdit(
+            List<Long> clipIds,
+            List<Long> assignTagIds,
+            List<Long> removeTagIds,
+            List<String> createAndAssignNames
+    ) {
+        List<Long> uniqueClipIds = uniquePositiveIds(clipIds, "clipIds");
+        if (uniqueClipIds.isEmpty()) {
+            throw new IllegalArgumentException("clipIds cannot be empty");
+        }
+
+        List<Long> uniqueAssignIds = uniquePositiveIds(assignTagIds, "assignTagIds");
+        List<Long> uniqueRemoveIds = uniquePositiveIds(removeTagIds, "removeTagIds");
+        List<NormalizedTagName> normalizedNewNames = normalizeUniqueNames(createAndAssignNames);
+
+        Connection c = conn();
+        boolean previousAutoCommit = beginTransaction(c, "tag edit transaction setup failed");
+
+        try {
+            for (Long clipId : uniqueClipIds) {
+                requireClipExists(c, clipId);
+            }
+            for (Long tagId : uniqueAssignIds) {
+                requireTagExists(c, tagId);
+            }
+            for (Long tagId : uniqueRemoveIds) {
+                requireTagExists(c, tagId);
+            }
+
+            LinkedHashSet<Long> effectiveAssignIds = new LinkedHashSet<>(uniqueAssignIds);
+            List<ClipTag> resolvedNewTags = new ArrayList<>();
+            for (NormalizedTagName normalized : normalizedNewNames) {
+                ClipTag tag = createOrGet(c, normalized);
+                effectiveAssignIds.add(tag.id());
+                resolvedNewTags.add(tag);
+            }
+
+            if (!uniqueRemoveIds.isEmpty()) {
+                try (PreparedStatement delete = c.prepareStatement(
+                        "DELETE FROM clip_tags WHERE clip_id = ? AND tag_id = ?")) {
+                    for (Long clipId : uniqueClipIds) {
+                        for (Long tagId : uniqueRemoveIds) {
+                            delete.setLong(1, clipId);
+                            delete.setLong(2, tagId);
+                            delete.addBatch();
+                        }
+                    }
+                    delete.executeBatch();
+                }
+            }
+
+            if (!effectiveAssignIds.isEmpty()) {
+                long assignedAt = System.currentTimeMillis();
+                try (PreparedStatement insert = c.prepareStatement("""
+                        INSERT INTO clip_tags(clip_id, tag_id, assigned_at)
+                        VALUES (?, ?, ?)
+                        ON CONFLICT(clip_id, tag_id) DO NOTHING
+                        """)) {
+                    for (Long clipId : uniqueClipIds) {
+                        for (Long tagId : effectiveAssignIds) {
+                            insert.setLong(1, clipId);
+                            insert.setLong(2, tagId);
+                            insert.setLong(3, assignedAt);
+                            insert.addBatch();
+                        }
+                    }
+                    insert.executeBatch();
+                }
+            }
+
+            c.commit();
+            return List.copyOf(resolvedNewTags);
+        } catch (RuntimeException | SQLException e) {
+            rollbackQuietly(c);
+            throw propagate("apply tag edit failed", e);
+        } finally {
+            restoreAutoCommit(c, previousAutoCommit);
+        }
+    }
+
+    /**
      * Renames one tag. Case-insensitive collisions are rejected.
      * Returns false when the id does not exist.
      */
     public boolean renameTag(long tagId, String rawName) {
         requirePositiveId(tagId, "tagId");
-        NormalizedTagName normalized = normalizeName(rawName);
+        NormalizedTagName normalized = TagNamePolicy.normalize(rawName);
 
         try (PreparedStatement ps = conn().prepareStatement("""
                 UPDATE tags
@@ -254,7 +350,7 @@ public final class TagDao {
                 WHERE id = ?
                 """)) {
             ps.setString(1, normalized.displayName());
-            ps.setString(2, normalized.normalizedName());
+            ps.setString(2, normalized.identity());
             ps.setLong(3, tagId);
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
@@ -371,54 +467,28 @@ public final class TagDao {
         }
     }
 
-    private List<Long> uniquePositiveIds(List<Long> ids) {
+    private List<Long> uniquePositiveIds(List<Long> ids, String field) {
         if (ids == null || ids.isEmpty()) return List.of();
 
         Set<Long> unique = new LinkedHashSet<>();
         for (Long id : ids) {
             if (id == null || id <= 0) {
-                throw new IllegalArgumentException("tagIds must contain only positive ids");
+                throw new IllegalArgumentException(field + " must contain only positive ids");
             }
             unique.add(id);
         }
         return List.copyOf(unique);
     }
 
-    private NormalizedTagName normalizeName(String rawName) {
-        if (rawName == null) {
-            throw new IllegalArgumentException("Tag name is required");
+    private List<NormalizedTagName> normalizeUniqueNames(List<String> rawNames) {
+        if (rawNames == null || rawNames.isEmpty()) return List.of();
+
+        java.util.LinkedHashMap<String, NormalizedTagName> unique = new java.util.LinkedHashMap<>();
+        for (String rawName : rawNames) {
+            NormalizedTagName normalized = TagNamePolicy.normalize(rawName);
+            unique.putIfAbsent(normalized.identity(), normalized);
         }
-
-        StringBuilder out = new StringBuilder(rawName.length());
-        boolean pendingSpace = false;
-
-        for (int i = 0; i < rawName.length(); i++) {
-            char ch = rawName.charAt(i);
-
-            if (Character.isWhitespace(ch)) {
-                pendingSpace = out.length() > 0;
-                continue;
-            }
-            if (Character.isISOControl(ch)) {
-                throw new IllegalArgumentException("Tag name contains a control character");
-            }
-
-            if (pendingSpace) out.append(' ');
-            pendingSpace = false;
-            out.append(ch);
-        }
-
-        String display = out.toString().strip();
-        if (display.isEmpty()) {
-            throw new IllegalArgumentException("Tag name cannot be blank");
-        }
-        if (display.length() > MAX_TAG_NAME_LENGTH) {
-            throw new IllegalArgumentException(
-                    "Tag name cannot exceed " + MAX_TAG_NAME_LENGTH + " characters"
-            );
-        }
-
-        return new NormalizedTagName(display, display.toLowerCase(Locale.ROOT));
+        return List.copyOf(unique.values());
     }
 
     private void requirePositiveId(long id, String field) {
@@ -460,5 +530,6 @@ public final class TagDao {
         }
     }
 
-    private record NormalizedTagName(String displayName, String normalizedName) {}
 }
+
+

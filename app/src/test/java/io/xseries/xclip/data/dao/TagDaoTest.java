@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -78,6 +79,67 @@ class TagDaoTest {
             assertTrue(ctx.tags.removeTagFromClip(clipId, review.id()));
             assertFalse(ctx.tags.removeTagFromClip(clipId, review.id()));
             assertEquals(List.of("Later"), tagNames(ctx.tags, clipId));
+        } finally {
+            ctx.close();
+        }
+    }
+
+    @Test
+    void appliesMultiClipEditAndCreatesTagsInOneTransaction() {
+        TestContext ctx = createContext("multi-edit.db");
+        try {
+            long firstClip = insertClip(ctx.clips, "first", "hash-first", 1_000L);
+            long secondClip = insertClip(ctx.clips, "second", "hash-second", 2_000L);
+
+            ClipTag work = ctx.tags.createOrGet("Work");
+            ClipTag privateTag = ctx.tags.createOrGet("Private");
+            ClipTag later = ctx.tags.createOrGet("Later");
+
+            ctx.tags.addTagToClip(firstClip, work.id());
+            ctx.tags.addTagToClip(firstClip, privateTag.id());
+            ctx.tags.addTagToClip(secondClip, work.id());
+
+            List<ClipTag> resolved = ctx.tags.applyEdit(
+                    List.of(firstClip, secondClip, firstClip),
+                    List.of(later.id()),
+                    List.of(privateTag.id()),
+                    List.of("  Project   Work  ", "project work")
+            );
+
+            assertEquals(List.of("Project Work"),
+                    resolved.stream().map(ClipTag::name).toList());
+            assertEquals(List.of("Later", "Project Work", "Work"),
+                    tagNames(ctx.tags, firstClip));
+            assertEquals(List.of("Later", "Project Work", "Work"),
+                    tagNames(ctx.tags, secondClip));
+            assertEquals(List.of("Later", "Private", "Project Work", "Work"),
+                    ctx.tags.listAll().stream().map(ClipTag::name).toList());
+        } finally {
+            ctx.close();
+        }
+    }
+
+    @Test
+    void failedMultiClipEditRollsBackAllChangesAndNewTags() {
+        TestContext ctx = createContext("multi-edit-rollback.db");
+        try {
+            long firstClip = insertClip(ctx.clips, "first", "hash-first", 1_000L);
+            long secondClip = insertClip(ctx.clips, "second", "hash-second", 2_000L);
+            ClipTag keep = ctx.tags.createOrGet("Keep");
+            ctx.tags.addTagToClip(firstClip, keep.id());
+            ctx.tags.addTagToClip(secondClip, keep.id());
+
+            assertThrows(IllegalArgumentException.class, () -> ctx.tags.applyEdit(
+                    List.of(firstClip, 999_999L, secondClip),
+                    List.of(),
+                    List.of(keep.id()),
+                    List.of("Must Roll Back")
+            ));
+
+            assertEquals(List.of("Keep"), tagNames(ctx.tags, firstClip));
+            assertEquals(List.of("Keep"), tagNames(ctx.tags, secondClip));
+            assertEquals(List.of("Keep"),
+                    ctx.tags.listAll().stream().map(ClipTag::name).toList());
         } finally {
             ctx.close();
         }
@@ -185,3 +247,5 @@ class TagDaoTest {
         }
     }
 }
+
+

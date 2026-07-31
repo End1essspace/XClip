@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -29,6 +30,8 @@ public final class PopupActionsMenu {
         void paste();
         void copy();
         void performPrimaryTypeAction();
+        void editTags();
+        boolean tagsAvailable();
         void toggleFavorite();
         void renamePinned();
         void clearTitle();
@@ -46,6 +49,7 @@ public final class PopupActionsMenu {
     private final MenuItem pasteItem = item("Paste", UiIcon.CLIPBOARD_PASTE);
     private final MenuItem copyItem = item("Copy", UiIcon.COPY);
     private final MenuItem typeActionItem = new MenuItem();
+    private final MenuItem tagsItem = item("Tags…", UiIcon.TAGS);
     private final MenuItem pinItem = item("Pin selected", UiIcon.PIN);
     private final MenuItem renameItem = item("Rename pinned clip…", UiIcon.PENCIL);
     private final MenuItem clearTitleItem = item("Clear title", UiIcon.X);
@@ -73,6 +77,8 @@ public final class PopupActionsMenu {
         typeActionItem.setOnAction(e -> actions.performPrimaryTypeAction());
         typeActionItem.setVisible(false);
 
+        tagsItem.setOnAction(e -> actions.editTags());
+
         pinItem.setOnAction(e -> actions.toggleFavorite());
         renameItem.setOnAction(e -> actions.renamePinned());
         clearTitleItem.setOnAction(e -> actions.clearTitle());
@@ -95,6 +101,7 @@ public final class PopupActionsMenu {
                 pasteItem,
                 copyItem,
                 typeActionItem,
+                tagsItem,
                 pinItem,
                 new SeparatorMenuItem(),
                 renameItem,
@@ -130,6 +137,7 @@ public final class PopupActionsMenu {
 
         pasteItem.setDisable(false);
         copyItem.setDisable(false);
+        tagsItem.setDisable(!actions.tagsAvailable());
         pinItem.setDisable(false);
         deleteItem.setDisable(false);
 
@@ -203,4 +211,6 @@ public final class PopupActionsMenu {
         };
     }
 }
+
+
 
