@@ -1,4 +1,3 @@
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -10,6 +9,7 @@ import io.xseries.xclip.data.model.ClipEntry;
 import io.xseries.xclip.domain.model.ClipPrimaryAction;
 import io.xseries.xclip.ui.components.SvgIcon;
 import io.xseries.xclip.ui.components.UiIcon;
+import javafx.application.Platform;
 import javafx.geometry.Side;
 import javafx.scene.Node;
 import javafx.scene.control.ContextMenu;
@@ -65,6 +65,7 @@ public final class PopupActionsMenu {
         contextMenu.setAutoHide(true);
         contextMenu.setHideOnEscape(true);
         contextMenu.setConsumeAutoHidingEvents(false);
+        contextMenu.setOnShown(event -> requestKeyboardFocus());
 
         pasteItem.setOnAction(e -> actions.paste());
         copyItem.setOnAction(e -> actions.copy());
@@ -172,6 +173,18 @@ public final class PopupActionsMenu {
         contextMenu.hide();
     }
 
+    private void requestKeyboardFocus() {
+        Platform.runLater(() -> {
+            if (!contextMenu.isShowing()) return;
+            if (contextMenu.getSkin() == null || contextMenu.getSkin().getNode() == null) return;
+
+            Node menuNode = contextMenu.getSkin().getNode();
+            menuNode.setAccessibleText("Clip actions menu");
+            menuNode.setAccessibleHelp("Use Up and Down to navigate, Enter to activate, and Escape to close.");
+            menuNode.requestFocus();
+        });
+    }
+
     private static MenuItem item(String text, UiIcon icon) {
         return new MenuItem(
                 text,
@@ -190,3 +203,4 @@ public final class PopupActionsMenu {
         };
     }
 }
+

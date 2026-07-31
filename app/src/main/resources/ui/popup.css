@@ -2021,3 +2021,30 @@
 .context-menu .menu-item.menu-item-danger:hover .menu-item-icon {
     -x-icon-color: #FFAAAA;
 }
+
+/* =========================================================
+   R9 deterministic keyboard focus rings
+   ========================================================= */
+
+.popup-root .topbar-btn:focused,
+.popup-root .filter-toggle:focused,
+.popup-root .filter-reset:focused,
+.popup-root .action-btn:focused,
+.popup-root .search-clear:focused,
+.popup-root .window-control-button:focused,
+.quick-help-menu .quick-help-close:focused {
+    -fx-border-color: -x-accent;
+    -fx-border-width: 1;
+    -fx-border-insets: -2;
+    -fx-border-radius: 7;
+    -fx-effect: dropshadow(gaussian, rgba(245, 197, 66, 0.62), 7, 0.28, 0, 0);
+}
+
+.popup-root .clip-list:focused,
+.quick-help-menu .quick-help-scroll:focused {
+    -fx-border-color: -x-accent-border;
+    -fx-border-width: 1;
+    -fx-border-radius: 8;
+    -fx-effect: dropshadow(gaussian, rgba(245, 197, 66, 0.46), 7, 0.22, 0, 0);
+}
+

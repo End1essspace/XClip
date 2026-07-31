@@ -157,6 +157,9 @@ public final class PopupActionBar extends StackPane {
                 : hintTextForAvailableWidth(available);
 
         statusLabel.setText(text);
+        statusLabel.setAccessibleText(messageMode
+                ? "Operation status: " + messageText
+                : "Keyboard shortcuts: " + FULL_HINTS);
         boolean visible = !text.isBlank();
         statusLabel.setVisible(visible);
         statusLabel.setManaged(visible);
@@ -167,3 +170,4 @@ public final class PopupActionBar extends StackPane {
         return available >= 520.0 ? FULL_HINTS : COMPACT_HINTS;
     }
 }
+

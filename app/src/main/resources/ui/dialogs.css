@@ -228,3 +228,18 @@
     -fx-text-fill: #657184;
     -fx-border-color: #303949;
 }
+
+/* =========================================================
+   R9 settings/dialog keyboard focus rings
+   ========================================================= */
+
+.settings-root .button:focused,
+.settings-root .check-box:focused .box,
+.settings-root .spinner:focused,
+.settings-root .text-field:focused,
+.x-dialog .button:focused,
+.x-dialog .text-field:focused {
+    -fx-border-color: -x-accent;
+    -fx-effect: dropshadow(gaussian, rgba(245, 197, 66, 0.58), 7, 0.25, 0, 0);
+}
+

@@ -30,14 +30,20 @@ public final class QuickHelpContent {
                     new Shortcut("Ctrl+K / Ctrl+F", "Focus and select search"),
                     new Shortcut("Ctrl+L", "Clear search"),
                     new Shortcut("Enter", "Jump to first search result"),
-                    new Shortcut("Tab", "Move focus to the clip list")
+                    new Shortcut("Tab / Shift+Tab", "Move through every interactive control"),
+                    new Shortcut("F6 / Shift+F6", "Move between Search, Filters, List, Actions, and Header")
             )),
             new Section("Selection", List.of(
                     new Shortcut("Click", "Select one clip"),
                     new Shortcut("Ctrl+Click", "Toggle one clip"),
                     new Shortcut("Shift+Click", "Select a range"),
                     new Shortcut("Ctrl+A", "Select all visible clips"),
-                    new Shortcut("Ctrl+D", "Clear selection")
+                    new Shortcut("Ctrl+Shift+A", "Select visible clips in the Recent section"),
+                    new Shortcut("Ctrl+I", "Invert the visible clip selection"),
+                    new Shortcut("Ctrl+D", "Clear selection"),
+                    new Shortcut("↑ / ↓", "Move between clips without selecting section headings"),
+                    new Shortcut("Home / End", "Jump to the first or last visible clip"),
+                    new Shortcut("Shift+↑ / Shift+↓", "Extend the keyboard selection range")
             )),
             new Section("Actions", List.of(
                     new Shortcut("Enter", "Paste selection"),
@@ -48,6 +54,7 @@ public final class QuickHelpContent {
                     new Shortcut("F2", "Rename pinned clip"),
                     new Shortcut("Alt+↑ / Alt+↓", "Move pinned clip"),
                     new Shortcut("Delete", "Delete selection; multiple clips require confirmation"),
+                    new Shortcut("Shift+F10 / Menu", "Open keyboard-navigable clip actions"),
                     new Shortcut("Ctrl+,", "Open Settings"),
                     new Shortcut("Double-click", "Paste one clip"),
                     new Shortcut("Click type badge", "Run safe type action"),
@@ -61,3 +68,4 @@ public final class QuickHelpContent {
         return SECTIONS;
     }
 }
+

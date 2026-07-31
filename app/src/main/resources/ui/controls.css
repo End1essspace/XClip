@@ -211,3 +211,37 @@
 .svg-icon-fill {
     -fx-fill: -x-icon-color;
 }
+
+/* =========================================================
+   R9 keyboard focus visibility
+   ========================================================= */
+
+.button:focused,
+.toggle-button:focused,
+.check-box:focused .box,
+.hyperlink:focused,
+.combo-box-base:focused,
+.spinner:focused,
+.text-field:focused,
+.text-area:focused,
+.list-view:focused,
+.scroll-pane:focused {
+    -fx-effect: dropshadow(gaussian, rgba(245, 197, 66, 0.58), 7, 0.25, 0, 0);
+}
+
+.button:focused,
+.toggle-button:focused,
+.hyperlink:focused {
+    -fx-border-color: -x-accent-border;
+    -fx-border-width: 1;
+    -fx-border-insets: -2;
+    -fx-border-radius: 7;
+}
+
+.list-view:focused,
+.scroll-pane:focused {
+    -fx-border-color: -x-accent-border;
+    -fx-border-width: 1;
+    -fx-border-radius: 8;
+}
+

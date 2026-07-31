@@ -1,4 +1,3 @@
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -22,6 +21,7 @@ import javafx.scene.layout.Region;
 import javafx.stage.Stage;
 
 import java.io.InputStream;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -36,7 +36,9 @@ public final class PopupTitleBar extends HBox {
     private static final double APP_ICON_SIZE = 20.0;
 
     private final WindowChromeController chrome;
+    private final Button minimizeButton;
     private final Button maximizeButton;
+    private final Button closeButton;
 
     public PopupTitleBar(Stage stage, WindowChromeController chrome) {
         Objects.requireNonNull(stage, "stage");
@@ -48,7 +50,7 @@ public final class PopupTitleBar extends HBox {
         HBox dragRegion = createDragRegion();
         HBox.setHgrow(dragRegion, Priority.ALWAYS);
 
-        Button minimizeButton = createWindowButton(
+        minimizeButton = createWindowButton(
                 UiIcon.MINUS,
                 "Minimize",
                 "window-minimize-button"
@@ -62,7 +64,7 @@ public final class PopupTitleBar extends HBox {
         );
         maximizeButton.setOnAction(event -> chrome.toggleMaximized());
 
-        Button closeButton = createWindowButton(
+        closeButton = createWindowButton(
                 UiIcon.X,
                 "Close to tray",
                 "window-close-button"
@@ -129,11 +131,16 @@ public final class PopupTitleBar extends HBox {
     ) {
         Button button = new Button();
         button.setGraphic(SvgIcon.of(icon, 13, "window-control-icon"));
-        button.setFocusTraversable(false);
+        button.setFocusTraversable(true);
         button.setAccessibleText(tooltip);
+        button.setAccessibleHelp("Window control: " + tooltip + ".");
         button.setTooltip(new Tooltip(tooltip));
         button.getStyleClass().addAll("window-control-button", extraStyleClass);
         return button;
+    }
+
+    public List<Button> focusableControls() {
+        return List.of(minimizeButton, maximizeButton, closeButton);
     }
 
     private void updateMaximizeButton(boolean maximized) {
@@ -142,6 +149,7 @@ public final class PopupTitleBar extends HBox {
 
         maximizeButton.setGraphic(SvgIcon.of(icon, 12, "window-control-icon"));
         maximizeButton.setAccessibleText(label);
+        maximizeButton.setAccessibleHelp("Window control: " + label + ".");
         maximizeButton.setTooltip(new Tooltip(label));
     }
 
@@ -162,4 +170,5 @@ public final class PopupTitleBar extends HBox {
         }
     }
 }
+
 

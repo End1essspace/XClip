@@ -1,4 +1,3 @@
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -8,6 +7,7 @@ package io.xseries.xclip.ui.popup;
 
 import io.xseries.xclip.ui.components.SvgIcon;
 import io.xseries.xclip.ui.components.UiIcon;
+import javafx.application.Platform;
 import javafx.geometry.Pos;
 import javafx.geometry.Side;
 import javafx.scene.Node;
@@ -27,6 +27,8 @@ import java.util.Objects;
 public final class QuickHelpPopover {
 
     private final ContextMenu menu = new ContextMenu();
+    private Button closeButton;
+    private ScrollPane scrollPane;
 
     public QuickHelpPopover() {
         menu.setAutoHide(true);
@@ -37,6 +39,12 @@ public final class QuickHelpPopover {
         CustomMenuItem item = new CustomMenuItem(buildContent(), false);
         item.setHideOnClick(false);
         menu.getItems().setAll(item);
+        menu.setOnShown(event -> Platform.runLater(() -> {
+            if (closeButton != null) closeButton.requestFocus();
+            if (menu.getSkin() != null && menu.getSkin().getNode() != null) {
+                menu.getSkin().getNode().setAccessibleText("XClip quick help");
+            }
+        }));
     }
 
     public boolean isShowing() {
@@ -66,19 +74,21 @@ public final class QuickHelpPopover {
         header.getStyleClass().add("quick-help-header");
 
         Label title = new Label("XClip — Quick Help");
+        title.setAccessibleText("XClip quick help");
         title.getStyleClass().add("quick-help-title");
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        Button close = new Button();
-        close.setGraphic(SvgIcon.of(UiIcon.X, 13, "quick-help-close-icon"));
-        close.setFocusTraversable(false);
-        close.setAccessibleText("Close quick help");
-        close.getStyleClass().add("quick-help-close");
-        close.setOnAction(event -> hide());
+        closeButton = new Button();
+        closeButton.setGraphic(SvgIcon.of(UiIcon.X, 13, "quick-help-close-icon"));
+        closeButton.setFocusTraversable(true);
+        closeButton.setAccessibleText("Close quick help");
+        closeButton.setAccessibleHelp("Close the keyboard shortcut reference and return to XClip.");
+        closeButton.getStyleClass().add("quick-help-close");
+        closeButton.setOnAction(event -> hide());
 
-        header.getChildren().setAll(title, spacer, close);
+        header.getChildren().setAll(title, spacer, closeButton);
         body.getChildren().add(header);
 
         for (QuickHelpContent.Section section : QuickHelpContent.sections()) {
@@ -86,6 +96,7 @@ public final class QuickHelpPopover {
             sectionBox.getStyleClass().add("quick-help-section");
 
             Label sectionTitle = new Label(section.title());
+            sectionTitle.setAccessibleText(section.title() + " shortcuts");
             sectionTitle.getStyleClass().add("quick-help-section-title");
             sectionBox.getChildren().add(sectionTitle);
 
@@ -95,11 +106,13 @@ public final class QuickHelpPopover {
                 row.getStyleClass().add("quick-help-row");
 
                 Label keys = new Label(shortcut.keys());
+                keys.setAccessibleText(shortcut.keys());
                 keys.getStyleClass().add("quick-help-key");
                 keys.setMinWidth(126);
                 keys.setPrefWidth(126);
 
                 Label description = new Label(shortcut.description());
+                description.setAccessibleText(shortcut.keys() + ": " + shortcut.description());
                 description.getStyleClass().add("quick-help-description");
                 description.setWrapText(true);
                 HBox.setHgrow(description, Priority.ALWAYS);
@@ -115,15 +128,19 @@ public final class QuickHelpPopover {
         footer.getStyleClass().add("quick-help-footer");
         body.getChildren().add(footer);
 
-        ScrollPane scroll = new ScrollPane(body);
-        scroll.setFitToWidth(true);
-        scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-        scroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
-        scroll.setPrefViewportWidth(420);
-        scroll.setPrefViewportHeight(450);
-        scroll.setMaxHeight(520);
-        scroll.getStyleClass().add("quick-help-scroll");
-        return scroll;
+        scrollPane = new ScrollPane(body);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scrollPane.setPrefViewportWidth(420);
+        scrollPane.setPrefViewportHeight(450);
+        scrollPane.setMaxHeight(520);
+        scrollPane.setFocusTraversable(true);
+        scrollPane.setAccessibleText("Quick help shortcut list");
+        scrollPane.setAccessibleHelp("Use arrow keys, Page Up, and Page Down to read the shortcut list.");
+        scrollPane.getStyleClass().add("quick-help-scroll");
+        return scrollPane;
     }
 }
+
 

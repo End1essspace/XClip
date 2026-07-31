@@ -1,4 +1,3 @@
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -39,8 +38,9 @@ public final class SplitActionButton extends HBox {
         menuButton = new Button();
         menuButton.setGraphic(SvgIcon.of(UiIcon.CHEVRON_DOWN, 12, "split-chevron-icon"));
         menuButton.setAccessibleText("Paste options");
+        menuButton.setAccessibleHelp("Open a menu with Paste and Copy only actions.");
         menuButton.setTooltip(new Tooltip("Paste options"));
-        menuButton.setFocusTraversable(false);
+        menuButton.setFocusTraversable(true);
         menuButton.getStyleClass().addAll(
                 "action-btn",
                 "action-primary",
@@ -77,8 +77,13 @@ public final class SplitActionButton extends HBox {
         return mainButton;
     }
 
+    public Button menuButton() {
+        return menuButton;
+    }
+
     public void hideMenu() {
         menu.hide();
     }
 }
+
 

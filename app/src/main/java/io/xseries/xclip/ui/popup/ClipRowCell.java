@@ -1,4 +1,3 @@
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -109,6 +108,11 @@ public final class ClipRowCell extends ListCell<PopupRow> {
     private final Label pinnedPreviewLabel = new Label();
     private final Hyperlink toggleLink = new Hyperlink();
 
+    private ClipEntry renderedEntry;
+    private ClipContentType renderedType;
+    private String renderedTime = "";
+    private boolean renderedExpanded;
+
     public ClipRowCell(Controller controller) {
         this.controller = java.util.Objects.requireNonNull(controller, "controller");
 
@@ -172,6 +176,8 @@ public final class ClipRowCell extends ListCell<PopupRow> {
 
         toggleLink.getStyleClass().add("clip-toggle");
         toggleLink.setPadding(Insets.EMPTY);
+        toggleLink.setFocusTraversable(false);
+        toggleLink.setAccessibleHelp("Use the E key to expand or collapse this preview.");
 
         pinnedTitleLabel.getStyleClass().add("pinned-title");
         pinnedTitleLabel.setWrapText(false);
@@ -295,6 +301,12 @@ public final class ClipRowCell extends ListCell<PopupRow> {
         setCollapseButtonVisible(false);
 
         if (empty || item == null) {
+            renderedEntry = null;
+            renderedType = null;
+            renderedTime = "";
+            renderedExpanded = false;
+            setAccessibleText(null);
+            setAccessibleHelp(null);
             setText(null);
             setGraphic(null);
             setDisable(false);
@@ -322,6 +334,12 @@ public final class ClipRowCell extends ListCell<PopupRow> {
         ));
         sectionTitle.setText(row.title());
         sectionCount.setText(Integer.toString(row.count()));
+        renderedEntry = null;
+        renderedType = null;
+        renderedTime = "";
+        renderedExpanded = false;
+        setAccessibleText(PopupAccessibility.sectionLabel(row.title(), row.count()));
+        setAccessibleHelp("Section heading. Use Up or Down to move to a clipboard clip.");
 
         setText(null);
         setGraphic(sectionRoot);
@@ -381,7 +399,16 @@ public final class ClipRowCell extends ListCell<PopupRow> {
             renderRecent(entry, full, id);
         }
 
-        timeLabel.setText(formatTime(entry.createdAt()));
+        renderedEntry = entry;
+        renderedType = contentType;
+        renderedTime = formatTime(entry.createdAt());
+        renderedExpanded = !entry.favorite() && controller.isExpanded(entry.id());
+        timeLabel.setText(renderedTime);
+        setAccessibleHelp(
+                "Use Up and Down to navigate, Enter to paste, Ctrl+C to copy, "
+                        + "and Shift+F10 for actions."
+        );
+        updateAccessibleDescription();
         setText(null);
         setGraphic(clipRoot);
     }
@@ -470,6 +497,7 @@ public final class ClipRowCell extends ListCell<PopupRow> {
         toggleLink.setVisible(showExpandLink);
         if (showExpandLink) {
             toggleLink.setText("More");
+            toggleLink.setAccessibleText("Expand clipboard preview");
             toggleLink.setOnAction(event -> {
                 controller.hideContextMenu();
                 controller.setExpanded(id, true);
@@ -477,6 +505,7 @@ public final class ClipRowCell extends ListCell<PopupRow> {
                 event.consume();
             });
         } else {
+            toggleLink.setAccessibleText(null);
             toggleLink.setOnAction(null);
         }
     }
@@ -525,6 +554,18 @@ public final class ClipRowCell extends ListCell<PopupRow> {
                 PseudoClass.getPseudoClass("checked"),
                 clip && isSelected()
         );
+        updateAccessibleDescription();
+    }
+
+    private void updateAccessibleDescription() {
+        if (renderedEntry == null) return;
+        setAccessibleText(PopupAccessibility.clipLabel(
+                renderedEntry,
+                renderedType,
+                renderedTime,
+                isSelected(),
+                renderedExpanded
+        ));
     }
 
     private boolean isTypeBadgeTarget(Object target) {
@@ -639,4 +680,5 @@ public final class ClipRowCell extends ListCell<PopupRow> {
         return value;
     }
 }
+
 

@@ -93,6 +93,8 @@ public final class SettingsWindow {
         // Controls
         maxHistory = new Spinner<>(100, 50_000, current.maxHistory(), 50);
         maxHistory.setEditable(true);
+        maxHistory.setAccessibleText("Maximum clipboard history entries");
+        maxHistory.setAccessibleHelp("Allowed range: 100 to 50,000 clips.");
         maxHistory.getEditor().setTextFormatter(
                 new javafx.scene.control.TextFormatter<>(change ->
                         change.getControlNewText().matches("\\d*") ? change : null
@@ -120,6 +122,8 @@ public final class SettingsWindow {
 
         minClipLength = new Spinner<>(0, 10_000, current.minClipLength(), 1);
         minClipLength.setEditable(true);
+        minClipLength.setAccessibleText("Minimum captured clip length");
+        minClipLength.setAccessibleHelp("Clipboard text shorter than this value is ignored.");
         minClipLength.getEditor().setTextFormatter(
                 new javafx.scene.control.TextFormatter<>(change ->
                         change.getControlNewText().matches("\\d*") ? change : null
@@ -146,6 +150,8 @@ public final class SettingsWindow {
         });
         maxClipChars = new Spinner<>(10_000, 5_000_000, current.maxClipChars(), 10_000);
         maxClipChars.setEditable(true);
+        maxClipChars.setAccessibleText("Maximum characters captured per clip");
+        maxClipChars.setAccessibleHelp("Longer clipboard text is truncated at this limit.");
         maxClipChars.getEditor().setTextFormatter(
                 new javafx.scene.control.TextFormatter<>(change ->
                         change.getControlNewText().matches("\\d*") ? change : null
@@ -173,6 +179,8 @@ public final class SettingsWindow {
 
         uiClipLimit = new Spinner<>(50, 5_000, current.uiClipLimit(), 50);
         uiClipLimit.setEditable(true);
+        uiClipLimit.setAccessibleText("Maximum clips shown in the popup");
+        uiClipLimit.setAccessibleHelp("Allowed range: 50 to 5,000 visible clips.");
         uiClipLimit.getEditor().setTextFormatter(
                 new javafx.scene.control.TextFormatter<>(change ->
                         change.getControlNewText().matches("\\d*") ? change : null
@@ -199,29 +207,41 @@ public final class SettingsWindow {
 
         watcherEnabled = new CheckBox("Enable clipboard capture");
         watcherEnabled.setSelected(current.watcherEnabled());
+        watcherEnabled.setAccessibleHelp("Enable or disable background clipboard monitoring.");
 
         startMinimized = new CheckBox("Start minimized (tray)");
         startMinimized.setSelected(current.startMinimized());
+        startMinimized.setAccessibleHelp("Start XClip in the system tray without opening the popup.");
 
         startOnBoot = new CheckBox("Start on Windows boot");
         startOnBoot.setSelected(current.startOnBoot());
+        startOnBoot.setAccessibleHelp("Launch XClip automatically after signing in to Windows.");
 
         // Layout grid
         GridPane grid = new GridPane();
         grid.setHgap(10);
         grid.setVgap(10);
 
+        Label maxHistoryLabel = new Label("Max history:");
+        maxHistoryLabel.setLabelFor(maxHistory);
+        Label minClipLengthLabel = new Label("Min clip length:");
+        minClipLengthLabel.setLabelFor(minClipLength);
+        Label maxClipCharsLabel = new Label("Max clip chars:");
+        maxClipCharsLabel.setLabelFor(maxClipChars);
+        Label uiClipLimitLabel = new Label("UI clip limit:");
+        uiClipLimitLabel.setLabelFor(uiClipLimit);
+
         int r = 0;
-        grid.add(new Label("Max history:"), 0, r);
+        grid.add(maxHistoryLabel, 0, r);
         grid.add(maxHistory, 1, r++);
 
-        grid.add(new Label("Min clip length:"), 0, r);
+        grid.add(minClipLengthLabel, 0, r);
         grid.add(minClipLength, 1, r++);
 
-        grid.add(new Label("Max clip chars:"), 0, r);
+        grid.add(maxClipCharsLabel, 0, r);
         grid.add(maxClipChars, 1, r++);
 
-        grid.add(new Label("UI clip limit:"), 0, r);
+        grid.add(uiClipLimitLabel, 0, r);
         grid.add(uiClipLimit, 1, r++);
 
         grid.add(watcherEnabled, 1, r++);
@@ -240,18 +260,22 @@ public final class SettingsWindow {
 
         // Status label styling
         statusLabel.getStyleClass().add("status-text");
+        statusLabel.setAccessibleText("Settings operation status");
         statusLabel.setManaged(false);
         statusLabel.setVisible(false);
 
         // Data path + copy
         TextField dataPath = new TextField(AppPaths.dataDir().toAbsolutePath().toString());
         dataPath.setEditable(false);
-        dataPath.setFocusTraversable(false);
+        dataPath.setFocusTraversable(true);
+        dataPath.setAccessibleText("XClip data folder path");
+        dataPath.setAccessibleHelp("Read-only path. Use Ctrl+C to copy selected text.");
         dataPath.setPrefColumnCount(28);
         dataPath.getStyleClass().add("data-path");
 
         Button copyPathBtn = new Button("Copy path");
-        copyPathBtn.setFocusTraversable(false);
+        copyPathBtn.setFocusTraversable(true);
+        copyPathBtn.setAccessibleHelp("Copy the XClip data folder path to the clipboard.");
         copyPathBtn.getStyleClass().add("btn-subtle");
         copyPathBtn.setOnAction(e -> {
             ClipboardContent cc = new ClipboardContent();
@@ -266,10 +290,12 @@ public final class SettingsWindow {
 
         // Data ownership buttons
         openDataFolderBtn = new Button("Open data folder");
+        openDataFolderBtn.setAccessibleHelp("Open the XClip data folder in File Explorer.");
         openDataFolderBtn.getStyleClass().add("btn-subtle");
         openDataFolderBtn.setOnAction(e -> dataOwnershipService.openDataFolder());
 
         clearAllDataBtn = new Button("Clear ALL data");
+        clearAllDataBtn.setAccessibleHelp("Permanently delete clipboard history and configuration.");
         clearAllDataBtn.getStyleClass().add("button-danger");
         clearAllDataBtn.setOnAction(e -> clearAllDataFlow());
 
@@ -291,9 +317,11 @@ public final class SettingsWindow {
 
         // Bottom buttons
         Button closeBtn = new Button("Close");
+        closeBtn.setAccessibleHelp("Close Settings and discard unapplied changes.");
         closeBtn.getStyleClass().add("btn-subtle");
 
         applyBtn.setDefaultButton(true);
+        applyBtn.setAccessibleHelp("Save and apply the current settings.");
         applyBtn.getStyleClass().add("btn-apply");
         applyBtn.setDisable(true); // disabled until something changes
         closeBtn.setCancelButton(true);
@@ -508,6 +536,7 @@ public final class SettingsWindow {
         if (statusHide != null) statusHide.stop();
 
         statusLabel.setText(text);
+        statusLabel.setAccessibleText("Settings status: " + text);
         statusLabel.setVisible(true);
         statusLabel.setManaged(true);
 
@@ -632,3 +661,4 @@ public final class SettingsWindow {
         uiClipLimit.getEditor().getStyleClass().remove("input-error");
     }
 }
+

@@ -1,5 +1,3 @@
-
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -16,6 +14,7 @@ import io.xseries.xclip.ui.popup.PopupFilterBar;
 import io.xseries.xclip.ui.popup.QuickHelpPopover;
 import io.xseries.xclip.ui.popup.ClipPreviewPolicy;
 import io.xseries.xclip.ui.popup.PopupHeader;
+import io.xseries.xclip.ui.popup.PopupKeyBindings;
 import io.xseries.xclip.ui.popup.PopupTitleBar;
 import io.xseries.xclip.ui.popup.PopupRow;
 import io.xseries.xclip.ui.popup.PopupRow.ClipRow;
@@ -60,6 +59,7 @@ import javafx.stage.Screen;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import javafx.util.Duration;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -89,6 +89,10 @@ public final class PopupWindow {
     private Button favBtnRef;
     private Button delBtnRef;
     private Button pauseBtnRef;
+    private Button actionsBtnRef;
+
+    private final List<Node> keyboardFocusOrder = new ArrayList<>();
+    private final List<Node> keyboardFocusZones = new ArrayList<>();
 
     // Preview behavior (prevents "text wall" in list)
     private static final int PREVIEW_LINES = 3;
@@ -267,6 +271,11 @@ public final class PopupWindow {
         );
 
         listView.getStyleClass().add("clip-list");
+        listView.setAccessibleText("Clipboard history");
+        listView.setAccessibleHelp(
+                "Use Up and Down to navigate clips, Enter to paste, "
+                        + "Ctrl+C to copy, and Shift+F10 for actions."
+        );
 
         // Empty state placeholder
         emptyStateLabel.setWrapText(true);
@@ -278,20 +287,27 @@ public final class PopupWindow {
 
         // Clip count indicator (counts only real clips, not section rows)
         countLabel.getStyleClass().add("topbar-status");
+        countLabel.setAccessibleText("Visible clipboard clip count");
         countLabel.setText("Clips 0");
 
         selectedLabel.getStyleClass().add("topbar-status");
+        selectedLabel.setAccessibleText("Selected clipboard clip count");
         selectedLabel.setVisible(false);
         selectedLabel.setManaged(false);
 
         searchField.setPromptText("Search clips...");
+        searchField.setAccessibleText("Search clipboard history");
+        searchField.setAccessibleHelp(
+                "Type to filter clips. Press F6 to move between popup regions."
+        );
         searchField.setMaxWidth(Double.MAX_VALUE);
         searchField.getStyleClass().add("search-field");
 
         Button clearSearchBtn = new Button();
         clearSearchBtn.setGraphic(SvgIcon.of(UiIcon.X, 12, "search-clear-icon"));
-        clearSearchBtn.setFocusTraversable(false);
+        clearSearchBtn.setFocusTraversable(true);
         clearSearchBtn.setAccessibleText("Clear search");
+        clearSearchBtn.setAccessibleHelp("Remove the current search query.");
         clearSearchBtn.setTooltip(new Tooltip("Clear search"));
         clearSearchBtn.getStyleClass().add("search-clear");
         clearSearchBtn.setVisible(false);
@@ -338,10 +354,6 @@ public final class PopupWindow {
                 return;
             }
 
-            if (e.getCode() == KeyCode.TAB) {
-                e.consume();
-                listView.requestFocus();
-            }
         });
 
         // Help is a real, scroll-safe popover instead of a long tooltip that can be clipped.
@@ -357,7 +369,9 @@ public final class PopupWindow {
         Button pauseBtn = new Button("Pause");
         pauseBtn.setGraphic(SvgIcon.of(UiIcon.PAUSE, 15, "toolbar-icon", "pause-icon"));
         pauseBtn.setContentDisplay(ContentDisplay.LEFT);
-        pauseBtn.setFocusTraversable(false);
+        pauseBtn.setFocusTraversable(true);
+        pauseBtn.setAccessibleText("Pause clipboard capture");
+        pauseBtn.setAccessibleHelp("Pause or resume background clipboard monitoring.");
         pauseBtn.setOnAction(e -> onTogglePaused.run());
         pauseBtn.getStyleClass().addAll("topbar-btn", "pause-button");
         this.pauseBtnRef = pauseBtn;
@@ -368,7 +382,11 @@ public final class PopupWindow {
         Button clearBtn = new Button("Clear");
         clearBtn.setGraphic(SvgIcon.of(UiIcon.TRASH_2, 15, "toolbar-icon", "clear-icon"));
         clearBtn.setContentDisplay(ContentDisplay.LEFT);
-        clearBtn.setFocusTraversable(false);
+        clearBtn.setFocusTraversable(true);
+        clearBtn.setAccessibleText("Clear visible non-pinned clips");
+        clearBtn.setAccessibleHelp(
+                "Delete visible recent clips while keeping pinned clips."
+        );
         clearBtn.setTooltip(new Tooltip("Clear visible non-pinned clips"));
         clearBtn.setOnAction(e -> clearHistoryNonFavorites());
         clearBtn.getStyleClass().addAll("topbar-btn", "clear-history-button");
@@ -416,12 +434,16 @@ public final class PopupWindow {
         Button pasteBtn = new Button("Paste");
         pasteBtn.setGraphic(SvgIcon.of(UiIcon.CLIPBOARD_PASTE, 15, "action-icon"));
         pasteBtn.setContentDisplay(ContentDisplay.LEFT);
+        pasteBtn.setAccessibleText("Paste selected clips");
+        pasteBtn.setAccessibleHelp("Paste the current selection into the previously active application.");
         pasteBtn.setOnAction(e -> pasteSelectedOrFirst());
         pasteBtn.getStyleClass().addAll("action-btn", "action-primary");
 
         Button copyBtn = new Button("Copy");
         copyBtn.setGraphic(SvgIcon.of(UiIcon.COPY, 15, "action-icon"));
         copyBtn.setContentDisplay(ContentDisplay.LEFT);
+        copyBtn.setAccessibleText("Copy selected clips");
+        copyBtn.setAccessibleHelp("Copy the current selection without sending Ctrl+V.");
         copyBtn.setOnAction(e -> copySelectedOrFirst());
         copyBtn.getStyleClass().addAll("action-btn", "action-neutral");
 
@@ -437,19 +459,26 @@ public final class PopupWindow {
         actionsGraphic.setAlignment(Pos.CENTER);
         actionsBtn.setGraphic(actionsGraphic);
         actionsBtn.setOnAction(e -> showActionsMenu(actionsBtn));
-        actionsBtn.setAccessibleText("Actions");
+        actionsBtn.setAccessibleText("Clip actions");
+        actionsBtn.setAccessibleHelp(
+                "Open the actions menu. Use Up and Down to navigate and Enter to activate."
+        );
         actionsBtn.setTooltip(new Tooltip("Context actions"));
         actionsBtn.getStyleClass().addAll("action-btn", "action-neutral", "actions-menu-button");
 
         Button favBtn = new Button("Pin / Unpin");
         favBtn.setGraphic(SvgIcon.of(UiIcon.PIN, 15, "action-icon", "favorite-action-icon"));
         favBtn.setContentDisplay(ContentDisplay.LEFT);
+        favBtn.setAccessibleText("Pin or unpin selected clips");
+        favBtn.setAccessibleHelp("Toggle pinned state for the current selection.");
         favBtn.setOnAction(e -> toggleFavoriteSelected());
         favBtn.getStyleClass().addAll("action-btn", "action-neutral", "action-state");
 
         Button delBtn = new Button("Delete");
         delBtn.setGraphic(SvgIcon.of(UiIcon.TRASH_2, 15, "action-icon", "danger-action-icon"));
         delBtn.setContentDisplay(ContentDisplay.LEFT);
+        delBtn.setAccessibleText("Delete selected clips");
+        delBtn.setAccessibleHelp("Delete the current selection. Multiple clips require confirmation.");
         delBtn.setOnAction(e -> deleteSelected());
         delBtn.getStyleClass().addAll("action-btn", "action-danger");
 
@@ -457,6 +486,7 @@ public final class PopupWindow {
         this.copyBtnRef = copyBtn;
         this.favBtnRef = favBtn;
         this.delBtnRef = delBtn;
+        this.actionsBtnRef = actionsBtn;
 
         SplitActionButton pasteControl = new SplitActionButton(
                 pasteBtn,
@@ -505,6 +535,20 @@ public final class PopupWindow {
         );
 
         stage.setScene(scene);
+        configureKeyboardUx(
+                scene,
+                clearSearchBtn,
+                pauseBtn,
+                settingsBtn,
+                help,
+                clearBtn,
+                pasteControl,
+                copyBtn,
+                actionsBtn,
+                favBtn,
+                delBtn,
+                popupTitleBar
+        );
 
         stage.setOnCloseRequest(e -> {
             e.consume();
@@ -530,128 +574,328 @@ public final class PopupWindow {
             });
         });
 
-        // FIX: key handling at STAGE level (always works)
-        stage.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
-            if (e.isControlDown() && e.isShiftDown() && e.getCode() == KeyCode.A) {
-                e.consume();
-                selectSectionClips("RECENT");
-                listView.requestFocus();
-                return;
-            }
-            if (e.isControlDown() && e.getCode() == KeyCode.A) {
-                e.consume();
-                selectAllClips();
-                listView.requestFocus();
-                return;
-            }
-            if (e.isControlDown() && e.getCode() == KeyCode.D) {
-                e.consume();
-                clearSelection();
-                return;
-            }
-            if (e.isControlDown() && e.getCode() == KeyCode.I) {
-                e.consume();
-                invertSelection();
-                listView.requestFocus();
-                return;
-            }
-            if (e.isControlDown()
-                    && (e.getCode() == KeyCode.F || e.getCode() == KeyCode.K)) {
-                e.consume();
-                searchField.requestFocus();
-                searchField.selectAll();
-                return;
-            }
-            if (e.isControlDown() && e.getCode() == KeyCode.L) {
-                e.consume();
-                searchField.clear();
-                searchField.requestFocus();
-                return;
-            }
-            if (e.isControlDown() && e.getCode() == KeyCode.C) {
-                e.consume();
-                copySelectedOrFirst();
-                return;
-            }
-            if (e.isControlDown() && e.getCode() == KeyCode.P) {
-                e.consume();
-                toggleFavoriteSelected();
-                return;
-            }
-            if (e.isControlDown() && e.getCode() == KeyCode.COMMA) {
-                e.consume();
-
-                openSettings();
-                return;
-            }
-            if (e.isAltDown() && !e.isControlDown() && !e.isMetaDown()
-                    && e.getCode() == KeyCode.UP) {
-                if (e.getTarget() instanceof TextInputControl) return;
-
-                e.consume();
-                moveSelectedPinned(PinnedMoveAction.UP);
-                return;
-            }
-            if (e.isAltDown() && !e.isControlDown() && !e.isMetaDown()
-                    && e.getCode() == KeyCode.DOWN) {
-                if (e.getTarget() instanceof TextInputControl) return;
-
-                e.consume();
-                moveSelectedPinned(PinnedMoveAction.DOWN);
-                return;
-            }
-            if (!e.isControlDown() && !e.isAltDown() && !e.isMetaDown() && e.getCode() == KeyCode.F2) {
-                if (e.getTarget() instanceof TextInputControl) return;
-
-                e.consume();
-                renameSelectedPinned();
-                return;
-            }
-            // Expand/Collapse selected recent clip (UI-only, bounded)
-            if (!e.isControlDown() && !e.isAltDown() && !e.isMetaDown() && e.getCode() == KeyCode.E) {
-                // do not hijack typing in search/inputs
-                if (e.getTarget() instanceof TextInputControl) return;
-
-                e.consume();
-                toggleExpandSelected();
-                return;
-            }
-            if (e.getCode() == KeyCode.ESCAPE) {
-                e.consume();
-                if (actionsMenu.isShowing()) {
-                    actionsMenu.hide();
-                } else if (quickHelp.isShowing()) {
-                    quickHelp.hide();
-                } else if (collapseExpandedPreviews()) {
-                    listView.requestFocus();
-                } else if (!listView.getSelectionModel().getSelectedIndices().isEmpty()) {
-                    clearSelection();
-                } else if (!searchField.getText().isBlank()) {
-                    searchField.clear();
-                    searchField.requestFocus();
-                } else {
-                    hide();
-                }
-                return;
-            }
-            if (e.getCode() == KeyCode.ENTER) {
-                if (e.getTarget() instanceof TextInputControl) return;
-
-                e.consume();
-                pasteSelectedOrFirst();
-                return;
-            }
-            if (e.getCode() == KeyCode.DELETE) {
-                e.consume();
-                deleteSelected();
-            }
-        });
+        // One audited popup-level keyboard contract. Text editing shortcuts
+        // remain native while the search field or another TextInputControl owns focus.
+        stage.addEventFilter(KeyEvent.KEY_PRESSED, this::handlePopupKeyPressed);
 
         statusReset.setOnFinished(e -> {
             if (actionBar != null) actionBar.showHints();
         });
 
         reloadNow("");
+    }
+
+    private void configureKeyboardUx(
+            Scene scene,
+            Button clearSearchBtn,
+            Button pauseBtn,
+            Button settingsBtn,
+            Button helpBtn,
+            Button clearBtn,
+            SplitActionButton pasteControl,
+            Button copyBtn,
+            Button actionsBtn,
+            Button favoriteBtn,
+            Button deleteBtn,
+            PopupTitleBar titleBar
+    ) {
+        keyboardFocusOrder.clear();
+        keyboardFocusOrder.add(searchField);
+        keyboardFocusOrder.add(clearSearchBtn);
+        keyboardFocusOrder.add(filterAllBtn);
+        keyboardFocusOrder.add(filterPinnedBtn);
+        keyboardFocusOrder.add(filterRecentBtn);
+        keyboardFocusOrder.add(typeFilterCombo);
+        keyboardFocusOrder.add(resetFiltersBtn);
+        keyboardFocusOrder.add(listView);
+        keyboardFocusOrder.add(pasteControl.mainButton());
+        keyboardFocusOrder.add(pasteControl.menuButton());
+        keyboardFocusOrder.add(copyBtn);
+        keyboardFocusOrder.add(actionsBtn);
+        keyboardFocusOrder.add(favoriteBtn);
+        keyboardFocusOrder.add(deleteBtn);
+        keyboardFocusOrder.add(pauseBtn);
+        keyboardFocusOrder.add(settingsBtn);
+        keyboardFocusOrder.add(helpBtn);
+        keyboardFocusOrder.add(clearBtn);
+        keyboardFocusOrder.addAll(titleBar.focusableControls());
+
+        keyboardFocusZones.clear();
+        keyboardFocusZones.add(searchField);
+        keyboardFocusZones.add(filterAllBtn);
+        keyboardFocusZones.add(listView);
+        keyboardFocusZones.add(pasteControl.mainButton());
+        keyboardFocusZones.add(pauseBtn);
+
+        scene.addEventFilter(KeyEvent.KEY_PRESSED, event -> {
+            if (event.getCode() != KeyCode.TAB
+                    || event.isControlDown()
+                    || event.isAltDown()
+                    || event.isMetaDown()
+                    || actionsMenu.isShowing()
+                    || quickHelp.isShowing()) {
+                return;
+            }
+
+            event.consume();
+            moveFocusInOrder(scene, keyboardFocusOrder, event.isShiftDown());
+        });
+
+        configureListKeyboardNavigation();
+    }
+
+    private void handlePopupKeyPressed(KeyEvent event) {
+        boolean textInputFocused = event.getTarget() instanceof TextInputControl;
+        PopupKeyBindings.Action action = PopupKeyBindings.resolve(
+                event.getCode().name(),
+                event.isControlDown(),
+                event.isShiftDown(),
+                event.isAltDown(),
+                event.isMetaDown(),
+                textInputFocused
+        );
+        if (action == PopupKeyBindings.Action.NONE) return;
+
+        boolean nativeActionControlFocused =
+                event.getTarget() instanceof ButtonBase
+                        || event.getTarget() instanceof ComboBoxBase<?>;
+        if (nativeActionControlFocused
+                && (action == PopupKeyBindings.Action.PASTE
+                || action == PopupKeyBindings.Action.MOVE_PINNED_UP
+                || action == PopupKeyBindings.Action.MOVE_PINNED_DOWN)) {
+            return;
+        }
+
+        event.consume();
+        switch (action) {
+            case SELECT_RECENT -> {
+                selectSectionClips("RECENT");
+                listView.requestFocus();
+            }
+            case SELECT_ALL -> {
+                selectAllClips();
+                listView.requestFocus();
+            }
+            case CLEAR_SELECTION -> clearSelection();
+            case INVERT_SELECTION -> {
+                invertSelection();
+                listView.requestFocus();
+            }
+            case FOCUS_SEARCH -> {
+                searchField.requestFocus();
+                searchField.selectAll();
+            }
+            case CLEAR_SEARCH -> {
+                searchField.clear();
+                searchField.requestFocus();
+            }
+            case COPY -> copySelectedOrFirst();
+            case TOGGLE_PIN -> toggleFavoriteSelected();
+            case OPEN_SETTINGS -> openSettings();
+            case MOVE_PINNED_UP -> moveSelectedPinned(PinnedMoveAction.UP);
+            case MOVE_PINNED_DOWN -> moveSelectedPinned(PinnedMoveAction.DOWN);
+            case RENAME_PINNED -> renameSelectedPinned();
+            case TOGGLE_PREVIEW -> toggleExpandSelected();
+            case ESCAPE -> handleEscapeKey();
+            case PASTE -> pasteSelectedOrFirst();
+            case DELETE -> deleteSelected();
+            case OPEN_ACTIONS -> showActionsMenu(actionsBtnRef);
+            case FOCUS_NEXT_ZONE ->
+                    moveFocusInOrder(stage.getScene(), keyboardFocusZones, false);
+            case FOCUS_PREVIOUS_ZONE ->
+                    moveFocusInOrder(stage.getScene(), keyboardFocusZones, true);
+            case NONE -> {
+                // handled above
+            }
+        }
+    }
+
+    private void handleEscapeKey() {
+        if (actionsMenu.isShowing()) {
+            actionsMenu.hide();
+        } else if (quickHelp.isShowing()) {
+            quickHelp.hide();
+        } else if (collapseExpandedPreviews()) {
+            listView.requestFocus();
+        } else if (!listView.getSelectionModel().getSelectedIndices().isEmpty()) {
+            clearSelection();
+        } else if (!searchField.getText().isBlank()) {
+            searchField.clear();
+            searchField.requestFocus();
+        } else {
+            hide();
+        }
+    }
+
+    private void moveFocusInOrder(
+            Scene scene,
+            List<Node> order,
+            boolean backwards
+    ) {
+        if (scene == null || order == null || order.isEmpty()) return;
+
+        Node current = scene.getFocusOwner();
+        int currentIndex = indexOfFocusOwner(order, current);
+        int step = backwards ? -1 : 1;
+        int size = order.size();
+
+        for (int offset = 1; offset <= size; offset++) {
+            int base = currentIndex < 0
+                    ? (backwards ? 0 : -1)
+                    : currentIndex;
+            int index = Math.floorMod(base + (step * offset), size);
+            Node candidate = order.get(index);
+            if (!isKeyboardFocusable(candidate)) continue;
+
+            if (candidate == listView
+                    && listView.getSelectionModel().getSelectedIndices().isEmpty()) {
+                int firstClip = findFirstClipIndex();
+                if (firstClip >= 0) selectCellExclusively(firstClip);
+            }
+
+            candidate.requestFocus();
+            return;
+        }
+    }
+
+    private int indexOfFocusOwner(List<Node> order, Node focusOwner) {
+        if (focusOwner == null) return -1;
+
+        for (int index = 0; index < order.size(); index++) {
+            Node candidate = order.get(index);
+            if (focusOwner == candidate || isDescendantOf(focusOwner, candidate)) {
+                return index;
+            }
+        }
+        return -1;
+    }
+
+    private boolean isKeyboardFocusable(Node node) {
+        return node != null
+                && node.isVisible()
+                && node.isManaged()
+                && !node.isDisabled()
+                && node.isFocusTraversable();
+    }
+
+    private boolean isDescendantOf(Node node, Node ancestor) {
+        Node current = node;
+        while (current != null) {
+            if (current == ancestor) return true;
+            current = current.getParent();
+        }
+        return false;
+    }
+
+    private void configureListKeyboardNavigation() {
+        listView.addEventFilter(KeyEvent.KEY_PRESSED, event -> {
+            if (event.isControlDown() || event.isAltDown() || event.isMetaDown()) return;
+
+            KeyCode code = event.getCode();
+            if (code != KeyCode.UP
+                    && code != KeyCode.DOWN
+                    && code != KeyCode.HOME
+                    && code != KeyCode.END
+                    && code != KeyCode.PAGE_UP
+                    && code != KeyCode.PAGE_DOWN) {
+                return;
+            }
+
+            int target = keyboardNavigationTarget(code);
+            if (target < 0) return;
+
+            event.consume();
+            applyKeyboardSelection(target, event.isShiftDown());
+        });
+    }
+
+    private int keyboardNavigationTarget(KeyCode code) {
+        int current = listView.getSelectionModel().getSelectedIndex();
+        if (current < 0) {
+            return switch (code) {
+                case UP, END, PAGE_UP ->
+                        findClipIndexFrom(items.size() - 1, -1, true);
+                case DOWN, HOME, PAGE_DOWN ->
+                        findClipIndexFrom(0, 1, true);
+                default -> -1;
+            };
+        }
+
+        return switch (code) {
+            case HOME -> findClipIndexFrom(0, 1, true);
+            case END -> findClipIndexFrom(items.size() - 1, -1, true);
+            case UP -> findClipIndexFrom(current - 1, -1, true);
+            case DOWN -> findClipIndexFrom(current + 1, 1, true);
+            case PAGE_UP -> moveByClipSteps(current, -1, 8);
+            case PAGE_DOWN -> moveByClipSteps(current, 1, 8);
+            default -> -1;
+        };
+    }
+
+    private int moveByClipSteps(int current, int direction, int steps) {
+        int index = current;
+        if (index < 0) {
+            return direction > 0
+                    ? findClipIndexFrom(0, 1, true)
+                    : findClipIndexFrom(items.size() - 1, -1, true);
+        }
+
+        int last = index;
+        for (int count = 0; count < Math.max(1, steps); count++) {
+            int next = findClipIndexFrom(last + direction, direction, true);
+            if (next < 0) break;
+            last = next;
+        }
+        return last == index ? -1 : last;
+    }
+
+    private int findClipIndexFrom(int start, int direction, boolean includeStart) {
+        if (items.isEmpty()) return -1;
+
+        int step = direction < 0 ? -1 : 1;
+        int index = includeStart ? start : start + step;
+        while (index >= 0 && index < items.size()) {
+            if (items.get(index) instanceof ClipRow) return index;
+            index += step;
+        }
+        return -1;
+    }
+
+    private void applyKeyboardSelection(int targetIndex, boolean extendRange) {
+        if (targetIndex < 0 || targetIndex >= items.size()) return;
+        if (!(items.get(targetIndex) instanceof ClipRow)) return;
+
+        boolean collapsedPreview = collapseExpandedExcept(targetIndex);
+        MultipleSelectionModel<PopupRow> selection = listView.getSelectionModel();
+
+        if (!extendRange) {
+            selectionAnchorIndex = targetIndex;
+            selection.clearAndSelect(targetIndex);
+        } else {
+            int anchor = selectionAnchorIndex;
+            if (anchor < 0
+                    || anchor >= items.size()
+                    || !(items.get(anchor) instanceof ClipRow)) {
+                int current = selection.getSelectedIndex();
+                anchor = current >= 0 && current < items.size()
+                        && items.get(current) instanceof ClipRow
+                        ? current
+                        : targetIndex;
+                selectionAnchorIndex = anchor;
+            }
+
+            selection.clearSelection();
+            int first = Math.min(anchor, targetIndex);
+            int last = Math.max(anchor, targetIndex);
+            for (int index = first; index <= last; index++) {
+                if (items.get(index) instanceof ClipRow) selection.select(index);
+            }
+        }
+
+        listView.getFocusModel().focus(targetIndex);
+        listView.scrollTo(targetIndex);
+        listView.requestFocus();
+        if (collapsedPreview) listView.refresh();
     }
 
     private PopupActionsMenu createPopupActionsMenu() {
@@ -902,8 +1146,9 @@ public final class PopupWindow {
     private Button iconButton(UiIcon icon, String accessibleText, String extraStyleClass) {
         Button button = new Button();
         button.setGraphic(SvgIcon.of(icon, 15, "toolbar-icon"));
-        button.setFocusTraversable(false);
+        button.setFocusTraversable(true);
         button.setAccessibleText(accessibleText);
+        button.setAccessibleHelp(accessibleText + ".");
         button.setTooltip(new Tooltip(accessibleText));
         button.getStyleClass().addAll("topbar-btn", "topbar-icon-button");
         if (extraStyleClass != null && !extraStyleClass.isBlank()) {
@@ -957,7 +1202,9 @@ public final class PopupWindow {
 
         typeFilterCombo.setItems(typeOptions);
         typeFilterCombo.getSelectionModel().selectFirst();
-        typeFilterCombo.setFocusTraversable(false);
+        typeFilterCombo.setFocusTraversable(true);
+        typeFilterCombo.setAccessibleText("Clipboard content type filter");
+        typeFilterCombo.setAccessibleHelp("Choose a content type or show all types.");
         typeFilterCombo.setPrefWidth(190);
         typeFilterCombo.setMinWidth(160);
         typeFilterCombo.getStyleClass().add("filter-type-combo");
@@ -969,7 +1216,9 @@ public final class PopupWindow {
 
         resetFiltersBtn.setGraphic(SvgIcon.of(UiIcon.ROTATE_CCW, 13, "filter-icon", "filter-reset-icon"));
         resetFiltersBtn.setContentDisplay(ContentDisplay.LEFT);
-        resetFiltersBtn.setFocusTraversable(false);
+        resetFiltersBtn.setFocusTraversable(true);
+        resetFiltersBtn.setAccessibleText("Reset clipboard filters");
+        resetFiltersBtn.setAccessibleHelp("Return to All clips and All types.");
         resetFiltersBtn.getStyleClass().add("filter-reset");
         resetFiltersBtn.setOnAction(e -> setFilterState(ClipViewScope.ALL, null, true));
 
@@ -979,7 +1228,9 @@ public final class PopupWindow {
     private void configureScopeToggle(ToggleButton button, ClipViewScope scope) {
         button.setToggleGroup(scopeFilterGroup);
         button.setUserData(scope);
-        button.setFocusTraversable(false);
+        button.setFocusTraversable(true);
+        button.setAccessibleText("Show " + scope.label().toLowerCase(Locale.ROOT) + " clips");
+        button.setAccessibleHelp("Change the clipboard history scope to " + scope.label() + ".");
         button.setContentDisplay(ContentDisplay.LEFT);
         UiIcon icon = switch (scope) {
             case ALL -> UiIcon.LIST;
@@ -1224,6 +1475,9 @@ public final class PopupWindow {
         Platform.runLater(() -> {
             if (pauseBtnRef != null) {
                 pauseBtnRef.setText(paused ? "Resume" : "Pause");
+                pauseBtnRef.setAccessibleText(
+                        paused ? "Resume clipboard capture" : "Pause clipboard capture"
+                );
                 pauseBtnRef.setGraphic(SvgIcon.of(
                         paused ? UiIcon.PLAY : UiIcon.PAUSE,
                         17,
@@ -1455,6 +1709,11 @@ public final class PopupWindow {
                 items.setAll(buildRows(list));
                 int visibleClipCount = countClips(items);
                 countLabel.setText("Clips " + totalClipCount);
+                countLabel.setAccessibleText(
+                        visibleClipCount < totalClipCount
+                                ? "Showing " + visibleClipCount + " of " + totalClipCount + " clips"
+                                : totalClipCount + (totalClipCount == 1 ? " clip" : " clips")
+                );
                 countLabel.setTooltip(visibleClipCount < totalClipCount
                         ? new Tooltip("Showing " + visibleClipCount + " of " + totalClipCount + " clips")
                         : null);
@@ -2183,6 +2442,9 @@ public final class PopupWindow {
         selectedLabel.setVisible(has);
         selectedLabel.setManaged(has);
         selectedLabel.setText(has ? ("Selected " + n) : "");
+        selectedLabel.setAccessibleText(has
+                ? n + (n == 1 ? " clip selected" : " clips selected")
+                : "No clips selected");
 
         // The header already owns the selection count. Footer actions stay
         // visually stable and do not repeat "(N)" on every button.
@@ -2192,6 +2454,7 @@ public final class PopupWindow {
 
         if (!has) {
             favBtnRef.setText("Pin / Unpin");
+            favBtnRef.setAccessibleText("Pin or unpin selected clips");
             favBtnRef.setGraphic(SvgIcon.of(
                     UiIcon.PIN,
                     17,
@@ -2203,6 +2466,11 @@ public final class PopupWindow {
 
         boolean shouldPin = selected.stream().anyMatch(e -> !e.favorite());
         favBtnRef.setText(shouldPin ? "Pin" : "Unpin");
+        favBtnRef.setAccessibleText(
+                (shouldPin ? "Pin " : "Unpin ")
+                        + n
+                        + (n == 1 ? " selected clip" : " selected clips")
+        );
         favBtnRef.setGraphic(SvgIcon.of(
                 shouldPin ? UiIcon.PIN : UiIcon.PIN_OFF,
                 17,
@@ -2290,3 +2558,4 @@ public final class PopupWindow {
         updateSelectionUi();
     }
 }
+
