@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -9,7 +10,10 @@ import io.xseries.xclip.data.model.ClipEntry;
 
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 
 public final class ClipEntryDao {
     private final String jdbcUrl;
@@ -139,14 +143,47 @@ public final class ClipEntryDao {
             Boolean favoriteFilter,
             Long tagId
     ) {
+        return queryLatest(
+                q,
+                limit,
+                favoriteFilter,
+                tagId,
+                List.of(),
+                List.of()
+        );
+    }
+
+    /**
+     * Unified bounded query for popup text, toolbar filters, and advanced tag operators.
+     *
+     * Required tag identities use AND semantics. Excluded identities use NOT EXISTS.
+     * Identity values are exact case-insensitive tag identities stored in tags.name_norm.
+     */
+    public List<ClipEntry> queryLatest(
+            String q,
+            int limit,
+            Boolean favoriteFilter,
+            Long tagId,
+            List<String> requiredTagIdentities,
+            List<String> excludedTagIdentities
+    ) {
         if (tagId != null && tagId <= 0) {
             throw new IllegalArgumentException("tagId must be positive");
         }
 
+        List<String> requiredTags = normalizedTagIdentities(
+                requiredTagIdentities,
+                "requiredTagIdentities"
+        );
+        List<String> excludedTags = normalizedTagIdentities(
+                excludedTagIdentities,
+                "excludedTagIdentities"
+        );
+
         String normalizedQuery = q == null ? "" : q.trim();
         String like = "%" + escapeLike(normalizedQuery) + "%";
 
-        String sql = """
+        StringBuilder sql = new StringBuilder("""
             SELECT ce.id, ce.content, ce.title, ce.is_favorite, ce.pin_order,
                    ce.last_copied_at AS created_at
             FROM clip_entries AS ce
@@ -175,6 +212,32 @@ public final class ClipEntryDao {
                           AND search_tag.name LIKE ? ESCAPE '\\'
                     )
                   )
+            """);
+
+        for (int index = 0; index < requiredTags.size(); index++) {
+            sql.append("""
+                  AND EXISTS (
+                        SELECT 1
+                        FROM clip_tags AS required_ct
+                        JOIN tags AS required_tag ON required_tag.id = required_ct.tag_id
+                        WHERE required_ct.clip_id = ce.id
+                          AND required_tag.name_norm = ?
+                  )
+                """);
+        }
+        for (int index = 0; index < excludedTags.size(); index++) {
+            sql.append("""
+                  AND NOT EXISTS (
+                        SELECT 1
+                        FROM clip_tags AS excluded_ct
+                        JOIN tags AS excluded_tag ON excluded_tag.id = excluded_ct.tag_id
+                        WHERE excluded_ct.clip_id = ce.id
+                          AND excluded_tag.name_norm = ?
+                  )
+                """);
+        }
+
+        sql.append("""
             ORDER BY ce.is_favorite DESC,
                      CASE
                          WHEN ce.is_favorite = 1 THEN COALESCE(ce.pin_order, 2147483647)
@@ -183,25 +246,36 @@ public final class ClipEntryDao {
                      ce.last_copied_at DESC,
                      ce.id DESC
             LIMIT ?
-            """;
+            """);
 
         Connection c = conn();
-        try (PreparedStatement ps = c.prepareStatement(sql)) {
-            bindOptionalFavorite(ps, 1, favoriteFilter);
+        try (PreparedStatement ps = c.prepareStatement(sql.toString())) {
+            int parameter = 1;
+            bindOptionalFavorite(ps, parameter, favoriteFilter);
+            parameter += 2;
 
             if (tagId == null) {
-                ps.setNull(3, Types.INTEGER);
-                ps.setNull(4, Types.INTEGER);
+                ps.setNull(parameter, Types.INTEGER);
+                ps.setNull(parameter + 1, Types.INTEGER);
             } else {
-                ps.setLong(3, tagId);
-                ps.setLong(4, tagId);
+                ps.setLong(parameter, tagId);
+                ps.setLong(parameter + 1, tagId);
+            }
+            parameter += 2;
+
+            ps.setString(parameter++, normalizedQuery);
+            ps.setString(parameter++, like);
+            ps.setString(parameter++, like);
+            ps.setString(parameter++, like);
+
+            for (String identity : requiredTags) {
+                ps.setString(parameter++, identity);
+            }
+            for (String identity : excludedTags) {
+                ps.setString(parameter++, identity);
             }
 
-            ps.setString(5, normalizedQuery);
-            ps.setString(6, like);
-            ps.setString(7, like);
-            ps.setString(8, like);
-            ps.setInt(9, Math.max(1, limit));
+            ps.setInt(parameter, Math.max(1, limit));
 
             try (ResultSet rs = ps.executeQuery()) {
                 return map(rs);
@@ -536,6 +610,22 @@ public final class ClipEntryDao {
         }
     }
 
+    private List<String> normalizedTagIdentities(List<String> identities, String field) {
+        if (identities == null || identities.isEmpty()) return List.of();
+
+        Set<String> normalized = new LinkedHashSet<>();
+        for (String identity : identities) {
+            String value = identity == null
+                    ? ""
+                    : identity.trim().toLowerCase(Locale.ROOT);
+            if (value.isEmpty()) {
+                throw new IllegalArgumentException(field + " cannot contain blank values");
+            }
+            normalized.add(value);
+        }
+        return List.copyOf(normalized);
+    }
+
     private String escapeLike(String s) {
         return s.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
     }
@@ -592,4 +682,3 @@ public final class ClipEntryDao {
         BOTTOM
     }
 }
-

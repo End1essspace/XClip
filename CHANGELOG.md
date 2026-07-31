@@ -1,4 +1,5 @@
 
+
 # Changelog
 
 All notable changes to this project will be documented in this file.
@@ -8,9 +9,14 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+* Connected parsed `type:`, `is:`, `tag:`, `-type:`, and `-tag:` operators to the popup query pipeline.
+* Added immutable search execution plans that combine advanced operators with toolbar scope, type, and tag filters.
+* Added exact tag-identity `EXISTS`/`NOT EXISTS` constraints with deterministic AND/exclusion semantics.
+* Added bounded derived-type execution that preserves DAO ordering and the existing 5,000-candidate safety budget.
+* Added stale-generation checkpoints between count, query, derived filtering, tag loading, and JavaFX publication.
 * Added a deterministic pure-Java advanced-search parser foundation for `type:`, `is:`, and `tag:` operators.
 * Added quoted values, negative type/tag clauses, pure-text remainder extraction, and non-fatal invalid-query fallback diagnostics.
-* Added parser contract tests without connecting advanced operators to popup query execution yet.
+* Added parser, execution-plan, ordering, conflict, and advanced tag-query contract tests.
 * Added a global `Manage tags…` dialog that remains available even when clipboard history is empty.
 * Added deterministic tag usage counts based on current clip assignments.
 * Added inline tag rename with shared validation and case-insensitive collision reporting.
@@ -30,6 +36,9 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+* Extended the frozen UI contract to revision 5 for Milestone 3.2 advanced-search execution.
+* Search highlighting now uses only the parsed pure-text remainder instead of valid operator syntax.
+* Removed the redundant UI-side resort so query results retain the exact deterministic DAO order.
 * Extended the frozen UI contract to revision 4 for Milestone 2.4 tag management.
 * Tag-management database work now runs through the popup's existing serialized database executor.
 * Popup reload now combines scope, content type, text search, tag-name search, and selected-tag filtering in one deterministic pipeline.

@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -21,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class ClipEntryDaoTest {
 
@@ -293,6 +295,81 @@ class ClipEntryDaoTest {
         }
     }
 
+    @Test
+    void advancedTagOperatorsUseAndAndNotExistsWithoutChangingOrder() {
+        Path dbPath = tempDir.resolve("advanced-tag-query.db");
+        Database db = new Database(dbPath);
+        db.init();
+
+        ClipEntryDao clips = new ClipEntryDao(db.jdbcUrl());
+        TagDao tags = new TagDao(db.jdbcUrl());
+        try {
+            clips.insert("old work item", "old work item", "hash-old-work", 1_000L);
+            clips.insert("new private work item", "new private work item", "hash-private-work", 3_000L);
+            clips.insert("new public work item", "new public work item", "hash-public-work", 2_000L);
+
+            long oldWorkId = idFor(clips, "old work item");
+            long privateWorkId = idFor(clips, "new private work item");
+            long publicWorkId = idFor(clips, "new public work item");
+
+            var work = tags.createOrGet("Work");
+            var urgent = tags.createOrGet("Urgent");
+            var privateTag = tags.createOrGet("Private");
+
+            tags.addTagToClip(oldWorkId, work.id());
+            tags.addTagToClip(oldWorkId, urgent.id());
+            tags.addTagToClip(privateWorkId, work.id());
+            tags.addTagToClip(privateWorkId, urgent.id());
+            tags.addTagToClip(privateWorkId, privateTag.id());
+            tags.addTagToClip(publicWorkId, work.id());
+            tags.addTagToClip(publicWorkId, urgent.id());
+
+            assertEquals(
+                    List.of("new public work item", "old work item"),
+                    clips.queryLatest(
+                                    "",
+                                    20,
+                                    null,
+                                    null,
+                                    List.of("work", "urgent", "work"),
+                                    List.of("private", "private")
+                            ).stream()
+                            .map(ClipEntry::content)
+                            .toList()
+            );
+
+            assertEquals(
+                    List.of("new public work item"),
+                    clips.queryLatest(
+                                    "public",
+                                    20,
+                                    null,
+                                    work.id(),
+                                    List.of("urgent"),
+                                    List.of("private")
+                            ).stream()
+                            .map(ClipEntry::content)
+                            .toList()
+            );
+
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () -> clips.queryLatest(
+                            "",
+                            20,
+                            null,
+                            null,
+                            List.of(" "),
+                            List.of()
+                    )
+            );
+        } finally {
+            tags.closeForCurrentThread();
+            clips.closeForCurrentThread();
+            db.close();
+        }
+    }
+
     private long idFor(ClipEntryDao dao, String content) {
         return dao.listLatest(100).stream()
                 .filter(e -> content.equals(e.content()))
@@ -325,4 +402,3 @@ class ClipEntryDaoTest {
         }
     }
 }
-

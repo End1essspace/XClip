@@ -1,6 +1,7 @@
+
 # XClip UI Contract v1.3.0
 
-**Status:** Frozen R11 baseline, deliberately extended by Milestones 2.2, 2.3, and 2.4
+**Status:** Frozen R11 baseline, deliberately extended by Milestones 2.2–2.4 and 3.2
 **Scope:** Popup, custom window chrome, modal surfaces, Settings styling, keyboard workflow, responsive behavior, and packaged UI resources.
 
 This document is the human-readable counterpart of `/ui/ui-contract-v1.3.0.properties`. Any intentional contract change must update both files and the `UiContractFreezeTest` expectations in the same reviewed milestone.
@@ -155,3 +156,24 @@ Milestone 2.4 completes the visible Tags workflow without changing schema v5.
 - Management reads and mutations run through the popup's serialized database executor; the JavaFX Application Thread never performs JDBC work.
 - Closing the dialog after a mutation refreshes tag chips, tag search, and the active tag-filter option set.
 - The R11 shell, Direct Paste workflow, preview budgets, and schema version remain unchanged.
+
+## 12. Advanced search execution extension — contract revision 5
+
+Milestone 3.2 connects the parser foundation to the existing asynchronous popup
+reload pipeline without redesigning the search field.
+
+- Supported executable operators are `type:`, `is:`, `tag:`, `-type:`, and `-tag:`.
+- Toolbar scope, type, and selected-tag filters are ANDed with search operators.
+- Multiple positive `type:` terms use OR semantics because one clip has one derived content type.
+- Multiple positive `tag:` terms use AND semantics; every required exact tag identity must be assigned.
+- Negative type and tag terms exclude matching clips.
+- Contradictory scope, type, or tag constraints resolve deterministically to an empty result.
+- The pure-text remainder searches content, pinned titles, and assigned tag names.
+- Invalid recognized operators and unterminated quotes retain the M3.1 text fallback contract.
+- Text/title/tag and exact tag-operator constraints execute in SQLite.
+- Derived content-type constraints use a bounded scan of at most `5,000` candidates unless the configured UI limit is higher.
+- The final visible limit is applied without changing deterministic DAO ordering.
+- Search highlighting receives only the pure-text remainder, never valid operator syntax.
+- Every asynchronous stage is protected by the monotonic reload generation gate.
+- Database schema v5, Direct Paste, Tags workflows, preview budgets, and the R11 visual shell remain unchanged.
+

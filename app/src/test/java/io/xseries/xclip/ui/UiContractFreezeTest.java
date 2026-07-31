@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -36,7 +37,7 @@ class UiContractFreezeTest {
     void frozenContractMatchesRuntimeConstantsAndEnums() throws Exception {
         Properties contract = loadContract();
 
-        assertEquals("4", contract.getProperty("contract.version"));
+        assertEquals("5", contract.getProperty("contract.version"));
         assertEquals("1.3.0", contract.getProperty("product.version"));
         assertEquals(Config.MIN_WINDOW_W, intValue(contract, "window.minWidth"));
         assertEquals(Config.MIN_WINDOW_H, intValue(contract, "window.minHeight"));
@@ -123,6 +124,25 @@ class UiContractFreezeTest {
                 "CASE_INSENSITIVE_REJECT",
                 required(contract, "tags.renameCollision")
         );
+        assertEquals(
+                List.of("TYPE", "IS", "TAG"),
+                values(contract, "search.operators")
+        );
+        assertEquals("AND", required(contract, "search.toolbarCombination"));
+        assertEquals("OR", required(contract, "search.positiveTypeCombination"));
+        assertEquals("AND", required(contract, "search.positiveTagCombination"));
+        assertEquals("EXCLUDE", required(contract, "search.negativeCombination"));
+        assertEquals("TEXT", required(contract, "search.invalidFallback"));
+        assertEquals(
+                List.of("CONTENT", "PINNED_TITLE", "TAG_NAME"),
+                values(contract, "search.textFields")
+        );
+        assertEquals(
+                PopupPerformancePolicy.TYPE_FILTER_SCAN_LIMIT,
+                intValue(contract, "search.derivedScanLimit")
+        );
+        assertEquals("DAO_STABLE", required(contract, "search.ordering"));
+        assertEquals("GENERATION", required(contract, "search.staleResultGate"));
         assertEquals(UiStyles.popupResourcePaths(), values(contract, "popup.stylesheets"));
         assertEquals(UiStyles.settingsResourcePaths(), values(contract, "settings.stylesheets"));
         assertEquals(UiIcon.values().length, intValue(contract, "popup.iconCount"));
@@ -196,7 +216,3 @@ class UiContractFreezeTest {
         return value;
     }
 }
-
-
-
-

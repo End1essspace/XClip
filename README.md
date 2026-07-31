@@ -1,3 +1,4 @@
+
 [ENG]
 
 📋 **XClip**
@@ -17,7 +18,10 @@ Unlike simple clipboard utilities, XClip focuses on engineering quality: layered
 
 🔍 **Instant Search with Highlighting**
 - Live search across full clipboard history
-- Highlighted matching substrings
+- Advanced operators: `type:`, `is:`, `tag:`, `-type:`, and `-tag:`
+- Quoted tag values such as `tag:"Project Work"`
+- Operators combine with toolbar scope, type, and tag filters
+- Highlighted matching substrings from the pure-text part of the query
 - Optimized rendering with preview caching
 - Smooth scrolling without UI stutter
 
@@ -180,7 +184,10 @@ Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
 
 🔍 **Мгновенный поиск с подсветкой**
 - Живой поиск по всей истории буфера обмена
-- Подсветка найденных совпадений
+- Расширенные операторы: `type:`, `is:`, `tag:`, `-type:` и `-tag:`
+- Значения тегов в кавычках, например `tag:"Project Work"`
+- Операторы объединяются с toolbar-фильтрами scope, type и tag
+- Подсветка совпадений из обычной текстовой части запроса
 - Оптимизированный рендеринг с кэшированием preview
 - Плавный скролл без подвисаний интерфейса
 
@@ -321,8 +328,3 @@ XClip распространяется под лицензией GNU General Pub
 🧾 **Copyright**
 
 Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
-
-
-
-
-

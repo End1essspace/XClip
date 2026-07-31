@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -38,9 +39,12 @@ import io.xseries.xclip.data.model.TagSummary;
 import io.xseries.xclip.domain.model.ClipContentType;
 import io.xseries.xclip.domain.model.ClipPrimaryAction;
 import io.xseries.xclip.domain.model.ClipViewScope;
+import io.xseries.xclip.domain.search.SearchExecutionPlan;
+import io.xseries.xclip.domain.search.SearchQuery;
+import io.xseries.xclip.domain.search.SearchQueryExecutor;
+import io.xseries.xclip.domain.search.SearchQueryParser;
 import io.xseries.xclip.domain.service.ClipContentActionService;
 import io.xseries.xclip.domain.service.ClipContentClassifier;
-import io.xseries.xclip.domain.service.ClipFilterEngine;
 import io.xseries.xclip.domain.service.ClipService;
 import io.xseries.xclip.domain.service.PasteService;
 import io.xseries.xclip.system.ExternalOpenService;
@@ -68,7 +72,6 @@ import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import javafx.util.Duration;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -1799,13 +1802,19 @@ public final class PopupWindow {
         String normQuery = query.trim();
 
         PopupViewState stateSnapshot = viewState;
-        ClipViewScope scopeSnapshot = stateSnapshot.scope();
-        ClipContentType typeSnapshot = stateSnapshot.contentType();
-        Long tagSnapshot = stateSnapshot.tagId();
+        SearchQuery parsedQuery = SearchQueryParser.parse(normQuery);
+        SearchExecutionPlan executionPlan = SearchExecutionPlan.combine(
+                parsedQuery,
+                stateSnapshot.scope(),
+                stateSnapshot.contentType(),
+                stateSnapshot.tagId()
+        );
         long requestGeneration = reloadGate.nextRequest();
 
         currentQueryRaw = normQuery;
-        currentQueryLower = normQuery.isEmpty() ? "" : normQuery.toLowerCase(Locale.ROOT);
+        currentQueryLower = executionPlan.text().isEmpty()
+                ? ""
+                : executionPlan.text().toLowerCase(Locale.ROOT);
 
         Platform.runLater(this::updateEmptyStateText);
 
@@ -1813,31 +1822,31 @@ public final class PopupWindow {
             int limit = Math.max(1, uiClipLimit);
             int candidateLimit = PopupPerformancePolicy.candidateLimit(
                     limit,
-                    typeSnapshot != null
+                    executionPlan.derivedTypeFilteringActive()
             );
 
             int totalClipCount = dao.countAll();
+            if (!reloadGate.isCurrent(requestGeneration)) return;
 
-            List<ClipEntry> candidates = dao.queryLatest(
-                    normQuery,
-                    candidateLimit,
-                    scopeSnapshot.favoriteFilter(),
-                    tagSnapshot
-            );
+            List<ClipEntry> candidates = executionPlan.unsatisfiable()
+                    ? List.of()
+                    : dao.queryLatest(
+                            executionPlan.text(),
+                            candidateLimit,
+                            executionPlan.scope().favoriteFilter(),
+                            executionPlan.toolbarTagId(),
+                            executionPlan.requiredTagIdentities(),
+                            executionPlan.excludedTagIdentities()
+                    );
+            if (!reloadGate.isCurrent(requestGeneration)) return;
 
-            List<ClipEntry> list = new java.util.ArrayList<>(ClipFilterEngine.apply(
+            List<ClipEntry> list = SearchQueryExecutor.apply(
                     candidates,
-                    scopeSnapshot,
-                    typeSnapshot,
+                    executionPlan,
                     limit,
                     this::contentTypeFor
-            ));
-
-            list.sort(
-                    Comparator.comparing(ClipEntry::favorite).reversed()
-                            .thenComparingInt(ClipEntry::effectivePinOrder)
-                            .thenComparing(Comparator.comparingLong(ClipEntry::createdAt).reversed())
             );
+            if (!reloadGate.isCurrent(requestGeneration)) return;
 
             Map<Long, List<ClipTag>> tagsByClipId = tagDao == null
                     ? Map.of()
@@ -1847,6 +1856,7 @@ public final class PopupWindow {
             List<ClipTag> availableTags = tagDao == null
                     ? List.of()
                     : tagDao.listAll();
+            if (!reloadGate.isCurrent(requestGeneration)) return;
 
             List<PopupRow> preparedRows = PopupRows.build(list, tagsByClipId);
             int visibleClipCount = list.size();
@@ -2842,7 +2852,3 @@ public final class PopupWindow {
         updateSelectionUi();
     }
 }
-
-
-
-
