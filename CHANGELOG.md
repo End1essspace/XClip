@@ -3,10 +3,15 @@
 All notable changes to this project will be documented in this file.
 
 
-## [Unreleased] — Tags display, filtering, and frozen UI extension
+## [Unreleased] — Complete Tags workflow and frozen UI extension
 
 ### Added
 
+* Added a global `Manage tags…` dialog that remains available even when clipboard history is empty.
+* Added deterministic tag usage counts based on current clip assignments.
+* Added inline tag rename with shared validation and case-insensitive collision reporting.
+* Added confirmed single-tag deletion with the affected assignment count shown before removal.
+* Added confirmed cleanup for tags with zero assignments only.
 * Added compact tag chips under clip previews with a strict three-chip budget and `+N` overflow.
 * Added a `Tag: All tags` popup filter with deterministic tag ordering.
 * Added tag-name matching to the existing popup search without changing content/title search behavior.
@@ -21,6 +26,8 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+* Extended the frozen UI contract to revision 4 for Milestone 2.4 tag management.
+* Tag-management database work now runs through the popup's existing serialized database executor.
 * Popup reload now combines scope, content type, text search, tag-name search, and selected-tag filtering in one deterministic pipeline.
 * Popup rows now carry immutable tag metadata prepared off the JavaFX Application Thread.
 * The popup now receives the existing schema-v5 `TagDao` and exposes visible Tags UI without changing clipboard content.
@@ -180,6 +187,7 @@ All notable changes to this project will be documented in this file.
 - Clipboard polling backoff improvements
 - Connection reuse for SQLite
 - Preview rendering optimization
+
 
 
 

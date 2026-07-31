@@ -31,6 +31,7 @@ Unlike simple clipboard utilities, XClip focuses on engineering quality: layered
 - Assign or remove tags for one clip or a multi-selection
 - Compact tag chips with bounded `+N` overflow in clipboard rows
 - Filter clips by tag and search assigned tag names
+- Manage the full tag library with usage counts, rename, confirmed delete, and unused cleanup
 - Tri-state batch editing preserves mixed assignments
 - Case-insensitive duplicate prevention and atomic database saves
 
@@ -193,6 +194,7 @@ Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
 - Назначение и снятие тегов для одного клипа или множественного выбора
 - Компактные tag chips с ограниченным отображением и `+N` overflow
 - Фильтрация клипов по тегу и поиск по именам назначенных тегов
+- Управление всей библиотекой тегов: usage count, переименование, подтверждаемое удаление и очистка неиспользуемых тегов
 - Tri-state пакетное редактирование сохраняет смешанные назначения
 - Защита от дубликатов без учёта регистра и атомарное сохранение в БД
 
@@ -319,6 +321,7 @@ XClip распространяется под лицензией GNU General Pub
 🧾 **Copyright**
 
 Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
+
 
 
 

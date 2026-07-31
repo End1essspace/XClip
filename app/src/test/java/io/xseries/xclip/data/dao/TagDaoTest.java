@@ -8,6 +8,7 @@ package io.xseries.xclip.data.dao;
 import io.xseries.xclip.data.db.Database;
 import io.xseries.xclip.data.model.ClipEntry;
 import io.xseries.xclip.data.model.ClipTag;
+import io.xseries.xclip.data.model.TagSummary;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -200,6 +201,54 @@ class TagDaoTest {
     }
 
     @Test
+    void listsTagsWithDeterministicUsageCountsIncludingUnusedTags() {
+        TestContext ctx = createContext("tag-usage.db");
+        try {
+            long firstClip = insertClip(ctx.clips, "first", "hash-first", 1_000L);
+            long secondClip = insertClip(ctx.clips, "second", "hash-second", 2_000L);
+
+            ClipTag unused = ctx.tags.createOrGet("Unused");
+            ClipTag shared = ctx.tags.createOrGet("Shared");
+            ClipTag single = ctx.tags.createOrGet("Single");
+
+            ctx.tags.addTagToClip(firstClip, shared.id());
+            ctx.tags.addTagToClip(secondClip, shared.id());
+            ctx.tags.addTagToClip(secondClip, single.id());
+
+            List<TagSummary> summaries = ctx.tags.listAllWithUsage();
+            assertEquals(List.of("Shared", "Single", "Unused"),
+                    summaries.stream().map(TagSummary::name).toList());
+            assertEquals(List.of(2, 1, 0),
+                    summaries.stream().map(TagSummary::usageCount).toList());
+            assertFalse(summaries.get(0).unused());
+            assertTrue(summaries.get(2).unused());
+            assertEquals(unused.id(), summaries.get(2).id());
+        } finally {
+            ctx.close();
+        }
+    }
+
+    @Test
+    void cleanupDeletesOnlyCurrentlyUnusedTags() {
+        TestContext ctx = createContext("cleanup-unused.db");
+        try {
+            long clipId = insertClip(ctx.clips, "clip", "hash-clip", 1_000L);
+            ClipTag assigned = ctx.tags.createOrGet("Assigned");
+            ctx.tags.createOrGet("Unused A");
+            ctx.tags.createOrGet("Unused B");
+            ctx.tags.addTagToClip(clipId, assigned.id());
+
+            assertEquals(2, ctx.tags.cleanupUnusedTags());
+            assertEquals(List.of("Assigned"),
+                    ctx.tags.listAllWithUsage().stream().map(TagSummary::name).toList());
+            assertEquals(0, ctx.tags.cleanupUnusedTags());
+            assertEquals(List.of("Assigned"), tagNames(ctx.tags, clipId));
+        } finally {
+            ctx.close();
+        }
+    }
+
+    @Test
     void batchAssignmentLookupPreservesRequestedClipsAndTagOrder() {
         TestContext ctx = createContext("batch-tag-read.db");
         try {
@@ -279,6 +328,7 @@ class TagDaoTest {
         }
     }
 }
+
 
 
 

@@ -1,6 +1,6 @@
 # XClip UI Contract v1.3.0
 
-**Status:** Frozen R11 baseline, deliberately extended by Milestones 2.2 and 2.3
+**Status:** Frozen R11 baseline, deliberately extended by Milestones 2.2, 2.3, and 2.4
 **Scope:** Popup, custom window chrome, modal surfaces, Settings styling, keyboard workflow, responsive behavior, and packaged UI resources.
 
 This document is the human-readable counterpart of `/ui/ui-contract-v1.3.0.properties`. Any intentional contract change must update both files and the `UiContractFreezeTest` expectations in the same reviewed milestone.
@@ -140,3 +140,18 @@ clipboard-content safety model.
 - Empty states distinguish text-search misses from filter-only misses.
 - The R11 preview bounds, Direct Paste workflow, asynchronous stale-result gate,
   and no-content-hover-tooltip invariant remain unchanged.
+
+## 11. Tag management extension — contract revision 4
+
+Milestone 2.4 completes the visible Tags workflow without changing schema v5.
+
+- `Manage tags…` is a global Actions-menu entry and remains reachable when the history list is empty.
+- The dialog lists every persisted tag in deterministic case-insensitive order.
+- Each row exposes the current clip-assignment count; unused means exactly `0`.
+- Rename uses the shared `TagNamePolicy` and rejects case-insensitive collisions.
+- Single-tag delete requires explicit confirmation and states how many clip assignments will be removed.
+- Deleting a tag relies on the existing foreign-key cascade for `clip_tags`; clipboard entries and clipboard content remain unchanged.
+- Cleanup requires confirmation and deletes only tags that still have zero assignments when SQLite executes the statement.
+- Management reads and mutations run through the popup's serialized database executor; the JavaFX Application Thread never performs JDBC work.
+- Closing the dialog after a mutation refreshes tag chips, tag search, and the active tag-filter option set.
+- The R11 shell, Direct Paste workflow, preview budgets, and schema version remain unchanged.

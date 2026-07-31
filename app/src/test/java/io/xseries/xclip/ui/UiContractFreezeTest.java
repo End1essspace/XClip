@@ -36,7 +36,7 @@ class UiContractFreezeTest {
     void frozenContractMatchesRuntimeConstantsAndEnums() throws Exception {
         Properties contract = loadContract();
 
-        assertEquals("3", contract.getProperty("contract.version"));
+        assertEquals("4", contract.getProperty("contract.version"));
         assertEquals("1.3.0", contract.getProperty("product.version"));
         assertEquals(Config.MIN_WINDOW_W, intValue(contract, "window.minWidth"));
         assertEquals(Config.MIN_WINDOW_H, intValue(contract, "window.minHeight"));
@@ -105,6 +105,23 @@ class UiContractFreezeTest {
         assertEquals(
                 List.of("CONTENT", "PINNED_TITLE", "TAG_NAME"),
                 values(contract, "tags.searchFields")
+        );
+        assertEquals("ACTIONS_MENU", required(contract, "tags.managementEntryPoint"));
+        assertEquals(
+                List.of("LIST", "RENAME", "DELETE", "CLEANUP_UNUSED"),
+                values(contract, "tags.managementActions")
+        );
+        assertEquals(
+                "CLIP_ASSIGNMENT_COUNT",
+                required(contract, "tags.managementUsageCount")
+        );
+        assertEquals(
+                "CONFIRMED_CASCADE_ASSIGNMENTS",
+                required(contract, "tags.deleteBehavior")
+        );
+        assertEquals(
+                "CASE_INSENSITIVE_REJECT",
+                required(contract, "tags.renameCollision")
         );
         assertEquals(UiStyles.popupResourcePaths(), values(contract, "popup.stylesheets"));
         assertEquals(UiStyles.settingsResourcePaths(), values(contract, "settings.stylesheets"));
@@ -179,6 +196,7 @@ class UiContractFreezeTest {
         return value;
     }
 }
+
 
 
 

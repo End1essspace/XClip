@@ -34,6 +34,7 @@ import io.xseries.xclip.data.dao.ClipEntryDao;
 import io.xseries.xclip.data.dao.TagDao;
 import io.xseries.xclip.data.model.ClipEntry;
 import io.xseries.xclip.data.model.ClipTag;
+import io.xseries.xclip.data.model.TagSummary;
 import io.xseries.xclip.domain.model.ClipContentType;
 import io.xseries.xclip.domain.model.ClipPrimaryAction;
 import io.xseries.xclip.domain.model.ClipViewScope;
@@ -970,6 +971,11 @@ public final class PopupWindow {
             }
 
             @Override
+            public void manageTags() {
+                manageTagsLibrary();
+            }
+
+            @Override
             public boolean tagsAvailable() {
                 return tagDao != null;
             }
@@ -1227,8 +1233,6 @@ public final class PopupWindow {
                 selected = getSelectedClipsOrdered();
             }
         }
-        if (selected.isEmpty()) return;
-
         actionsMenu.showAbove(owner, selected);
     }
 
@@ -2075,6 +2079,82 @@ public final class PopupWindow {
         }
     }
 
+    private void manageTagsLibrary() {
+        if (tagDao == null) {
+            showToast("Tags are unavailable", StatusTone.WARNING);
+            return;
+        }
+
+        showToast("Loading tag library…", StatusTone.NEUTRAL);
+        dbExec.submit(() -> {
+            try {
+                List<TagSummary> summaries = tagDao.listAllWithUsage();
+
+                Platform.runLater(() -> {
+                    if (!stage.isShowing()) return;
+
+                    TagManagementDialog.Actions dialogActions = new TagManagementDialog.Actions() {
+                        @Override
+                        public CompletionStage<List<TagSummary>> rename(long tagId, String newName) {
+                            return CompletableFuture.supplyAsync(() -> {
+                                boolean renamed = tagDao.renameTag(tagId, newName);
+                                if (!renamed) {
+                                    throw new IllegalArgumentException("The tag no longer exists.");
+                                }
+                                return tagDao.listAllWithUsage();
+                            }, dbExec);
+                        }
+
+                        @Override
+                        public CompletionStage<List<TagSummary>> delete(long tagId) {
+                            return CompletableFuture.supplyAsync(() -> {
+                                boolean deleted = tagDao.deleteTag(tagId);
+                                if (!deleted) {
+                                    throw new IllegalArgumentException("The tag no longer exists.");
+                                }
+                                return tagDao.listAllWithUsage();
+                            }, dbExec);
+                        }
+
+                        @Override
+                        public CompletionStage<List<TagSummary>> cleanupUnused() {
+                            return CompletableFuture.supplyAsync(() -> {
+                                tagDao.cleanupUnusedTags();
+                                return tagDao.listAllWithUsage();
+                            }, dbExec);
+                        }
+                    };
+
+                    TagManagementDialog.Result result = showPopupModal(() ->
+                            TagManagementDialog.show(stage, summaries, dialogActions)
+                    );
+                    if (result.changed()) {
+                        Long activeTagId = viewState.tagId();
+                        boolean activeTagStillExists = activeTagId == null
+                                || result.tags().stream().anyMatch(tag -> tag.id() == activeTagId);
+                        if (!activeTagStillExists) {
+                            setFilterState(
+                                    viewState.scope(),
+                                    viewState.contentType(),
+                                    null,
+                                    false
+                            );
+                        }
+                        reloadNow(searchField.getText());
+                        showToast("Tag library updated", StatusTone.SUCCESS);
+                    }
+                });
+            } catch (Throwable failure) {
+                Platform.runLater(() -> showOperationError(
+                        "Tags unavailable",
+                        "Manage tags failed",
+                        "The tag library could not be loaded",
+                        "No clipboard data was changed. Reopen XClip and try again."
+                ));
+            }
+        });
+    }
+
     private void editTagsSelected() {
         List<ClipEntry> selected = getSelectedClipsOrdered();
         if (selected.isEmpty()) return;
@@ -2762,6 +2842,7 @@ public final class PopupWindow {
         updateSelectionUi();
     }
 }
+
 
 
 

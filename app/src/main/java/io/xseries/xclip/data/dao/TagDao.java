@@ -6,6 +6,7 @@
 package io.xseries.xclip.data.dao;
 
 import io.xseries.xclip.data.model.ClipTag;
+import io.xseries.xclip.data.model.TagSummary;
 import io.xseries.xclip.domain.service.TagNamePolicy;
 import io.xseries.xclip.domain.service.TagNamePolicy.NormalizedTagName;
 
@@ -123,6 +124,37 @@ public final class TagDao {
             return mapTags(rs);
         } catch (Exception e) {
             throw new RuntimeException("listAll tags failed", e);
+        }
+    }
+
+    /**
+     * Lists all tags together with their current clip-assignment count.
+     *
+     * The LEFT JOIN keeps unused tags visible for explicit cleanup.
+     */
+    public List<TagSummary> listAllWithUsage() {
+        String sql = """
+                SELECT t.id, t.name, t.created_at, COUNT(ct.clip_id) AS usage_count
+                FROM tags AS t
+                LEFT JOIN clip_tags AS ct ON ct.tag_id = t.id
+                GROUP BY t.id, t.name, t.created_at
+                ORDER BY t.name COLLATE NOCASE ASC, t.id ASC
+                """;
+
+        List<TagSummary> tags = new ArrayList<>();
+        try (PreparedStatement ps = conn().prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                tags.add(new TagSummary(
+                        rs.getLong("id"),
+                        rs.getString("name"),
+                        rs.getLong("created_at"),
+                        rs.getInt("usage_count")
+                ));
+            }
+            return List.copyOf(tags);
+        } catch (Exception e) {
+            throw new RuntimeException("listAllWithUsage failed", e);
         }
     }
 
@@ -438,6 +470,29 @@ public final class TagDao {
     }
 
     /**
+     * Deletes only tags that have no clip assignments.
+     *
+     * The NOT EXISTS predicate is evaluated in the same SQLite statement, so a
+     * tag that becomes assigned before execution is not removed as unused.
+     */
+    public int cleanupUnusedTags() {
+        String sql = """
+                DELETE FROM tags
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM clip_tags AS ct
+                    WHERE ct.tag_id = tags.id
+                )
+                """;
+
+        try (PreparedStatement ps = conn().prepareStatement(sql)) {
+            return ps.executeUpdate();
+        } catch (Exception e) {
+            throw new RuntimeException("cleanupUnusedTags failed", e);
+        }
+    }
+
+    /**
      * Returns matching clip ids in the same deterministic order used by the popup.
      */
     public List<Long> listClipIdsForTag(long tagId, int limit) {
@@ -595,6 +650,7 @@ public final class TagDao {
     }
 
 }
+
 
 
 

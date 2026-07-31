@@ -1,4 +1,3 @@
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -31,6 +30,7 @@ public final class PopupActionsMenu {
         void copy();
         void performPrimaryTypeAction();
         void editTags();
+        void manageTags();
         boolean tagsAvailable();
         void toggleFavorite();
         void renamePinned();
@@ -50,6 +50,7 @@ public final class PopupActionsMenu {
     private final MenuItem copyItem = item("Copy", UiIcon.COPY);
     private final MenuItem typeActionItem = new MenuItem();
     private final MenuItem tagsItem = item("Tags…", UiIcon.TAGS);
+    private final MenuItem manageTagsItem = item("Manage tags…", UiIcon.TAG);
     private final MenuItem pinItem = item("Pin selected", UiIcon.PIN);
     private final MenuItem renameItem = item("Rename pinned clip…", UiIcon.PENCIL);
     private final MenuItem clearTitleItem = item("Clear title", UiIcon.X);
@@ -78,6 +79,7 @@ public final class PopupActionsMenu {
         typeActionItem.setVisible(false);
 
         tagsItem.setOnAction(e -> actions.editTags());
+        manageTagsItem.setOnAction(e -> actions.manageTags());
 
         pinItem.setOnAction(e -> actions.toggleFavorite());
         renameItem.setOnAction(e -> actions.renamePinned());
@@ -102,6 +104,7 @@ public final class PopupActionsMenu {
                 copyItem,
                 typeActionItem,
                 tagsItem,
+                manageTagsItem,
                 pinItem,
                 new SeparatorMenuItem(),
                 renameItem,
@@ -130,18 +133,23 @@ public final class PopupActionsMenu {
     }
 
     private boolean prepare(Node owner, List<ClipEntry> selected) {
-        if (owner == null || selected == null || selected.isEmpty()) {
+        if (owner == null) {
             hide();
             return false;
         }
 
-        pasteItem.setDisable(false);
-        copyItem.setDisable(false);
-        tagsItem.setDisable(!actions.tagsAvailable());
-        pinItem.setDisable(false);
-        deleteItem.setDisable(false);
+        List<ClipEntry> safeSelection = selected == null ? List.of() : selected;
+        boolean hasSelection = !safeSelection.isEmpty();
+        boolean tagsAvailable = actions.tagsAvailable();
 
-        ClipEntry single = selected.size() == 1 ? selected.get(0) : null;
+        pasteItem.setDisable(!hasSelection);
+        copyItem.setDisable(!hasSelection);
+        tagsItem.setDisable(!hasSelection || !tagsAvailable);
+        manageTagsItem.setDisable(!tagsAvailable);
+        pinItem.setDisable(!hasSelection);
+        deleteItem.setDisable(!hasSelection);
+
+        ClipEntry single = safeSelection.size() == 1 ? safeSelection.get(0) : null;
         ClipPrimaryAction primaryAction = actions.primaryActionFor(single);
         if (primaryAction == null) {
             primaryAction = ClipPrimaryAction.NONE;
@@ -157,7 +165,7 @@ public final class PopupActionsMenu {
                 ? SvgIcon.of(iconFor(primaryAction), 13, "menu-item-icon", "menu-type-icon")
                 : null);
 
-        boolean shouldPin = selected.stream().anyMatch(entry -> !entry.favorite());
+        boolean shouldPin = !hasSelection || safeSelection.stream().anyMatch(entry -> !entry.favorite());
         pinItem.setText(shouldPin ? "Pin selected" : "Unpin selected");
         pinItem.setGraphic(SvgIcon.of(
                 shouldPin ? UiIcon.PIN : UiIcon.PIN_OFF,
@@ -187,7 +195,7 @@ public final class PopupActionsMenu {
             if (contextMenu.getSkin() == null || contextMenu.getSkin().getNode() == null) return;
 
             Node menuNode = contextMenu.getSkin().getNode();
-            menuNode.setAccessibleText("Clip actions menu");
+            menuNode.setAccessibleText("XClip actions menu");
             menuNode.setAccessibleHelp("Use Up and Down to navigate, Enter to activate, and Escape to close.");
             menuNode.requestFocus();
         });
@@ -211,6 +219,7 @@ public final class PopupActionsMenu {
         };
     }
 }
+
 
 
 
