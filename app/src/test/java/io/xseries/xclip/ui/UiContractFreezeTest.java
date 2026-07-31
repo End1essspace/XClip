@@ -6,6 +6,7 @@
 package io.xseries.xclip.ui;
 
 import io.xseries.xclip.config.Config;
+import io.xseries.xclip.domain.duplicate.DuplicateBehaviorPolicy;
 import io.xseries.xclip.domain.model.ClipContentType;
 import io.xseries.xclip.domain.model.ClipViewScope;
 import io.xseries.xclip.domain.service.TagNamePolicy;
@@ -18,6 +19,7 @@ import io.xseries.xclip.ui.popup.PopupResponsivePolicy;
 import io.xseries.xclip.ui.popup.SearchUiModel;
 import io.xseries.xclip.ui.popup.TagChipPolicy;
 import io.xseries.xclip.ui.popup.TagEditorModel;
+import io.xseries.xclip.ui.settings.DuplicateSettingsModel;
 import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;
@@ -37,7 +39,7 @@ class UiContractFreezeTest {
     void frozenContractMatchesRuntimeConstantsAndEnums() throws Exception {
         Properties contract = loadContract();
 
-        assertEquals("6", contract.getProperty("contract.version"));
+        assertEquals("7", contract.getProperty("contract.version"));
         assertEquals("1.3.0", contract.getProperty("product.version"));
         assertEquals(Config.MIN_WINDOW_W, intValue(contract, "window.minWidth"));
         assertEquals(Config.MIN_WINDOW_H, intValue(contract, "window.minHeight"));
@@ -171,6 +173,42 @@ class UiContractFreezeTest {
         assertEquals(
                 "DEFERRED_OPTIONAL",
                 required(contract, "search.savedQueries")
+        );
+        assertEquals(
+                "DEDICATED",
+                required(contract, "duplicate.settingsSection")
+        );
+        assertEquals(
+                enumNames(DuplicateBehaviorPolicy.RecentDuplicatePosition.values()),
+                values(contract, "duplicate.recentPositions")
+        );
+        assertEquals(
+                enumNames(DuplicateBehaviorPolicy.PinnedDuplicatePosition.values()),
+                values(contract, "duplicate.pinnedPositions")
+        );
+        assertEquals(
+                enumNames(DuplicateBehaviorPolicy.WhitespaceMode.values()),
+                values(contract, "duplicate.whitespaceModes")
+        );
+        assertEquals(
+                enumNames(DuplicateBehaviorPolicy.CaseSensitivity.values()),
+                values(contract, "duplicate.caseModes")
+        );
+        assertEquals(
+                enumNames(DuplicateSettingsModel.WindowPreset.values()),
+                values(contract, "duplicate.windowPresets")
+        );
+        assertEquals(
+                "MILLISECONDS",
+                required(contract, "duplicate.customWindowUnit")
+        );
+        assertEquals(
+                List.of("WHITESPACE", "CASE"),
+                values(contract, "duplicate.exactOverrides")
+        );
+        assertEquals(
+                "DUPLICATE_DEFAULTS_ONLY",
+                required(contract, "duplicate.resetScope")
         );
         assertEquals(UiStyles.popupResourcePaths(), values(contract, "popup.stylesheets"));
         assertEquals(UiStyles.settingsResourcePaths(), values(contract, "settings.stylesheets"));

@@ -569,3 +569,93 @@
     -fx-border-color: -x-accent;
     -fx-effect: dropshadow(gaussian, rgba(245, 197, 66, 0.58), 7, 0.25, 0, 0);
 }
+
+
+/* =========================================================
+   Milestone 4.3 — duplicate Settings UI
+   ========================================================= */
+
+.settings-root {
+    -fx-background-color: -x-bg;
+}
+
+.settings-scroll {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-padding: 0;
+}
+
+.settings-scroll > .viewport {
+    -fx-background-color: -x-bg;
+}
+
+.settings-content {
+    -fx-background-color: -x-bg;
+}
+
+.settings-section-title {
+    -fx-text-fill: #F0F4F9;
+    -fx-font-size: 15px;
+    -fx-font-weight: 800;
+}
+
+.settings-section-description {
+    -fx-text-fill: #8796AA;
+    -fx-font-size: 11px;
+    -fx-line-spacing: 1px;
+}
+
+.settings-field-title {
+    -fx-text-fill: #D6DFEA;
+    -fx-font-size: 12px;
+    -fx-font-weight: 700;
+}
+
+.settings-field-description {
+    -fx-text-fill: #7F90A6;
+    -fx-font-size: 10.5px;
+    -fx-line-spacing: 1px;
+}
+
+.settings-control-wide {
+    -fx-pref-width: 250px;
+    -fx-max-width: 250px;
+}
+
+.settings-bottom-bar {
+    -fx-background-color: #111720;
+    -fx-border-color: #293343 transparent transparent transparent;
+    -fx-border-width: 1 0 0 0;
+    -fx-padding: 12 14 12 14;
+}
+
+.duplicate-settings-section {
+    -fx-border-color: #34475F;
+}
+
+.settings-override-hint {
+    -fx-text-fill: #D7B862;
+    -fx-font-size: 10px;
+    -fx-line-spacing: 1px;
+}
+
+.settings-root .combo-box-base:disabled {
+    -fx-opacity: 0.48;
+}
+
+.settings-root .combo-box-popup .list-view {
+    -fx-background-color: -x-surface-2;
+    -fx-border-color: -x-border;
+}
+
+.settings-root .combo-box-popup .list-cell {
+    -fx-background-color: -x-surface-2;
+    -fx-text-fill: -x-text-secondary;
+    -fx-padding: 8 10 8 10;
+}
+
+.settings-root .combo-box-popup .list-cell:hover,
+.settings-root .combo-box-popup .list-cell:filled:selected {
+    -fx-background-color: -x-accent-soft;
+    -fx-text-fill: -x-text;
+}

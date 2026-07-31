@@ -1,4 +1,3 @@
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -70,5 +69,25 @@ class ConfigTest {
         assertEquals(policy, config.duplicateBehaviorPolicy());
         assertEquals(1_200, config.maxHistory());
         assertTrue(config.windowMaximized());
+    }
+
+    @Test
+    void duplicateDefaultsCanReplaceCustomPolicyWithoutChangingOtherSettings() {
+        DuplicateBehaviorPolicy custom = new DuplicateBehaviorPolicy(
+                DuplicateBehaviorPolicy.RecentDuplicatePosition.PRESERVE_EXISTING_POSITION,
+                DuplicateBehaviorPolicy.PinnedDuplicatePosition.MOVE_PIN_TO_TOP,
+                DuplicateBehaviorPolicy.WhitespaceMode.PRESERVE,
+                DuplicateBehaviorPolicy.CaseSensitivity.INSENSITIVE,
+                12_345,
+                true
+        );
+
+        Config config = Config.defaults()
+                .withMaxHistory(1_500)
+                .withDuplicateBehaviorPolicy(custom)
+                .withDuplicateBehaviorPolicy(DuplicateBehaviorPolicy.defaults());
+
+        assertEquals(DuplicateBehaviorPolicy.defaults(), config.duplicateBehaviorPolicy());
+        assertEquals(1_500, config.maxHistory());
     }
 }

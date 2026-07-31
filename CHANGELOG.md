@@ -1,14 +1,18 @@
-
-
 # Changelog
 
 All notable changes to this project will be documented in this file.
 
 
-## [Unreleased] — Duplicate behavior preferences foundation
+## [Unreleased] — Duplicate behavior preferences
 
 ### Added
 
+* Added a dedicated Duplicate behavior section to Settings with product-facing controls for RECENT/PINNED positioning, whitespace, letter case, duplicate windows, and exact-content mode.
+* Added stable duplicate-window presets plus lossless custom millisecond input for non-preset persisted values.
+* Added an exact-mode override state that visibly disables whitespace and case controls while their values remain preserved.
+* Added Reset duplicate defaults, scoped only to duplicate preferences and backed by `DuplicateBehaviorPolicy.defaults()`.
+* Added a scrollable Settings content surface with a fixed Apply/Close action bar so all controls remain reachable on smaller displays.
+* Extended the frozen UI contract to revision 7 and added pure Settings mapping/validation tests.
 * Added config v2 persistence for duplicate position, whitespace, case, time-window, and exact-content preferences with backward-compatible migration from v1.
 * Added four policy-independent SHA-256 lookup keys per clip so duplicate settings can change without rewriting history.
 * Added schema v6 migration that removes the legacy unique-hash restriction while preserving legacy rows, tags, titles, and pinned order.

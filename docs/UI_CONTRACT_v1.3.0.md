@@ -1,6 +1,6 @@
 # XClip UI Contract v1.3.0
 
-**Status:** Frozen R11 baseline, deliberately extended by Milestones 2.2–2.4 and 3.2
+**Status:** Frozen R11 baseline, deliberately extended by Milestones 2.2–2.4, 3.2–3.3, and 4.3
 **Scope:** Popup, custom window chrome, modal surfaces, Settings styling, keyboard workflow, responsive behavior, and packaged UI resources.
 
 This document is the human-readable counterpart of `/ui/ui-contract-v1.3.0.properties`. Any intentional contract change must update both files and the `UiContractFreezeTest` expectations in the same reviewed milestone.
@@ -194,3 +194,31 @@ pipeline without changing query semantics or schema v5.
 - The Search syntax section in Quick Help documents the executable operator contract.
 - Saved queries remain an optional deferred roadmap item and are not part of revision 6.
 - DAO ordering, toolbar combination rules, bounded scans, stale-result protection, Direct Paste, and all Tags behavior remain unchanged.
+
+
+## 14. Duplicate Settings extension — contract revision 7
+
+Milestone 4.3 exposes the persisted M4.2 duplicate policy through a dedicated
+Settings section without changing config version 2 or database schema version 6.
+
+- RECENT duplicates expose `MOVE_TO_TOP` and `PRESERVE_EXISTING_POSITION`.
+- PINNED duplicates expose `PRESERVE_PIN_POSITION` and `MOVE_PIN_TO_TOP`.
+- Whitespace matching exposes `NORMALIZE` and `PRESERVE`.
+- Letter-case matching exposes `SENSITIVE` and `INSENSITIVE`.
+- Duplicate age uses stable presets plus an exact custom millisecond value so
+  an externally configured non-preset duration round-trips without data loss.
+- `UNLIMITED` remains the safe default and maps to `0` milliseconds.
+- Exact-content mode visibly disables Whitespace and Letter case because those
+  settings are overridden by the domain policy while exact matching is active.
+- Reset affects only duplicate controls and restores
+  `DuplicateBehaviorPolicy.defaults()`; unrelated capture, startup, and window
+  settings remain unchanged.
+- Apply persists the complete config snapshot and immediately updates
+  `ClipService`, watcher state, and popup configuration through the existing
+  runtime callback.
+- Closing Settings discards unapplied duplicate edits together with other
+  unsaved Settings changes.
+- Settings content scrolls independently while Apply and Close remain reachable
+  in a fixed bottom action bar.
+- Every duplicate control exposes accessible text/help and product-facing labels
+  rather than internal enum names.

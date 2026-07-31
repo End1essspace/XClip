@@ -5,36 +5,63 @@
  */
 package io.xseries.xclip.ui;
 
-import io.xseries.xclip.system.window.WindowsTitleBar;
 import io.xseries.xclip.config.AppPaths;
 import io.xseries.xclip.config.Config;
 import io.xseries.xclip.config.ConfigService;
+import io.xseries.xclip.domain.duplicate.DuplicateBehaviorPolicy;
 import io.xseries.xclip.domain.service.ClipService;
 import io.xseries.xclip.system.DataOwnershipService;
 import io.xseries.xclip.system.WindowsAutoStartService;
 import io.xseries.xclip.system.clipboard.WatcherController;
+import io.xseries.xclip.system.window.WindowsTitleBar;
+import io.xseries.xclip.ui.settings.DuplicateSettingsModel;
+import io.xseries.xclip.ui.settings.DuplicateSettingsModel.WindowPreset;
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.Scene;
-import javafx.scene.control.*;
+import javafx.scene.control.Button;
+import javafx.scene.control.CheckBox;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.control.Separator;
+import javafx.scene.control.Spinner;
+import javafx.scene.control.TextField;
+import javafx.scene.control.TextFormatter;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
-import javafx.scene.layout.*;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.ColumnConstraints;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.VBox;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import javafx.util.Duration;
+import javafx.util.StringConverter;
 
 import java.util.Objects;
+import java.util.function.Function;
 
 /**
- * Minimal Settings window for v1.0.
+ * Product Settings window.
  *
- * Apply writes config.json and updates runtime behavior.
+ * Apply persists config.json and immediately updates runtime behavior. Closing
+ * the window discards unapplied edits and restores controls from the last saved
+ * configuration snapshot.
  */
 public final class SettingsWindow {
+
+    private static final double DEFAULT_WIDTH = 700;
+    private static final double DEFAULT_HEIGHT = 720;
+    private static final double MIN_WIDTH = 620;
+    private static final double MIN_HEIGHT = 520;
 
     private final Stage stage;
 
@@ -53,15 +80,27 @@ public final class SettingsWindow {
     private final CheckBox startMinimized;
     private final CheckBox startOnBoot;
 
+    private final ComboBox<DuplicateBehaviorPolicy.RecentDuplicatePosition>
+            duplicateRecentPosition;
+    private final ComboBox<DuplicateBehaviorPolicy.PinnedDuplicatePosition>
+            duplicatePinnedPosition;
+    private final ComboBox<DuplicateBehaviorPolicy.WhitespaceMode>
+            duplicateWhitespaceMode;
+    private final ComboBox<DuplicateBehaviorPolicy.CaseSensitivity>
+            duplicateCaseSensitivity;
+    private final ComboBox<WindowPreset> duplicateWindowPreset;
+    private final TextField duplicateCustomWindowMillis;
+    private final CheckBox duplicateExactContentMode;
+    private final Label duplicateExactOverrideHint;
+    private final Button resetDuplicateDefaultsBtn;
+
     private final Button openDataFolderBtn;
     private final Button clearAllDataBtn;
 
-    // Apply button with dirty-state
     private final Button applyBtn = new Button("Apply");
     private boolean dirty = false;
     private boolean internalSync = false;
 
-    // Status (toast-like) label shown in bottom bar
     private final Label statusLabel = new Label();
     private PauseTransition statusHide;
     private final java.util.function.Consumer<Config> onConfigApplied;
@@ -78,209 +117,261 @@ public final class SettingsWindow {
         this.clipService = Objects.requireNonNull(clipService);
         this.watcherController = Objects.requireNonNull(watcherController);
         this.dataOwnershipService = Objects.requireNonNull(dataOwnershipService);
-
         this.current = (initial == null ? Config.defaults() : initial).normalized();
-        this.onConfigApplied = (onConfigApplied != null) ? onConfigApplied : (cfg -> {});
+        this.onConfigApplied = onConfigApplied != null ? onConfigApplied : cfg -> {};
 
-        this.stage = new Stage(StageStyle.DECORATED);
+        stage = new Stage(StageStyle.DECORATED);
         stage.setTitle("XClip Settings");
         stage.getIcons().add(new javafx.scene.image.Image(
                 SettingsWindow.class.getResourceAsStream("/icons/icon.png")
         ));
         stage.initModality(Modality.APPLICATION_MODAL);
-        stage.setResizable(false);
+        stage.setResizable(true);
+        stage.setMinWidth(MIN_WIDTH);
+        stage.setMinHeight(MIN_HEIGHT);
 
-        // Controls
-        maxHistory = new Spinner<>(100, 50_000, current.maxHistory(), 50);
-        maxHistory.setEditable(true);
-        maxHistory.setAccessibleText("Maximum clipboard history entries");
-        maxHistory.setAccessibleHelp("Allowed range: 100 to 50,000 clips.");
-        maxHistory.getEditor().setTextFormatter(
-                new javafx.scene.control.TextFormatter<>(change ->
-                        change.getControlNewText().matches("\\d*") ? change : null
-                )
+        maxHistory = intSpinner(
+                100,
+                50_000,
+                current.maxHistory(),
+                50,
+                "Maximum clipboard history entries",
+                "Allowed range: 100 to 50,000 clips."
         );
-
-        // SAFE CONVERTER FOR maxHistory
-        maxHistory.getValueFactory().setConverter(new javafx.util.StringConverter<>() {
-            @Override
-            public String toString(Integer value) {
-                return value == null ? "" : value.toString();
-            }
-
-            @Override
-            public Integer fromString(String text) {
-                try {
-                    maxHistory.getEditor().getStyleClass().remove("input-error");
-                    return Integer.parseInt(text.trim());
-                } catch (Exception e) {
-                    maxHistory.getEditor().getStyleClass().add("input-error");
-                    return maxHistory.getValue();
-                }
-            }
-        });
-
-        minClipLength = new Spinner<>(0, 10_000, current.minClipLength(), 1);
-        minClipLength.setEditable(true);
-        minClipLength.setAccessibleText("Minimum captured clip length");
-        minClipLength.setAccessibleHelp("Clipboard text shorter than this value is ignored.");
-        minClipLength.getEditor().setTextFormatter(
-                new javafx.scene.control.TextFormatter<>(change ->
-                        change.getControlNewText().matches("\\d*") ? change : null
-                )
+        minClipLength = intSpinner(
+                0,
+                10_000,
+                current.minClipLength(),
+                1,
+                "Minimum captured clip length",
+                "Clipboard text shorter than this value is ignored."
         );
-
-        // SAFE CONVERTER FOR minClipLength
-        minClipLength.getValueFactory().setConverter(new javafx.util.StringConverter<>() {
-            @Override
-            public String toString(Integer value) {
-                return value == null ? "" : value.toString();
-            }
-
-            @Override
-            public Integer fromString(String text) {
-                try {
-                    minClipLength.getEditor().getStyleClass().remove("input-error");
-                    return Integer.parseInt(text.trim());
-                } catch (Exception e) {
-                    minClipLength.getEditor().getStyleClass().add("input-error");
-                    return minClipLength.getValue();
-                }
-            }
-        });
-        maxClipChars = new Spinner<>(10_000, 5_000_000, current.maxClipChars(), 10_000);
-        maxClipChars.setEditable(true);
-        maxClipChars.setAccessibleText("Maximum characters captured per clip");
-        maxClipChars.setAccessibleHelp("Longer clipboard text is truncated at this limit.");
-        maxClipChars.getEditor().setTextFormatter(
-                new javafx.scene.control.TextFormatter<>(change ->
-                        change.getControlNewText().matches("\\d*") ? change : null
-                )
+        maxClipChars = intSpinner(
+                10_000,
+                5_000_000,
+                current.maxClipChars(),
+                10_000,
+                "Maximum characters captured per clip",
+                "Longer clipboard text is truncated at this limit."
         );
-
-        // SAFE CONVERTER FOR maxClipChars
-        maxClipChars.getValueFactory().setConverter(new javafx.util.StringConverter<>() {
-            @Override
-            public String toString(Integer value) {
-                return value == null ? "" : value.toString();
-            }
-
-            @Override
-            public Integer fromString(String text) {
-                try {
-                    maxClipChars.getEditor().getStyleClass().remove("input-error");
-                    return Integer.parseInt(text.trim());
-                } catch (Exception e) {
-                    maxClipChars.getEditor().getStyleClass().add("input-error");
-                    return maxClipChars.getValue();
-                }
-            }
-        });
-
-        uiClipLimit = new Spinner<>(50, 5_000, current.uiClipLimit(), 50);
-        uiClipLimit.setEditable(true);
-        uiClipLimit.setAccessibleText("Maximum clips shown in the popup");
-        uiClipLimit.setAccessibleHelp("Allowed range: 50 to 5,000 visible clips.");
-        uiClipLimit.getEditor().setTextFormatter(
-                new javafx.scene.control.TextFormatter<>(change ->
-                        change.getControlNewText().matches("\\d*") ? change : null
-                )
+        uiClipLimit = intSpinner(
+                50,
+                5_000,
+                current.uiClipLimit(),
+                50,
+                "Maximum clips shown in the popup",
+                "Allowed range: 50 to 5,000 visible clips."
         );
-
-        uiClipLimit.getValueFactory().setConverter(new javafx.util.StringConverter<>() {
-            @Override
-            public String toString(Integer value) {
-                return value == null ? "" : value.toString();
-            }
-
-            @Override
-            public Integer fromString(String text) {
-                try {
-                    uiClipLimit.getEditor().getStyleClass().remove("input-error");
-                    return Integer.parseInt(text.trim());
-                } catch (Exception e) {
-                    uiClipLimit.getEditor().getStyleClass().add("input-error");
-                    return uiClipLimit.getValue();
-                }
-            }
-        });
 
         watcherEnabled = new CheckBox("Enable clipboard capture");
-        watcherEnabled.setSelected(current.watcherEnabled());
-        watcherEnabled.setAccessibleHelp("Enable or disable background clipboard monitoring.");
+        watcherEnabled.setAccessibleHelp(
+                "Enable or disable background clipboard monitoring."
+        );
 
         startMinimized = new CheckBox("Start minimized (tray)");
-        startMinimized.setSelected(current.startMinimized());
-        startMinimized.setAccessibleHelp("Start XClip in the system tray without opening the popup.");
+        startMinimized.setAccessibleHelp(
+                "Start XClip in the system tray without opening the popup."
+        );
 
         startOnBoot = new CheckBox("Start on Windows boot");
-        startOnBoot.setSelected(current.startOnBoot());
-        startOnBoot.setAccessibleHelp("Launch XClip automatically after signing in to Windows.");
+        startOnBoot.setAccessibleHelp(
+                "Launch XClip automatically after signing in to Windows."
+        );
 
-        // Layout grid
-        GridPane grid = new GridPane();
-        grid.setHgap(10);
-        grid.setVgap(10);
+        duplicateRecentPosition = enumCombo(
+                DuplicateBehaviorPolicy.RecentDuplicatePosition.values(),
+                DuplicateSettingsModel::recentPositionLabel,
+                "Recent duplicate position",
+                "Choose whether copying an existing unpinned clip changes its position."
+        );
+        duplicatePinnedPosition = enumCombo(
+                DuplicateBehaviorPolicy.PinnedDuplicatePosition.values(),
+                DuplicateSettingsModel::pinnedPositionLabel,
+                "Pinned duplicate position",
+                "Choose whether copying a pinned clip changes manual pinned order."
+        );
+        duplicateWhitespaceMode = enumCombo(
+                DuplicateBehaviorPolicy.WhitespaceMode.values(),
+                DuplicateSettingsModel::whitespaceLabel,
+                "Duplicate whitespace matching",
+                "Normalize whitespace or compare whitespace exactly as copied."
+        );
+        duplicateCaseSensitivity = enumCombo(
+                DuplicateBehaviorPolicy.CaseSensitivity.values(),
+                DuplicateSettingsModel::caseSensitivityLabel,
+                "Duplicate case matching",
+                "Choose whether uppercase and lowercase characters are distinct."
+        );
 
-        Label maxHistoryLabel = new Label("Max history:");
-        maxHistoryLabel.setLabelFor(maxHistory);
-        Label minClipLengthLabel = new Label("Min clip length:");
-        minClipLengthLabel.setLabelFor(minClipLength);
-        Label maxClipCharsLabel = new Label("Max clip chars:");
-        maxClipCharsLabel.setLabelFor(maxClipChars);
-        Label uiClipLimitLabel = new Label("UI clip limit:");
-        uiClipLimitLabel.setLabelFor(uiClipLimit);
+        duplicateWindowPreset = new ComboBox<>();
+        duplicateWindowPreset.getItems().setAll(DuplicateSettingsModel.windowPresets());
+        duplicateWindowPreset.setConverter(labelConverter(WindowPreset::label));
+        duplicateWindowPreset.setAccessibleText("Duplicate time window");
+        duplicateWindowPreset.setAccessibleHelp(
+                "Only matching clips within this age are treated as one duplicate occurrence."
+        );
+        duplicateWindowPreset.getStyleClass().add("settings-control-wide");
 
-        int r = 0;
-        grid.add(maxHistoryLabel, 0, r);
-        grid.add(maxHistory, 1, r++);
+        duplicateCustomWindowMillis = new TextField();
+        duplicateCustomWindowMillis.setPromptText("Milliseconds");
+        duplicateCustomWindowMillis.setAccessibleText(
+                "Custom duplicate window in milliseconds"
+        );
+        duplicateCustomWindowMillis.setAccessibleHelp(
+                "Enter a non-negative duration. Zero means unlimited."
+        );
+        duplicateCustomWindowMillis.setTextFormatter(
+                new TextFormatter<>(change ->
+                        change.getControlNewText().matches("\\d*") ? change : null
+                )
+        );
+        duplicateCustomWindowMillis.getStyleClass().add("settings-control-wide");
 
-        grid.add(minClipLengthLabel, 0, r);
-        grid.add(minClipLength, 1, r++);
+        duplicateExactContentMode = new CheckBox("Require exact content");
+        duplicateExactContentMode.setAccessibleHelp(
+                "Compare every captured character exactly and ignore whitespace and case options."
+        );
 
-        grid.add(maxClipCharsLabel, 0, r);
-        grid.add(maxClipChars, 1, r++);
+        duplicateExactOverrideHint = new Label(
+                "Exact content is active. Whitespace and case controls are ignored."
+        );
+        duplicateExactOverrideHint.setWrapText(true);
+        duplicateExactOverrideHint.getStyleClass().add("settings-override-hint");
 
-        grid.add(uiClipLimitLabel, 0, r);
-        grid.add(uiClipLimit, 1, r++);
+        resetDuplicateDefaultsBtn = new Button("Reset duplicate defaults");
+        resetDuplicateDefaultsBtn.setAccessibleHelp(
+                "Restore the safe duplicate behavior that XClip used before preferences existed."
+        );
+        resetDuplicateDefaultsBtn.getStyleClass().add("btn-subtle");
 
-        grid.add(watcherEnabled, 1, r++);
-        grid.add(startMinimized, 1, r++);
-        grid.add(startOnBoot, 1, r++);
+        GridPane captureGrid = settingsGrid();
+        int captureRow = 0;
+        captureRow = addSettingRow(
+                captureGrid,
+                captureRow,
+                "Max history",
+                "Maximum number of unpinned clipboard entries retained locally.",
+                maxHistory
+        );
+        captureRow = addSettingRow(
+                captureGrid,
+                captureRow,
+                "Min clip length",
+                "Ignore clipboard text shorter than this number of characters.",
+                minClipLength
+        );
+        captureRow = addSettingRow(
+                captureGrid,
+                captureRow,
+                "Max clip chars",
+                "Longer clipboard text is truncated before storage.",
+                maxClipChars
+        );
+        captureRow = addSettingRow(
+                captureGrid,
+                captureRow,
+                "UI clip limit",
+                "Maximum number of prepared rows shown in the popup.",
+                uiClipLimit
+        );
+        captureGrid.add(watcherEnabled, 1, captureRow++);
+        captureGrid.add(startMinimized, 1, captureRow++);
+        captureGrid.add(startOnBoot, 1, captureRow);
 
-        ColumnConstraints c0 = new ColumnConstraints();
-        c0.setMinWidth(140);
-        ColumnConstraints c1 = new ColumnConstraints();
-        c1.setHgrow(Priority.ALWAYS);
-        grid.getColumnConstraints().addAll(c0, c1);
-        grid.getStyleClass().add("settings-section");
+        VBox captureSection = section(
+                "Capture & history",
+                "Clipboard limits, background capture, and startup behavior.",
+                captureGrid
+        );
 
-        Label hint = new Label("Changes apply immediately.");
-        hint.setStyle("-fx-opacity: 0.75;");
+        GridPane duplicateGrid = settingsGrid();
+        int duplicateRow = 0;
+        duplicateRow = addSettingRow(
+                duplicateGrid,
+                duplicateRow,
+                "Recent duplicates",
+                "Move an existing RECENT clip to the top or keep its current position.",
+                duplicateRecentPosition
+        );
+        duplicateRow = addSettingRow(
+                duplicateGrid,
+                duplicateRow,
+                "Pinned duplicates",
+                "Keep manual PINNED order or move the copied pinned clip to the top.",
+                duplicatePinnedPosition
+        );
+        duplicateRow = addSettingRow(
+                duplicateGrid,
+                duplicateRow,
+                "Whitespace",
+                "Normalize collapses whitespace runs; Preserve compares copied characters.",
+                duplicateWhitespaceMode
+        );
+        duplicateRow = addSettingRow(
+                duplicateGrid,
+                duplicateRow,
+                "Letter case",
+                "Case-sensitive treats Alpha and alpha as different content.",
+                duplicateCaseSensitivity
+        );
 
-        // Status label styling
+        VBox windowControl = new VBox(7, duplicateWindowPreset, duplicateCustomWindowMillis);
+        duplicateRow = addSettingRow(
+                duplicateGrid,
+                duplicateRow,
+                "Duplicate window",
+                "Unlimited checks all history. A finite window allows older matches to create a new row.",
+                windowControl
+        );
+
+        VBox exactControl = new VBox(
+                5,
+                duplicateExactContentMode,
+                duplicateExactOverrideHint
+        );
+        duplicateGrid.add(settingText(
+                "Exact content mode",
+                "Compares every character exactly and overrides Whitespace and Letter case."
+        ), 0, duplicateRow);
+        duplicateGrid.add(exactControl, 1, duplicateRow);
+
+        HBox duplicateActions = new HBox(resetDuplicateDefaultsBtn);
+        duplicateActions.setAlignment(Pos.CENTER_RIGHT);
+
+        VBox duplicateSection = section(
+                "Duplicate behavior",
+                "These rules apply immediately after Apply and are persisted in config.json.",
+                duplicateGrid,
+                duplicateActions
+        );
+        duplicateSection.getStyleClass().add("duplicate-settings-section");
+
         statusLabel.getStyleClass().add("status-text");
         statusLabel.setAccessibleText("Settings operation status");
         statusLabel.setManaged(false);
         statusLabel.setVisible(false);
 
-        // Data path + copy
-        TextField dataPath = new TextField(AppPaths.dataDir().toAbsolutePath().toString());
+        TextField dataPath = new TextField(
+                AppPaths.dataDir().toAbsolutePath().toString()
+        );
         dataPath.setEditable(false);
         dataPath.setFocusTraversable(true);
         dataPath.setAccessibleText("XClip data folder path");
-        dataPath.setAccessibleHelp("Read-only path. Use Ctrl+C to copy selected text.");
+        dataPath.setAccessibleHelp(
+                "Read-only path. Use Ctrl+C to copy selected text."
+        );
         dataPath.setPrefColumnCount(28);
         dataPath.getStyleClass().add("data-path");
 
         Button copyPathBtn = new Button("Copy path");
-        copyPathBtn.setFocusTraversable(true);
-        copyPathBtn.setAccessibleHelp("Copy the XClip data folder path to the clipboard.");
+        copyPathBtn.setAccessibleHelp(
+                "Copy the XClip data folder path to the clipboard."
+        );
         copyPathBtn.getStyleClass().add("btn-subtle");
-        copyPathBtn.setOnAction(e -> {
-            ClipboardContent cc = new ClipboardContent();
-            cc.putString(dataPath.getText());
-            Clipboard.getSystemClipboard().setContent(cc);
+        copyPathBtn.setOnAction(event -> {
+            ClipboardContent content = new ClipboardContent();
+            content.putString(dataPath.getText());
+            Clipboard.getSystemClipboard().setContent(content);
             showStatus("Path copied");
         });
 
@@ -288,46 +379,53 @@ public final class SettingsWindow {
         pathRow.setAlignment(Pos.CENTER_LEFT);
         HBox.setHgrow(dataPath, Priority.ALWAYS);
 
-        // Data ownership buttons
+        VBox dataSection = section(
+                "Local data",
+                "All history and preferences stay in this user-owned folder.",
+                pathRow
+        );
+
         openDataFolderBtn = new Button("Open data folder");
-        openDataFolderBtn.setAccessibleHelp("Open the XClip data folder in File Explorer.");
+        openDataFolderBtn.setAccessibleHelp(
+                "Open the XClip data folder in File Explorer."
+        );
         openDataFolderBtn.getStyleClass().add("btn-subtle");
-        openDataFolderBtn.setOnAction(e -> dataOwnershipService.openDataFolder());
+        openDataFolderBtn.setOnAction(
+                event -> dataOwnershipService.openDataFolder()
+        );
 
         clearAllDataBtn = new Button("Clear ALL data");
-        clearAllDataBtn.setAccessibleHelp("Permanently delete clipboard history and configuration.");
+        clearAllDataBtn.setAccessibleHelp(
+                "Permanently delete clipboard history and configuration."
+        );
         clearAllDataBtn.getStyleClass().add("button-danger");
-        clearAllDataBtn.setOnAction(e -> clearAllDataFlow());
+        clearAllDataBtn.setOnAction(event -> clearAllDataFlow());
 
-        HBox dataButtons = new HBox(10, openDataFolderBtn);
-        dataButtons.setAlignment(Pos.CENTER_LEFT);
-
-        // Danger zone section
         Label dangerTitle = new Label("Danger zone");
         dangerTitle.getStyleClass().add("danger-title");
 
-        Separator sep = new Separator();
-        sep.getStyleClass().add("separator-subtle");
-
-        Label dangerHint = new Label("Clearing data deletes clipboard history and config.json.");
-        dangerHint.setStyle("-fx-opacity: 0.75;");
+        Label dangerHint = new Label(
+                "Clearing data deletes clipboard history and config.json."
+        );
+        dangerHint.getStyleClass().add("settings-section-description");
 
         VBox dangerBox = new VBox(8, dangerTitle, dangerHint, clearAllDataBtn);
-        dangerBox.getStyleClass().add("danger-box");
+        dangerBox.getStyleClass().addAll("settings-section", "danger-box");
 
-        // Bottom buttons
         Button closeBtn = new Button("Close");
-        closeBtn.setAccessibleHelp("Close Settings and discard unapplied changes.");
+        closeBtn.setAccessibleHelp(
+                "Close Settings and discard unapplied changes."
+        );
         closeBtn.getStyleClass().add("btn-subtle");
+        closeBtn.setCancelButton(true);
 
         applyBtn.setDefaultButton(true);
         applyBtn.setAccessibleHelp("Save and apply the current settings.");
         applyBtn.getStyleClass().add("btn-apply");
-        applyBtn.setDisable(true); // disabled until something changes
-        closeBtn.setCancelButton(true);
+        applyBtn.setDisable(true);
 
-        applyBtn.setOnAction(e -> apply());
-        closeBtn.setOnAction(e -> {
+        applyBtn.setOnAction(event -> apply());
+        closeBtn.setOnAction(event -> {
             if (dirty) resetUiToCurrentSilently();
             stage.hide();
         });
@@ -335,60 +433,108 @@ public final class SettingsWindow {
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        // IMPORTANT: statusLabel is inside the bottom bar -> no layout jumps
-        HBox buttons = new HBox(10, statusLabel, spacer, dataButtons, applyBtn, closeBtn);
-        buttons.setAlignment(Pos.CENTER_RIGHT);
+        HBox bottomBar = new HBox(
+                10,
+                statusLabel,
+                spacer,
+                openDataFolderBtn,
+                applyBtn,
+                closeBtn
+        );
+        bottomBar.setAlignment(Pos.CENTER_RIGHT);
+        bottomBar.getStyleClass().add("settings-bottom-bar");
 
-        VBox root = new VBox(12, grid, hint, pathRow, sep, dangerBox, buttons);
-        root.setPadding(new Insets(12));
+        VBox content = new VBox(
+                12,
+                captureSection,
+                duplicateSection,
+                dataSection,
+                new Separator(),
+                dangerBox
+        );
+        content.setPadding(new Insets(14));
+        content.getStyleClass().add("settings-content");
+
+        ScrollPane scroll = new ScrollPane(content);
+        scroll.setFitToWidth(true);
+        scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        scroll.getStyleClass().add("settings-scroll");
+
+        BorderPane root = new BorderPane();
+        root.setCenter(scroll);
+        root.setBottom(bottomBar);
         root.getStyleClass().add("settings-root");
 
-        Scene scene = new Scene(root);
+        Scene scene = new Scene(root, DEFAULT_WIDTH, DEFAULT_HEIGHT);
         UiStyles.applySettings(scene);
-
         stage.setScene(scene);
-        stage.setOnHiding(e -> {
+
+        stage.setOnHiding(event -> {
             if (dirty) {
-                internalSync = true;
-
-                // откат к current
-                maxHistory.getValueFactory().setValue(current.maxHistory());
-                minClipLength.getValueFactory().setValue(current.minClipLength());
-                watcherEnabled.setSelected(current.watcherEnabled());
-                startMinimized.setSelected(current.startMinimized());
-                startOnBoot.setSelected(current.startOnBoot());
-                maxClipChars.getValueFactory().setValue(current.maxClipChars());
-                uiClipLimit.getValueFactory().setValue(current.uiClipLimit());
-
-                syncAutostartCheckbox();
-                forceSyncSpinnerEditors();
-
-                internalSync = false;
-                clearDirty();
+                resetUiToCurrentSilently();
             } else {
-                // даже если не dirty — на всякий случай убираем "ффф"
                 internalSync = true;
                 forceSyncSpinnerEditors();
                 internalSync = false;
             }
         });
 
-        stage.setOnCloseRequest(e -> {
+        stage.setOnCloseRequest(event -> {
             if (dirty) resetUiToCurrentSilently();
             stage.hide();
-            e.consume(); // чтобы всегда вести себя одинаково
+            event.consume();
         });
 
-        // Dirty listeners (ignore internal sync updates)
         wireDirtyForIntSpinner(maxHistory);
         wireDirtyForIntSpinner(minClipLength);
         wireDirtyForIntSpinner(maxClipChars);
         wireDirtyForIntSpinner(uiClipLimit);
-        watcherEnabled.selectedProperty().addListener((obs, o, n) -> { if (!internalSync) markDirty(); });
-        startMinimized.selectedProperty().addListener((obs, o, n) -> { if (!internalSync) markDirty(); });
-        startOnBoot.selectedProperty().addListener((obs, o, n) -> { if (!internalSync) markDirty(); });
 
-        // initial state
+        watcherEnabled.selectedProperty().addListener(
+                (observable, oldValue, newValue) -> markDirtyUnlessSyncing()
+        );
+        startMinimized.selectedProperty().addListener(
+                (observable, oldValue, newValue) -> markDirtyUnlessSyncing()
+        );
+        startOnBoot.selectedProperty().addListener(
+                (observable, oldValue, newValue) -> markDirtyUnlessSyncing()
+        );
+
+        duplicateRecentPosition.valueProperty().addListener(
+                (observable, oldValue, newValue) -> markDirtyUnlessSyncing()
+        );
+        duplicatePinnedPosition.valueProperty().addListener(
+                (observable, oldValue, newValue) -> markDirtyUnlessSyncing()
+        );
+        duplicateWhitespaceMode.valueProperty().addListener(
+                (observable, oldValue, newValue) -> markDirtyUnlessSyncing()
+        );
+        duplicateCaseSensitivity.valueProperty().addListener(
+                (observable, oldValue, newValue) -> markDirtyUnlessSyncing()
+        );
+        duplicateWindowPreset.valueProperty().addListener(
+                (observable, oldValue, newValue) -> {
+                    syncDuplicateWindowEditor();
+                    markDirtyUnlessSyncing();
+                }
+        );
+        duplicateCustomWindowMillis.textProperty().addListener(
+                (observable, oldValue, newValue) -> markDirtyUnlessSyncing()
+        );
+        duplicateExactContentMode.selectedProperty().addListener(
+                (observable, oldValue, newValue) -> {
+                    syncDuplicateMatchingAvailability();
+                    markDirtyUnlessSyncing();
+                }
+        );
+
+        resetDuplicateDefaultsBtn.setOnAction(
+                event -> resetDuplicateControlsToDefaults()
+        );
+
+        internalSync = true;
+        syncUiFromCurrent();
+        internalSync = false;
         clearDirty();
     }
 
@@ -410,24 +556,12 @@ public final class SettingsWindow {
     }
 
     /**
-     * Reload from disk (useful if config.json edited externally).
+     * Reloads config.json and discards every unsaved Settings edit.
      */
     public void reloadFromDisk() {
         internalSync = true;
-
         current = configService.loadOrCreate();
-        maxHistory.getValueFactory().setValue(current.maxHistory());
-        minClipLength.getValueFactory().setValue(current.minClipLength());
-        maxClipChars.getValueFactory().setValue(current.maxClipChars());
-        uiClipLimit.getValueFactory().setValue(current.uiClipLimit());
-        watcherEnabled.setSelected(current.watcherEnabled());
-        startMinimized.setSelected(current.startMinimized());
-        startOnBoot.setSelected(current.startOnBoot());
-        maxHistory.getEditor().getStyleClass().remove("input-error");
-        minClipLength.getEditor().getStyleClass().remove("input-error");
-        syncAutostartCheckbox();
-        forceSyncSpinnerEditors();
-
+        syncUiFromCurrent();
         internalSync = false;
         clearDirty();
     }
@@ -439,8 +573,16 @@ public final class SettingsWindow {
         }
         if (!validateIntSpinner(maxHistory, 100, 50_000, "Max history")) return;
         if (!validateIntSpinner(minClipLength, 0, 10_000, "Min clip length")) return;
-        if (!validateIntSpinner(maxClipChars, 10_000, 5_000_000, "Max clip chars")) return;
+        if (!validateIntSpinner(
+                maxClipChars,
+                10_000,
+                5_000_000,
+                "Max clip chars"
+        )) return;
         if (!validateIntSpinner(uiClipLimit, 50, 5_000, "UI clip limit")) return;
+
+        DuplicateBehaviorPolicy duplicatePolicy = duplicatePolicyFromUi();
+        if (duplicatePolicy == null) return;
 
         Config next = current
                 .withMaxHistory(maxHistory.getValue())
@@ -449,15 +591,14 @@ public final class SettingsWindow {
                 .withUiClipLimit(uiClipLimit.getValue())
                 .withWatcherEnabled(watcherEnabled.isSelected())
                 .withStartMinimized(startMinimized.isSelected())
-                .withStartOnBoot(startOnBoot.isSelected());
+                .withStartOnBoot(startOnBoot.isSelected())
+                .withDuplicateBehaviorPolicy(duplicatePolicy);
 
         boolean autoStartChanged = current.startOnBoot() != next.startOnBoot();
 
-        // Persist + system integrations (autostart is applied inside ConfigService.save)
         configService.save(next);
         current = next;
 
-        // Apply runtime behavior
         try {
             clipService.applyConfig(next);
         } catch (Throwable ignored) {
@@ -471,7 +612,6 @@ public final class SettingsWindow {
         } catch (Throwable ignored) {
         }
 
-        // Status message: autostart text only if the flag changed
         if (autoStartChanged) {
             showStatus(next.startOnBoot()
                     ? "Saved • Autostart enabled"
@@ -483,8 +623,96 @@ public final class SettingsWindow {
         clearDirty();
     }
 
+    private DuplicateBehaviorPolicy duplicatePolicyFromUi() {
+        duplicateCustomWindowMillis.getStyleClass().remove("input-error");
+
+        try {
+            return DuplicateSettingsModel.toPolicy(
+                    duplicateRecentPosition.getValue(),
+                    duplicatePinnedPosition.getValue(),
+                    duplicateWhitespaceMode.getValue(),
+                    duplicateCaseSensitivity.getValue(),
+                    duplicateWindowPreset.getValue(),
+                    duplicateCustomWindowMillis.getText(),
+                    duplicateExactContentMode.isSelected()
+            );
+        } catch (IllegalArgumentException error) {
+            duplicateCustomWindowMillis.getStyleClass().add("input-error");
+            duplicateCustomWindowMillis.requestFocus();
+            showStatus(error.getMessage() == null
+                    ? "Invalid duplicate window"
+                    : error.getMessage());
+            return null;
+        }
+    }
+
+    private void resetDuplicateControlsToDefaults() {
+        internalSync = true;
+        syncDuplicateControls(DuplicateBehaviorPolicy.defaults());
+        internalSync = false;
+        markDirty();
+        showStatus("Duplicate defaults restored • Apply to save");
+    }
+
+    private void syncUiFromCurrent() {
+        maxHistory.getValueFactory().setValue(current.maxHistory());
+        minClipLength.getValueFactory().setValue(current.minClipLength());
+        maxClipChars.getValueFactory().setValue(current.maxClipChars());
+        uiClipLimit.getValueFactory().setValue(current.uiClipLimit());
+        watcherEnabled.setSelected(current.watcherEnabled());
+        startMinimized.setSelected(current.startMinimized());
+        startOnBoot.setSelected(current.startOnBoot());
+        syncDuplicateControls(current.duplicateBehaviorPolicy());
+        syncAutostartCheckbox();
+        forceSyncSpinnerEditors();
+    }
+
+    private void syncDuplicateControls(DuplicateBehaviorPolicy policy) {
+        DuplicateBehaviorPolicy value = policy == null
+                ? DuplicateBehaviorPolicy.defaults()
+                : policy;
+
+        duplicateRecentPosition.setValue(value.recentDuplicatePosition());
+        duplicatePinnedPosition.setValue(value.pinnedDuplicatePosition());
+        duplicateWhitespaceMode.setValue(value.whitespaceMode());
+        duplicateCaseSensitivity.setValue(value.caseSensitivity());
+
+        WindowPreset preset = DuplicateSettingsModel.presetFor(
+                value.duplicateWindowMillis()
+        );
+        duplicateWindowPreset.setValue(preset);
+        duplicateCustomWindowMillis.setText(
+                DuplicateSettingsModel.customWindowText(
+                        value.duplicateWindowMillis()
+                )
+        );
+        duplicateCustomWindowMillis.getStyleClass().remove("input-error");
+
+        duplicateExactContentMode.setSelected(value.exactContentMode());
+        syncDuplicateWindowEditor();
+        syncDuplicateMatchingAvailability();
+    }
+
+    private void syncDuplicateWindowEditor() {
+        WindowPreset preset = duplicateWindowPreset.getValue();
+        boolean custom = preset != null && preset.custom();
+        duplicateCustomWindowMillis.setManaged(custom);
+        duplicateCustomWindowMillis.setVisible(custom);
+    }
+
+    private void syncDuplicateMatchingAvailability() {
+        boolean exact = duplicateExactContentMode.isSelected();
+        duplicateWhitespaceMode.setDisable(exact);
+        duplicateCaseSensitivity.setDisable(exact);
+        duplicateExactOverrideHint.setManaged(exact);
+        duplicateExactOverrideHint.setVisible(exact);
+    }
+
     private void clearAllDataFlow() {
-        boolean confirmed = UiDialogs.confirmClearAllData(stage, AppPaths.dataDir());
+        boolean confirmed = UiDialogs.confirmClearAllData(
+                stage,
+                AppPaths.dataDir()
+        );
         if (!confirmed) return;
 
         try {
@@ -522,6 +750,10 @@ public final class SettingsWindow {
         System.exit(0);
     }
 
+    private void markDirtyUnlessSyncing() {
+        if (!internalSync) markDirty();
+    }
+
     private void markDirty() {
         dirty = true;
         applyBtn.setDisable(false);
@@ -541,7 +773,7 @@ public final class SettingsWindow {
         statusLabel.setManaged(true);
 
         statusHide = new PauseTransition(Duration.seconds(2));
-        statusHide.setOnFinished(e -> {
+        statusHide.setOnFinished(event -> {
             statusLabel.setVisible(false);
             statusLabel.setManaged(false);
         });
@@ -550,99 +782,75 @@ public final class SettingsWindow {
 
     private void syncAutostartCheckbox() {
         try {
-            boolean enabled = WindowsAutoStartService.isEnabled();
-            startOnBoot.setSelected(enabled);
+            startOnBoot.setSelected(WindowsAutoStartService.isEnabled());
         } catch (Throwable ignored) {
-            // If we can't query, keep config state
+            // Keep config state when the Registry cannot be queried.
         }
     }
 
     private void resetUiToCurrentSilently() {
         internalSync = true;
-
-        maxHistory.getValueFactory().setValue(current.maxHistory());
-        minClipLength.getValueFactory().setValue(current.minClipLength());
-        maxClipChars.getValueFactory().setValue(current.maxClipChars());
-        uiClipLimit.getValueFactory().setValue(current.uiClipLimit());
-        watcherEnabled.setSelected(current.watcherEnabled());
-        startMinimized.setSelected(current.startMinimized());
-        startOnBoot.setSelected(current.startOnBoot());
-
-        // keep checkbox aligned with real registry state
-        syncAutostartCheckbox();
-
+        syncUiFromCurrent();
         internalSync = false;
         clearDirty();
     }
 
-    private void wireDirtyForIntSpinner(Spinner<Integer> sp) {
-        // 1) если крутим стрелочки — valueProperty меняется
-        sp.valueProperty().addListener((obs, o, n) -> {
-            if (!internalSync) markDirty();
-        });
+    private void wireDirtyForIntSpinner(Spinner<Integer> spinner) {
+        spinner.valueProperty().addListener(
+                (observable, oldValue, newValue) -> markDirtyUnlessSyncing()
+        );
 
-        // 2) если печатаем руками — слушаем текст редактора
-        TextField editor = sp.getEditor();
-        editor.textProperty().addListener((obs, o, n) -> {
-            if (!internalSync) markDirty();
+        TextField editor = spinner.getEditor();
+        editor.textProperty().addListener(
+                (observable, oldValue, newValue) -> markDirtyUnlessSyncing()
+        );
+        editor.focusedProperty().addListener((observable, wasFocused, focused) -> {
+            if (wasFocused && !focused) commitSpinnerEditor(spinner);
         });
-
-        // 3) на потере фокуса — коммитим текст в value (чтобы дальше всё было консистентно)
-        editor.focusedProperty().addListener((obs, was, now) -> {
-            if (was && !now) commitSpinnerEditor(sp);
-        });
-
-        // 4) Enter в editor — тоже коммит
-        editor.setOnAction(e -> commitSpinnerEditor(sp));
+        editor.setOnAction(event -> commitSpinnerEditor(spinner));
     }
 
-    private void commitSpinnerEditor(Spinner<Integer> sp) {
+    private void commitSpinnerEditor(Spinner<Integer> spinner) {
         try {
-            String text = sp.getEditor().getText();
-            if (text == null) return;
-
-            text = text.trim();
-            if (text.isEmpty()) return;
-
-            int val = Integer.parseInt(text);
-            sp.getValueFactory().setValue(val);
+            String text = spinner.getEditor().getText();
+            if (text == null || text.trim().isEmpty()) return;
+            spinner.getValueFactory().setValue(Integer.parseInt(text.trim()));
         } catch (Exception ignored) {
-            // if invalid input, do nothing (you can later show validation)
         }
     }
 
-    private boolean validateIntSpinner(Spinner<Integer> sp, int min, int max, String name) {
-        TextField editor = sp.getEditor();
+    private boolean validateIntSpinner(
+            Spinner<Integer> spinner,
+            int min,
+            int max,
+            String name
+    ) {
+        TextField editor = spinner.getEditor();
         editor.getStyleClass().remove("input-error");
 
-        String text = editor.getText();
-        if (text == null) text = "";
-        text = text.trim();
-
+        String text = Objects.requireNonNullElse(editor.getText(), "").trim();
         if (text.isEmpty()) {
             editor.getStyleClass().add("input-error");
             showStatus(name + ": required");
             return false;
         }
 
-        int val;
+        int value;
         try {
-            val = Integer.parseInt(text);
-        } catch (Exception ex) {
+            value = Integer.parseInt(text);
+        } catch (Exception error) {
             editor.getStyleClass().add("input-error");
             showStatus(name + ": invalid number");
             return false;
         }
 
-        if (val < min) {
-            val = min;
-            editor.setText(String.valueOf(val));
-            commitSpinnerEditor(sp);
+        if (value < min) {
+            editor.setText(Integer.toString(min));
+            commitSpinnerEditor(spinner);
             showStatus(name + ": clamped to " + min);
-        } else if (val > max) {
-            val = max;
-            editor.setText(String.valueOf(val));
-            commitSpinnerEditor(sp);
+        } else if (value > max) {
+            editor.setText(Integer.toString(max));
+            commitSpinnerEditor(spinner);
             showStatus(name + ": clamped to " + max);
         }
 
@@ -650,15 +858,142 @@ public final class SettingsWindow {
     }
 
     private void forceSyncSpinnerEditors() {
-        maxHistory.getEditor().setText(String.valueOf(maxHistory.getValue()));
-        minClipLength.getEditor().setText(String.valueOf(minClipLength.getValue()));
-        maxClipChars.getEditor().setText(String.valueOf(maxClipChars.getValue()));
-        uiClipLimit.getEditor().setText(String.valueOf(uiClipLimit.getValue()));
+        syncSpinnerEditor(maxHistory);
+        syncSpinnerEditor(minClipLength);
+        syncSpinnerEditor(maxClipChars);
+        syncSpinnerEditor(uiClipLimit);
+    }
 
-        maxHistory.getEditor().getStyleClass().remove("input-error");
-        minClipLength.getEditor().getStyleClass().remove("input-error");
-        maxClipChars.getEditor().getStyleClass().remove("input-error");
-        uiClipLimit.getEditor().getStyleClass().remove("input-error");
+    private void syncSpinnerEditor(Spinner<Integer> spinner) {
+        spinner.getEditor().setText(String.valueOf(spinner.getValue()));
+        spinner.getEditor().getStyleClass().remove("input-error");
+    }
+
+    private static Spinner<Integer> intSpinner(
+            int min,
+            int max,
+            int initial,
+            int step,
+            String accessibleText,
+            String accessibleHelp
+    ) {
+        Spinner<Integer> spinner = new Spinner<>(min, max, initial, step);
+        spinner.setEditable(true);
+        spinner.setAccessibleText(accessibleText);
+        spinner.setAccessibleHelp(accessibleHelp);
+        spinner.getStyleClass().add("settings-control-wide");
+        spinner.getEditor().setTextFormatter(
+                new TextFormatter<>(change ->
+                        change.getControlNewText().matches("\\d*") ? change : null
+                )
+        );
+        spinner.getValueFactory().setConverter(new StringConverter<>() {
+            @Override
+            public String toString(Integer value) {
+                return value == null ? "" : value.toString();
+            }
+
+            @Override
+            public Integer fromString(String text) {
+                try {
+                    spinner.getEditor().getStyleClass().remove("input-error");
+                    return Integer.parseInt(text.trim());
+                } catch (Exception error) {
+                    spinner.getEditor().getStyleClass().add("input-error");
+                    return spinner.getValue();
+                }
+            }
+        });
+        return spinner;
+    }
+
+    private static <T> ComboBox<T> enumCombo(
+            T[] values,
+            Function<T, String> labels,
+            String accessibleText,
+            String accessibleHelp
+    ) {
+        ComboBox<T> combo = new ComboBox<>();
+        combo.getItems().setAll(values);
+        combo.setConverter(labelConverter(labels));
+        combo.setAccessibleText(accessibleText);
+        combo.setAccessibleHelp(accessibleHelp);
+        combo.getStyleClass().add("settings-control-wide");
+        return combo;
+    }
+
+    private static <T> StringConverter<T> labelConverter(
+            Function<T, String> labels
+    ) {
+        return new StringConverter<>() {
+            @Override
+            public String toString(T value) {
+                return value == null ? "" : labels.apply(value);
+            }
+
+            @Override
+            public T fromString(String text) {
+                return null;
+            }
+        };
+    }
+
+    private static GridPane settingsGrid() {
+        GridPane grid = new GridPane();
+        grid.setHgap(18);
+        grid.setVgap(14);
+
+        ColumnConstraints textColumn = new ColumnConstraints();
+        textColumn.setMinWidth(250);
+        textColumn.setHgrow(Priority.ALWAYS);
+
+        ColumnConstraints controlColumn = new ColumnConstraints();
+        controlColumn.setMinWidth(250);
+
+        grid.getColumnConstraints().addAll(textColumn, controlColumn);
+        return grid;
+    }
+
+    private static int addSettingRow(
+            GridPane grid,
+            int row,
+            String title,
+            String description,
+            Node control
+    ) {
+        grid.add(settingText(title, description), 0, row);
+        grid.add(control, 1, row);
+        GridPane.setHgrow(control, Priority.ALWAYS);
+        return row + 1;
+    }
+
+    private static VBox settingText(String title, String description) {
+        Label titleLabel = new Label(title);
+        titleLabel.getStyleClass().add("settings-field-title");
+
+        Label descriptionLabel = new Label(description);
+        descriptionLabel.setWrapText(true);
+        descriptionLabel.getStyleClass().add("settings-field-description");
+
+        return new VBox(3, titleLabel, descriptionLabel);
+    }
+
+    private static VBox section(
+            String title,
+            String description,
+            Node... content
+    ) {
+        Label titleLabel = new Label(title);
+        titleLabel.getStyleClass().add("settings-section-title");
+
+        Label descriptionLabel = new Label(description);
+        descriptionLabel.setWrapText(true);
+        descriptionLabel.getStyleClass().add("settings-section-description");
+
+        VBox section = new VBox(12);
+        section.getChildren().addAll(titleLabel, descriptionLabel);
+        section.getChildren().addAll(content);
+        section.getStyleClass().add("settings-section");
+        return section;
     }
 }
-
