@@ -1,3 +1,4 @@
+
 # Changelog
 
 All notable changes to this project will be documented in this file.
@@ -7,6 +8,10 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+* Added a pure-Java duplicate behavior policy covering recent positioning, pinned positioning, whitespace normalization, case sensitivity, duplicate time windows, and exact-content matching.
+* Added a deterministic duplicate decision engine that returns persistence-neutral mutation intents without touching Config, SQLite, or JavaFX.
+* Added defaults that formally preserve current XClip behavior: RECENT duplicates move to the top, PINNED duplicates keep manual order, whitespace is normalized, matching is case-sensitive, and the duplicate window is unlimited.
+* Added domain contract tests for every duplicate-policy axis and boundary condition.
 * Added a responsive inline advanced-search assistance surface beneath the popup search field.
 * Added contextual operator completions for `type:`, `is:`, `tag:`, `-type:`, and `-tag:` with tag-name quoting.
 * Added bounded active-operator chips with deterministic `+N` overflow.
@@ -38,6 +43,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+* Milestone 4.1 introduces only the duplicate domain contract; runtime ingestion, config persistence, database realization, and Settings controls remain unchanged until Milestones 4.2 and 4.3.
 * Extended the frozen UI contract to revision 6 for Milestone 3.3 Search UI.
 * Search suggestions replace only the token at the caret and preserve the remainder of the query.
 * Valid operator syntax remains excluded from clip-content highlighting; only the pure-text remainder is highlighted.
