@@ -2,6 +2,7 @@
 
 import java.io.File
 import java.util.Locale
+import java.util.Properties
 import java.util.zip.ZipFile
 import org.gradle.jvm.tasks.Jar
 import org.gradle.internal.os.OperatingSystem
@@ -80,6 +81,7 @@ val requiredPackagedUiResources = listOf(
     "ui/controls.css",
     "ui/popup.css",
     "ui/dialogs.css",
+    "ui/ui-contract-v1.3.0.properties",
     "META-INF/THIRD-PARTY-NOTICES.txt",
     "META-INF/licenses/LUCIDE-ISC.txt"
 )
@@ -152,8 +154,82 @@ val verifyPackagedUiResources = tasks.register("verifyPackagedUiResources") {
     }
 }
 
+val verifyR11RegressionAssets = tasks.register("verifyR11RegressionAssets") {
+    group = "verification"
+    description = "Verifies the frozen R11 UI contract, regression matrix, screenshots, and evidence scripts."
+
+    doLast {
+        val requiredFiles = listOf(
+            rootProject.file("docs/UI_CONTRACT_v1.3.0.md"),
+            rootProject.file("docs/R11_REGRESSION_UI_FREEZE.md"),
+            rootProject.file("docs/R11_REGRESSION_MATRIX.csv"),
+            rootProject.file("docs/R11_SCREENSHOT_SET.csv"),
+            rootProject.file("scripts/start_r11_manual_validation.ps1"),
+            rootProject.file("scripts/run_r11_automated_gate.ps1"),
+            rootProject.file("scripts/validate_r11_evidence.ps1"),
+            file("src/main/resources/ui/ui-contract-v1.3.0.properties")
+        )
+
+        for (required in requiredFiles) {
+            if (!required.isFile || required.length() <= 0L) {
+                throw GradleException("Missing or empty R11 asset: ${required.absolutePath}")
+            }
+        }
+
+        val contractProperties = Properties().apply {
+            file("src/main/resources/ui/ui-contract-v1.3.0.properties")
+                .inputStream()
+                .use { stream -> load(stream) }
+        }
+        val contractVersion = contractProperties.getProperty("product.version")
+        if (contractVersion != project.version.toString()) {
+            throw GradleException(
+                "Frozen UI contract version $contractVersion does not match project version ${project.version}"
+            )
+        }
+
+        val matrix = rootProject.file("docs/R11_REGRESSION_MATRIX.csv")
+            .readLines(Charsets.UTF_8)
+            .filter { it.isNotBlank() }
+        if (matrix.size != 39) {
+            throw GradleException(
+                "R11 regression matrix must contain one header plus 38 cases, found ${matrix.size} lines"
+            )
+        }
+
+        val ids = matrix.drop(1).map { line ->
+            line.substringBefore(',').trim().removeSurrounding("\"")
+        }
+        val expectedIds = (1..38).map { index -> "R11-%03d".format(index) }
+        if (ids != expectedIds) {
+            throw GradleException("R11 regression IDs are missing, duplicated, or out of order: $ids")
+        }
+
+        val screenshots = rootProject.file("docs/R11_SCREENSHOT_SET.csv")
+            .readLines(Charsets.UTF_8)
+            .filter { it.isNotBlank() }
+        if (screenshots.size != 10) {
+            throw GradleException(
+                "R11 screenshot set must contain one header plus 9 screenshots, found ${screenshots.size} lines"
+            )
+        }
+
+        println("R11_REGRESSION_ASSETS_OK: cases=38 screenshots=9")
+    }
+}
+
+val r11AutomatedGate = tasks.register("r11AutomatedGate") {
+    group = "verification"
+    description = "Runs the frozen R11 automated UI and regression gate."
+    dependsOn(tasks.named("check"), verifyR11RegressionAssets)
+
+    doLast {
+        println("R11_AUTOMATED_GRADLE_GATE_OK")
+    }
+}
+
 tasks.named("check") {
-    dependsOn(verifyPackagedUiResources)
+    dependsOn(verifyPackagedUiResources, verifyR11RegressionAssets)
 }
 
 // -------------------------
@@ -422,4 +498,3 @@ tasks.register("packageMsi") {
         println("MSI_PACKAGE_OK: ${installers.maxBy { it.lastModified() }.absolutePath}")
     }
 }
-

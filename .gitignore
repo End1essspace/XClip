@@ -78,3 +78,6 @@ AppData/
 
 app/bin/
 **/bin/
+
+# Local R11 regression evidence
+artifacts/

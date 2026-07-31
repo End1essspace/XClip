@@ -3,6 +3,21 @@
 All notable changes to this project will be documented in this file.
 
 
+## [Unreleased] — Popup UI freeze and regression gate
+
+### Added
+
+* Added a versioned machine-readable UI contract for the v1.3.0 popup baseline.
+* Added a 38-case R11 regression matrix and a canonical screenshot evidence set.
+* Added PowerShell workflows for automated validation, manual evidence collection, and final evidence verification.
+* Added a Gradle `r11AutomatedGate` and packaged UI contract verification.
+
+### Internal
+
+* Frozen responsive breakpoints, preview/performance budgets, keyboard bindings, content types, status tones, dialog tones, icon count, and stylesheet cascade through automated tests.
+* Excluded local `artifacts/` regression evidence from version control.
+
+
 ## [1.3.0] — Dark UI & Tray Polish Update — 2026-06-05
 
 ### Added
@@ -144,4 +159,3 @@ All notable changes to this project will be documented in this file.
 - Clipboard polling backoff improvements
 - Connection reuse for SQLite
 - Preview rendering optimization
-

@@ -1,0 +1,39 @@
+Id,Area,Scenario,Expected,RequiredEvidence
+R11-001,Launch,Tray open,"Left-clicking the tray icon opens one XClip popup, restores it from minimized state, and brings it to front.",Manual
+R11-002,Launch,Global hotkey open,"Ctrl+Shift+V opens the existing instance and does not create a duplicate tray icon or process.",Manual
+R11-003,Direct Paste,Target capture,"Opening through the global hotkey captures the previously active external window as the paste target.",Manual
+R11-004,Direct Paste,Enter paste,"Enter writes the selected clip, hides XClip, restores the target, and sends Ctrl+V exactly once.",Manual
+R11-005,Direct Paste,Double-click paste,"Double-clicking a clip follows the same direct-paste path as Enter.",Manual
+R11-006,Clipboard,Copy-only,"Ctrl+C and the Copy-only action update the clipboard without sending Ctrl+V.",Manual
+R11-007,Search,Live search,"Typing in Search refreshes results after debounce without freezing the UI or showing stale results.",Manual
+R11-008,Search,Search highlight,"Visible matching text is highlighted without changing stored clipboard content.",Screenshot:01-popup-default.png
+R11-009,Filters,Scope filters,"All, Pinned, and Recent return only the expected entries and preserve deterministic ordering.",Manual
+R11-010,Filters,Type filters,"TEXT, CODE, URL, PATH, JSON, and COMMAND filters return only matching clips.",Manual
+R11-011,Filters,Reset filters,"Reset restores All scope, no type filter, and the current search contract without selection corruption.",Manual
+R11-012,States,Empty states,"No-history and no-results states are readable, centered, and keyboard-safe.",Screenshot:02-empty-state.png
+R11-013,Rows,Type badges,"Every visible clip has the correct restrained badge and recycled cells never mix badges or content.",Manual
+R11-014,Safe actions,URL action,"A valid HTTP(S) clip opens in the default browser; invalid or non-HTTP schemes are rejected.",Manual
+R11-015,Safe actions,PATH action,"An existing path is revealed in Explorer and executable or script paths are never launched.",Manual
+R11-016,Safe actions,Formatted JSON,"Valid object or array JSON is copied pretty-printed; invalid or scalar JSON is rejected.",Manual
+R11-017,Safe actions,Command copy-only,"COMMAND clips are copied only and are never executed by XClip.",Manual
+R11-018,Pinned,Pin and unpin,"Pin/unpin updates persistence, section placement, accent state, and selection without data loss.",Manual
+R11-019,Pinned,Pinned title,"F2 can set or clear a pinned title without modifying the original clipboard content.",Screenshot:03-pinned-title.png
+R11-020,Pinned,Manual pinned order,"Alt+Up/Down and menu ordering persist across reload and application restart.",Manual
+R11-021,Selection,Multi-selection,"Ctrl toggle and Shift range selection remain stable across scrolling and section headings.",Screenshot:04-multi-selection.png
+R11-022,Selection,Batch paste and copy,"Batch actions preserve visible order and use the documented separator without losing individual clips.",Manual
+R11-023,Destructive actions,Clear history,"Clear removes only visible non-pinned clips described by the confirmation and protects pinned or hidden clips.",Screenshot:05-destructive-dialog.png
+R11-024,Destructive actions,Delete,"Single delete is immediate; multi-delete requires confirmation; Cancel is the destructive default.",Manual
+R11-025,Capture,Pause and resume,"Pause state stays synchronized between popup and tray, and resume does not ingest the clipboard snapshot.",Manual
+R11-026,Settings,Settings workflow,"Settings opens modally, applies valid values, rejects invalid values, and preserves focus and watcher state.",Screenshot:06-settings.png
+R11-027,Help,Quick Help,"Quick Help lists the frozen shortcuts, is keyboard reachable, and remains inside the current monitor.",Screenshot:07-quick-help-edge.png
+R11-028,Menus,Menu auto-dismiss,"Row, Actions, split-button, and tray menus close on selection, Escape, or outside interaction without becoming stuck.",Manual
+R11-029,Preview,Bounded preview,"A 500000-character clip stays bounded to the frozen preview limits and does not expand the whole viewport.",Manual
+R11-030,Privacy,No content hover tooltip,"Hovering rows never exposes full clipboard content through an automatic tooltip.",Manual
+R11-031,Lifecycle,Auto-hide,"Expected focus loss hides the popup while modal, menu, and direct-paste transitions do not trigger premature hiding.",Manual
+R11-032,Lifecycle,Modal suppression,"Rename, confirmation, error, Settings, and Quick Help flows suppress auto-hide and restore focus after close.",Manual
+R11-033,Window,Maximized persistence,"Maximized state and the last restored bounds survive restart without persisting the full-screen rectangle as normal bounds.",Manual
+R11-034,Window,Multi-monitor restore,"Negative coordinates, monitor removal, DPI changes, and maximized drag restore keep the popup recoverable.",Screenshot:08-multi-monitor-restore.png
+R11-035,Database,Existing schema v5 database,"An existing schema-v5 database opens without destructive migration and all clips and metadata remain intact.",Manual
+R11-036,Database,Tag tables intact,"tags and clip_tags remain present, foreign keys cascade correctly, and the unfinished Tags UI does not alter their data.",Manual
+R11-037,Packaging,MSI and dev launch,"Gradle dev launch and the newly built MSI both start successfully with CSS, SVG, runtime, version, and single-instance behavior intact.",Screenshot:09-packaged-msi.png
+R11-038,Shutdown,Background lifecycle,"Close returns to background, Exit terminates tray/hotkey/executors cleanly, and the next launch starts normally.",Manual

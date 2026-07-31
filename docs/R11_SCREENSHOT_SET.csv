@@ -1,0 +1,10 @@
+Filename,Purpose
+01-popup-default.png,"Default populated popup showing search highlight, sections, badges, status, and frozen visual hierarchy."
+02-empty-state.png,"No-results or empty-history state at a supported window size."
+03-pinned-title.png,"Pinned clip with custom title and preserved content preview."
+04-multi-selection.png,"Visible multi-selection spanning multiple clips."
+05-destructive-dialog.png,"Styled Clear or batch Delete confirmation with Cancel as the default action."
+06-settings.png,"Settings window with focus ring and valid responsive layout."
+07-quick-help-edge.png,"Quick Help opened near a monitor edge without leaving visual bounds."
+08-multi-monitor-restore.png,"Popup restored and fully reachable on the secondary or changed monitor topology."
+09-packaged-msi.png,"Installed MSI build running with tray icon and popup visible."
