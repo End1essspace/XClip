@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -14,6 +15,7 @@ import io.xseries.xclip.system.WindowsAutoStartService;
 import java.io.Reader;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -40,7 +42,7 @@ public final class ConfigService {
     public Path path() {
         return path;
     }
-    
+
     public void applyRuntime(Config cfg) {
         if (cfg == null) return;
         applyAutoStart(cfg.normalized());
@@ -59,14 +61,18 @@ public final class ConfigService {
             return cfg;
         }
 
-        try (Reader r = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
-            Config cfg = gson.fromJson(r, Config.class);
+        try {
+            Config cfg;
+            try (Reader r = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
+                cfg = gson.fromJson(r, Config.class);
+            }
             if (cfg == null) throw new IllegalStateException("config parsed to null");
 
             Config migrated = migrateIfNeeded(cfg);
             Config normalized = migrated.normalized();
 
-            if (!equalsSemantically(migrated, normalized)) {
+            // The reader must be closed before replacing config.json on Windows.
+            if (!equalsSemantically(cfg, normalized)) {
                 safeWrite(normalized);
             }
 
@@ -102,7 +108,16 @@ public final class ConfigService {
                 gson.toJson(cfg, w);
             }
 
-            Files.move(tmp, path, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            try {
+                Files.move(
+                        tmp,
+                        path,
+                        StandardCopyOption.REPLACE_EXISTING,
+                        StandardCopyOption.ATOMIC_MOVE
+                );
+            } catch (AtomicMoveNotSupportedException unsupported) {
+                Files.move(tmp, path, StandardCopyOption.REPLACE_EXISTING);
+            }
         } catch (Exception ignored) {
         }
     }
@@ -156,13 +171,13 @@ public final class ConfigService {
     }
 
     private Config migrateIfNeeded(Config cfg) {
-        // v1: no real migrations yet; hook for future
         if (cfg.version() <= 0) return Config.defaults();
         if (cfg.version() > Config.CURRENT_VERSION) {
-            // Forward version: keep values but clamp
+            // Forward version: keep known values and preserve the newer marker.
             return cfg;
         }
-        return cfg;
+        // Config.normalized() upgrades legacy versions and fills duplicate defaults.
+        return cfg.normalized();
     }
 
     private boolean equalsSemantically(Config a, Config b) {
@@ -180,6 +195,24 @@ public final class ConfigService {
                 && a.windowY() == b.windowY()
                 && a.windowW() == b.windowW()
                 && a.windowH() == b.windowH()
-                && a.windowMaximized() == b.windowMaximized();
+                && a.windowMaximized() == b.windowMaximized()
+                && java.util.Objects.equals(
+                        a.duplicateRecentPositionValue(),
+                        b.duplicateRecentPositionValue()
+                )
+                && java.util.Objects.equals(
+                        a.duplicatePinnedPositionValue(),
+                        b.duplicatePinnedPositionValue()
+                )
+                && java.util.Objects.equals(
+                        a.duplicateWhitespaceModeValue(),
+                        b.duplicateWhitespaceModeValue()
+                )
+                && java.util.Objects.equals(
+                        a.duplicateCaseSensitivityValue(),
+                        b.duplicateCaseSensitivityValue()
+                )
+                && a.duplicateWindowMillisValue() == b.duplicateWindowMillisValue()
+                && a.duplicateExactContentModeValue() == b.duplicateExactContentModeValue();
     }
 }

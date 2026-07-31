@@ -1,4 +1,5 @@
 
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -7,6 +8,8 @@
 package io.xseries.xclip.data.dao;
 
 import io.xseries.xclip.data.model.ClipEntry;
+import io.xseries.xclip.domain.duplicate.DuplicateContentKeys;
+import io.xseries.xclip.domain.duplicate.DuplicatePolicyEngine;
 
 import java.sql.*;
 import java.util.ArrayList;
@@ -51,41 +54,198 @@ public final class ClipEntryDao {
     }
 
     /**
-     * Inserts a new clip or refreshes an existing clip with the same content hash.
+     * Backwards-compatible default-policy insert used by existing callers/tests.
      *
-     * Reused content keeps its original created_at value, but last_copied_at and
-     * use_count are updated so it moves to the top of RECENT without creating a duplicate.
-     * Pinned metadata, including title and pin_order, is intentionally preserved.
+     * v6 no longer relies on a UNIQUE hash constraint because finite duplicate
+     * windows can intentionally create multiple rows with equal content.
      */
     public void insert(String content, String contentNorm, String contentHash, long createdAt) {
+        DuplicateContentKeys calculated = DuplicateContentKeys.from(content);
+        DuplicateContentKeys keys = new DuplicateContentKeys(
+                calculated.exactHash(),
+                calculated.exactCaseInsensitiveHash(),
+                contentHash,
+                calculated.normalizedCaseInsensitiveHash()
+        );
+
+        List<DuplicateCandidate> candidates = findDuplicateCandidates(
+                DuplicateContentKeys.KeyKind.NORMALIZED,
+                contentHash,
+                0L
+        );
+        if (!candidates.isEmpty()) {
+            boolean updated = applyDuplicate(
+                    candidates.get(0).id(),
+                    content,
+                    contentNorm,
+                    keys,
+                    createdAt,
+                    DuplicatePolicyEngine.Decision.UPDATE_EXISTING_MOVE_RECENT_TO_TOP
+            );
+            if (updated) return;
+        }
+
+        insertNew(content, contentNorm, keys, createdAt);
+    }
+
+    public List<DuplicateCandidate> findDuplicateCandidates(
+            DuplicateContentKeys.KeyKind keyKind,
+            String hash,
+            long cutoffInclusive
+    ) {
+        if (keyKind == null) throw new IllegalArgumentException("keyKind is required");
+        if (hash == null || hash.isBlank()) throw new IllegalArgumentException("hash is required");
+        if (cutoffInclusive < 0) throw new IllegalArgumentException("cutoffInclusive cannot be negative");
+
+        String column = switch (keyKind) {
+            case EXACT -> "content_exact_hash";
+            case EXACT_CASE_INSENSITIVE -> "content_exact_ci_hash";
+            case NORMALIZED -> "content_hash";
+            case NORMALIZED_CASE_INSENSITIVE -> "content_norm_ci_hash";
+        };
+
         String sql = """
-            INSERT INTO clip_entries(
-                content,
-                content_norm,
-                content_hash,
-                created_at,
-                last_copied_at,
-                use_count
-            )
-            VALUES (?, ?, ?, ?, ?, 1)
-            ON CONFLICT(content_hash) DO UPDATE SET
-                content = excluded.content,
-                content_norm = excluded.content_norm,
-                last_copied_at = excluded.last_copied_at,
-                use_count = clip_entries.use_count + 1
-            """;
-        Connection c = conn();
-        try (PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setString(1, content);
-            ps.setString(2, contentNorm);
-            ps.setString(3, contentHash);
-            ps.setLong(4, createdAt);
-            ps.setLong(5, createdAt);
-            ps.executeUpdate();
+                SELECT id, content, is_favorite, last_copied_at
+                FROM clip_entries
+                WHERE %s = ?
+                  AND (? = 0 OR last_copied_at >= ?)
+                ORDER BY last_copied_at DESC, id DESC
+                """.formatted(column);
+
+        List<DuplicateCandidate> candidates = new ArrayList<>();
+        try (PreparedStatement ps = conn().prepareStatement(sql)) {
+            ps.setString(1, hash);
+            ps.setLong(2, cutoffInclusive);
+            ps.setLong(3, cutoffInclusive);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    candidates.add(new DuplicateCandidate(
+                            rs.getLong("id"),
+                            rs.getString("content"),
+                            rs.getInt("is_favorite") != 0,
+                            rs.getLong("last_copied_at")
+                    ));
+                }
+            }
+            return List.copyOf(candidates);
         } catch (Exception e) {
-            throw new RuntimeException("Insert/upsert failed", e);
+            throw new RuntimeException("findDuplicateCandidates failed", e);
         }
     }
+
+    public void insertNew(
+            String content,
+            String contentNorm,
+            DuplicateContentKeys keys,
+            long createdAt
+    ) {
+        String sql = """
+                INSERT INTO clip_entries(
+                    content,
+                    content_norm,
+                    content_hash,
+                    content_exact_hash,
+                    content_exact_ci_hash,
+                    content_norm_ci_hash,
+                    created_at,
+                    last_copied_at,
+                    use_count
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+                """;
+
+        try (PreparedStatement ps = conn().prepareStatement(sql)) {
+            ps.setString(1, content);
+            ps.setString(2, contentNorm);
+            ps.setString(3, keys.normalizedHash());
+            ps.setString(4, keys.exactHash());
+            ps.setString(5, keys.exactCaseInsensitiveHash());
+            ps.setString(6, keys.normalizedCaseInsensitiveHash());
+            ps.setLong(7, createdAt);
+            ps.setLong(8, createdAt);
+            ps.executeUpdate();
+        } catch (Exception e) {
+            throw new RuntimeException("insertNew failed", e);
+        }
+    }
+
+    public boolean applyDuplicate(
+            long id,
+            String content,
+            String contentNorm,
+            DuplicateContentKeys keys,
+            long copiedAt,
+            DuplicatePolicyEngine.Decision decision
+    ) {
+        if (id <= 0) throw new IllegalArgumentException("id must be positive");
+        if (decision == null || !decision.duplicate()) {
+            throw new IllegalArgumentException("duplicate decision is required");
+        }
+
+        Connection c = conn();
+        boolean previousAutoCommit;
+        try {
+            previousAutoCommit = c.getAutoCommit();
+            c.setAutoCommit(false);
+        } catch (SQLException e) {
+            throw new RuntimeException("duplicate transaction setup failed", e);
+        }
+
+        try {
+            int updated;
+            try (PreparedStatement ps = c.prepareStatement("""
+                    UPDATE clip_entries
+                    SET content = ?,
+                        content_norm = ?,
+                        content_hash = ?,
+                        content_exact_hash = ?,
+                        content_exact_ci_hash = ?,
+                        content_norm_ci_hash = ?,
+                        last_copied_at = CASE WHEN ? = 1 THEN ? ELSE last_copied_at END,
+                        use_count = use_count + 1
+                    WHERE id = ?
+                    """)) {
+                ps.setString(1, content);
+                ps.setString(2, contentNorm);
+                ps.setString(3, keys.normalizedHash());
+                ps.setString(4, keys.exactHash());
+                ps.setString(5, keys.exactCaseInsensitiveHash());
+                ps.setString(6, keys.normalizedCaseInsensitiveHash());
+                ps.setInt(7, decision.updateLastCopiedAt() ? 1 : 0);
+                ps.setLong(8, copiedAt);
+                ps.setLong(9, id);
+                updated = ps.executeUpdate();
+            }
+
+            if (updated == 0) {
+                c.rollback();
+                return false;
+            }
+
+            if (decision.movePinnedToTop() && isFavorite(c, id)) {
+                List<Long> pinnedIds = loadPinnedIds(c);
+                if (pinnedIds.remove(id)) {
+                    pinnedIds.add(0, id);
+                    persistPinnedOrder(c, pinnedIds);
+                }
+            }
+
+            c.commit();
+            return true;
+        } catch (Exception e) {
+            rollbackQuietly(c);
+            throw new RuntimeException("applyDuplicate failed", e);
+        } finally {
+            restoreAutoCommit(c, previousAutoCommit);
+        }
+    }
+
+    public record DuplicateCandidate(
+            long id,
+            String content,
+            boolean pinned,
+            long lastCopiedAt
+    ) {}
 
     public List<ClipEntry> listLatest(int limit) {
         return listLatest(limit, null);

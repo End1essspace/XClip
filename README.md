@@ -1,4 +1,5 @@
 
+
 [ENG]
 
 📋 **XClip**
@@ -13,8 +14,9 @@ Unlike simple clipboard utilities, XClip focuses on engineering quality: layered
 🔄 **Real-Time Clipboard Monitoring**
 - Adaptive polling strategy with idle backoff
 - Smart deduplication using SHA-256 hashing
-- Current behavior moves repeated RECENT clips to the top while preserving manual PINNED order
-- Duplicate-policy domain foundation covers position, whitespace, case, time-window, and exact-content rules; persistence and Settings controls follow in later milestones
+- Configurable duplicate runtime covers RECENT/PINNED positioning, whitespace, case, finite time windows, and exact-content matching
+- Duplicate preferences persist through backward-compatible config v2 migration; dedicated Settings controls follow in Milestone 4.3
+- Four indexed equality hashes allow policy changes without rewriting clipboard history
 - Protection against clipboard lock issues
 - Safe background execution
 
@@ -182,8 +184,9 @@ Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
 🔄 **Мониторинг буфера обмена в реальном времени**
 - Адаптивный polling с умным снижением нагрузки в простое
 - Дедупликация через SHA-256
-- Текущее поведение поднимает повторный RECENT clip наверх и сохраняет ручной порядок PINNED
-- Domain-фундамент duplicate policy охватывает позицию, пробелы, регистр, time window и exact-content; persistence и Settings появятся в следующих milestone
+- Настраиваемый duplicate runtime управляет позициями RECENT/PINNED, пробелами, регистром, time window и exact-content matching
+- Duplicate preferences сохраняются через обратно совместимую миграцию config v2; отдельные Settings controls появятся в Milestone 4.3
+- Четыре индексированных equality hash позволяют менять policy без перезаписи истории
 - Защита от проблем с блокировкой буфера обмена
 - Безопасная работа в фоне
 

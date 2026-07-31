@@ -1,9 +1,12 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
  * SPDX-License-Identifier: GPL-3.0-only
  */
 package io.xseries.xclip.data.db;
+
+import io.xseries.xclip.domain.duplicate.DuplicateContentKeys;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -61,6 +64,9 @@ class DatabaseMigrationTest {
                     "content",
                     "content_norm",
                     "content_hash",
+                    "content_exact_hash",
+                    "content_exact_ci_hash",
+                    "content_norm_ci_hash",
                     "title",
                     "is_favorite",
                     "pin_order",
@@ -73,13 +79,32 @@ class DatabaseMigrationTest {
                  ResultSet rs = st.executeQuery("""
                          SELECT created_at, last_copied_at, use_count, title
                          FROM clip_entries
-                         WHERE content_hash = 'hash-old'
+                         WHERE content = 'older pinned'
                          """)) {
                 assertTrue(rs.next());
                 assertEquals(1_000L, rs.getLong("created_at"));
                 assertEquals(1_000L, rs.getLong("last_copied_at"));
                 assertEquals(1, rs.getInt("use_count"));
                 assertNull(rs.getString("title"));
+            }
+
+            DuplicateContentKeys keys = DuplicateContentKeys.from("older pinned");
+            try (PreparedStatement ps = c.prepareStatement("""
+                    SELECT content_hash, content_exact_hash,
+                           content_exact_ci_hash, content_norm_ci_hash
+                    FROM clip_entries
+                    WHERE content = ?
+                    """)) {
+                ps.setString(1, "older pinned");
+                try (ResultSet rs = ps.executeQuery()) {
+                    assertTrue(rs.next());
+                    assertEquals(keys.normalizedHash(), rs.getString("content_hash"));
+                    assertEquals(keys.exactHash(), rs.getString("content_exact_hash"));
+                    assertEquals(keys.exactCaseInsensitiveHash(),
+                            rs.getString("content_exact_ci_hash"));
+                    assertEquals(keys.normalizedCaseInsensitiveHash(),
+                            rs.getString("content_norm_ci_hash"));
+                }
             }
 
             Map<String, Integer> pinOrders = readPinOrders(c);
@@ -95,10 +120,13 @@ class DatabaseMigrationTest {
             try (Statement st = c.createStatement();
                  ResultSet rs = st.executeQuery("PRAGMA user_version")) {
                 assertTrue(rs.next());
-                assertEquals(5, rs.getInt(1));
+                assertEquals(6, rs.getInt(1));
             }
 
-            assertTrue(hasIndex(c, "clip_entries", "idx_clip_hash_unique", true));
+            assertTrue(hasIndex(c, "clip_entries", "idx_clip_hash", false));
+            assertTrue(hasIndex(c, "clip_entries", "idx_clip_exact_hash", false));
+            assertTrue(hasIndex(c, "clip_entries", "idx_clip_exact_ci_hash", false));
+            assertTrue(hasIndex(c, "clip_entries", "idx_clip_norm_ci_hash", false));
             assertTrue(hasIndex(c, "clip_entries", "idx_clip_pinned_order", false));
             assertTrue(hasIndex(c, "tags", "idx_tags_name", false));
             assertTrue(hasIndex(c, "clip_tags", "idx_clip_tags_tag_id", false));
@@ -109,6 +137,48 @@ class DatabaseMigrationTest {
             assertTrue(hasCascadeForeignKey(
                     c, "clip_tags", "tag_id", "tags", "id"
             ));
+        }
+    }
+
+
+    @Test
+    void v6RestartPreservesIntentionalEqualRows() throws Exception {
+        Path dbPath = tempDir.resolve("v6-duplicates.db");
+        Database first = new Database(dbPath);
+        first.init();
+
+        String jdbcUrl = first.jdbcUrl();
+        DuplicateContentKeys keys = DuplicateContentKeys.from("same value");
+        try (Connection c = DriverManager.getConnection(jdbcUrl);
+             PreparedStatement ps = c.prepareStatement("""
+                     INSERT INTO clip_entries(
+                         content, content_norm, content_hash,
+                         content_exact_hash, content_exact_ci_hash, content_norm_ci_hash,
+                         created_at, last_copied_at, use_count
+                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+                     """)) {
+            for (long timestamp : new long[]{1_000L, 3_000L}) {
+                ps.setString(1, "same value");
+                ps.setString(2, "same value");
+                ps.setString(3, keys.normalizedHash());
+                ps.setString(4, keys.exactHash());
+                ps.setString(5, keys.exactCaseInsensitiveHash());
+                ps.setString(6, keys.normalizedCaseInsensitiveHash());
+                ps.setLong(7, timestamp);
+                ps.setLong(8, timestamp);
+                ps.addBatch();
+            }
+            ps.executeBatch();
+        }
+
+        first.close();
+        new Database(dbPath).init();
+
+        try (Connection c = DriverManager.getConnection(jdbcUrl);
+             Statement st = c.createStatement();
+             ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM clip_entries")) {
+            assertTrue(rs.next());
+            assertEquals(2, rs.getInt(1));
         }
     }
 

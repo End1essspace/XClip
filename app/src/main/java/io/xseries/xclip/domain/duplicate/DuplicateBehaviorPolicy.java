@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -122,7 +123,7 @@ public record DuplicateBehaviorPolicy(
         };
     }
 
-    static String normalizeWhitespace(String value) {
+    public static String normalizeWhitespace(String value) {
         if (value.isEmpty()) return "";
 
         StringBuilder out = new StringBuilder(value.length());

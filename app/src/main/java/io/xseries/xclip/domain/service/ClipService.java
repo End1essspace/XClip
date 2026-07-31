@@ -7,9 +7,11 @@ package io.xseries.xclip.domain.service;
 
 import io.xseries.xclip.config.Config;
 import io.xseries.xclip.data.dao.ClipEntryDao;
+import io.xseries.xclip.domain.duplicate.DuplicateBehaviorPolicy;
+import io.xseries.xclip.domain.duplicate.DuplicateContentKeys;
+import io.xseries.xclip.domain.duplicate.DuplicatePolicyEngine;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -17,28 +19,17 @@ public final class ClipService {
 
     private final ClipEntryDao dao;
 
-    // Config-driven, can change at runtime (Settings -> Apply)
     private volatile int retentionLimit;
     private volatile int minClipLength = 0;
     private volatile int maxClipChars = Config.DEFAULT_MAX_CLIP_CHARS;
+    private volatile DuplicateBehaviorPolicy duplicatePolicy = DuplicateBehaviorPolicy.defaults();
 
-
-    // Fast in-memory duplicate filter for back-to-back clipboard reads
-    private final AtomicReference<String> lastNorm = new AtomicReference<>("");
-
-    // Self-copy suppression (when popup copies an item)
+    // Self-copy suppression (when popup copies an item).
     private static final long SELF_COPY_WINDOW_MS = 1500;
-    private final AtomicReference<String> lastPushedNorm = new AtomicReference<>("");
+    private final AtomicReference<String> lastPushedDuplicateHash = new AtomicReference<>("");
     private final AtomicLong lastPushedAtMs = new AtomicLong(0);
 
     private final AtomicLong insertCounter = new AtomicLong(0);
-    private static final ThreadLocal<MessageDigest> SHA256 = ThreadLocal.withInitial(() -> {
-        try {
-            return MessageDigest.getInstance("SHA-256");
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    });
 
     public ClipService(ClipEntryDao dao) {
         this(dao, 800, 0);
@@ -55,120 +46,145 @@ public final class ClipService {
     }
 
     /**
-     * Apply runtime configuration (used by Settings window).
-     * Must be safe to call any time, from any thread.
+     * Applies capture and duplicate behavior atomically from one normalized config snapshot.
      */
     public void applyConfig(Config cfg) {
         if (cfg == null) return;
+
+        DuplicateBehaviorPolicy nextPolicy = cfg.duplicateBehaviorPolicy();
+        boolean policyChanged = !nextPolicy.equals(this.duplicatePolicy);
+
         this.retentionLimit = clampRetention(cfg.maxHistory());
         this.minClipLength = clampMinLen(cfg.minClipLength());
-        this.maxClipChars  = clampMaxClipChars(cfg.maxClipChars());
+        this.maxClipChars = clampMaxClipChars(cfg.maxClipChars());
+        this.duplicatePolicy = nextPolicy;
+
+        if (policyChanged) {
+            lastPushedDuplicateHash.set("");
+            lastPushedAtMs.set(0);
+        }
+    }
+
+    public DuplicateBehaviorPolicy duplicatePolicy() {
+        return duplicatePolicy;
     }
 
     public void ingestText(String text) {
-        if (text == null) return;
+        ingestTextAt(text, System.currentTimeMillis());
+    }
 
-        String trimmed = text.trim();
-        if (trimmed.isEmpty()) return;
+    void ingestTextAt(String text, long now) {
+        if (text == null || now < 0) return;
 
-        int minLen = this.minClipLength;
-        if (minLen > 0 && trimmed.length() < minLen) return;
+        DuplicateBehaviorPolicy policy = duplicatePolicy;
+        String captured = prepareCapturedContent(text, policy);
+        if (captured == null) return;
 
-        // hard cap to avoid memory spikes (truncate, not drop)
-        int cap = this.maxClipChars;
-        if (cap > 0 && trimmed.length() > cap) {
-            trimmed = trimmed.substring(0, cap);
+        String contentNorm = normalize(captured);
+        if (contentNorm.isEmpty()) return;
+
+        DuplicateContentKeys keys = DuplicateContentKeys.from(captured);
+        String selectedHash = keys.selectedHash(policy);
+
+        if (isSelfCopy(selectedHash, now)) return;
+
+        long cutoff = duplicateCutoff(policy, now);
+        List<ClipEntryDao.DuplicateCandidate> candidates = dao.findDuplicateCandidates(
+                keys.selectedKind(policy),
+                selectedHash,
+                cutoff
+        );
+
+        for (ClipEntryDao.DuplicateCandidate candidate : candidates) {
+            DuplicatePolicyEngine.Decision decision = DuplicatePolicyEngine.evaluate(
+                    policy,
+                    new DuplicatePolicyEngine.ExistingClip(
+                            candidate.content(),
+                            candidate.pinned(),
+                            candidate.lastCopiedAt()
+                    ),
+                    captured,
+                    now
+            );
+
+            if (!decision.duplicate()) continue;
+
+            if (dao.applyDuplicate(
+                    candidate.id(),
+                    captured,
+                    contentNorm,
+                    keys,
+                    now,
+                    decision
+            )) {
+                maintainRetention();
+                return;
+            }
         }
 
-        // whitespace normalization
-        String norm = normalize(trimmed);
-        if (norm.isEmpty()) return;
+        dao.insertNew(captured, contentNorm, keys, now);
+        maintainRetention();
+    }
 
-        // ignore self-copy (from XClip UI)
-        if (isSelfCopy(norm)) return;
+    /**
+     * Called immediately before XClip writes text to the system clipboard.
+     */
+    public void markPushedByApp(String textThatWillBeSetToClipboard) {
+        if (textThatWillBeSetToClipboard == null) return;
 
-        // in-memory duplicate filtering (fast path)
-        String prev = lastNorm.get();
-        if (norm.equals(prev)) return;
-        lastNorm.set(norm);
+        DuplicateBehaviorPolicy policy = duplicatePolicy;
+        String captured = prepareCapturedContent(textThatWillBeSetToClipboard, policy);
+        if (captured == null) return;
 
-        String hash = sha256Hex(norm);
-        long now = System.currentTimeMillis();
+        String hash = DuplicateContentKeys.from(captured).selectedHash(policy);
+        lastPushedDuplicateHash.set(hash);
+        lastPushedAtMs.set(System.currentTimeMillis());
+    }
 
-        // DB-level duplicate protection is inside dao.insert(...) (by content_hash)
-        dao.insert(trimmed, norm, hash, now);
+    private String prepareCapturedContent(
+            String source,
+            DuplicateBehaviorPolicy policy
+    ) {
+        if (source.isBlank()) return null;
 
-        // retention maintenance
+        String meaningful = source.trim();
+        int minLen = this.minClipLength;
+        if (minLen > 0 && meaningful.length() < minLen) return null;
+
+        boolean preserveCharacters = policy.exactContentMode()
+                || policy.whitespaceMode() == DuplicateBehaviorPolicy.WhitespaceMode.PRESERVE;
+        String captured = preserveCharacters ? source : meaningful;
+
+        int cap = this.maxClipChars;
+        if (cap > 0 && captured.length() > cap) {
+            captured = captured.substring(0, cap);
+        }
+        return captured.isBlank() ? null : captured;
+    }
+
+    private boolean isSelfCopy(String hash, long now) {
+        String pushed = lastPushedDuplicateHash.get();
+        if (pushed == null || pushed.isEmpty() || !pushed.equals(hash)) return false;
+
+        long dt = now - lastPushedAtMs.get();
+        return dt >= 0 && dt <= SELF_COPY_WINDOW_MS;
+    }
+
+    private long duplicateCutoff(DuplicateBehaviorPolicy policy, long now) {
+        long window = policy.duplicateWindowMillis();
+        if (window == DuplicateBehaviorPolicy.UNLIMITED_WINDOW) return 0L;
+        return window >= now ? 0L : now - window;
+    }
+
+    private void maintainRetention() {
         int limit = this.retentionLimit;
         if (insertCounter.incrementAndGet() % 10 == 0) {
             dao.pruneToLimit(limit);
         }
     }
 
-    /**
-     * Called from PopupWindow just before setting clipboard text.
-     * This ensures watcher will ignore that upcoming clipboard event.
-     */
-    public void markPushedByApp(String textThatWillBeSetToClipboard) {
-        if (textThatWillBeSetToClipboard == null) return;
-
-        String trimmed = textThatWillBeSetToClipboard.trim();
-        if (trimmed.isEmpty()) return;
-
-        String norm = normalize(trimmed);
-        if (norm.isEmpty()) return;
-
-        lastPushedNorm.set(norm);
-        lastPushedAtMs.set(System.currentTimeMillis());
-
-        // Also set lastNorm to prevent immediate duplicate insert if timing slips
-        lastNorm.set(norm);
-    }
-
-    private boolean isSelfCopy(String norm) {
-        String pushed = lastPushedNorm.get();
-        if (pushed == null || pushed.isEmpty()) return false;
-        if (!pushed.equals(norm)) return false;
-
-        long dt = System.currentTimeMillis() - lastPushedAtMs.get();
-        return dt >= 0 && dt <= SELF_COPY_WINDOW_MS;
-    }
-
-    /**
-     * Normalize whitespace:
-     * - trim edges
-     * - collapse any whitespace run (space/tab/newline) into a single space
-     * This avoids regex cost.
-     */
     private String normalize(String s) {
-        int n = s.length();
-        StringBuilder sb = new StringBuilder(n);
-
-        boolean inWs = false;
-        for (int i = 0; i < n; i++) {
-            char ch = s.charAt(i);
-            if (Character.isWhitespace(ch)) {
-                inWs = true;
-                continue;
-            }
-            if (inWs && sb.length() > 0) sb.append(' ');
-            sb.append(ch);
-            inWs = false;
-        }
-        return sb.toString().trim();
-    }
-
-    private String sha256Hex(String s) {
-        try {
-            MessageDigest md = SHA256.get();
-            md.reset();
-            byte[] bytes = md.digest(s.getBytes(StandardCharsets.UTF_8));
-            StringBuilder sb = new StringBuilder(bytes.length * 2);
-            for (byte b : bytes) sb.append(String.format("%02x", b));
-            return sb.toString();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        return DuplicateBehaviorPolicy.normalizeWhitespace(s);
     }
 
     private static int clampRetention(int v) {
@@ -182,6 +198,7 @@ public final class ClipService {
         if (v > 10_000) return 10_000;
         return v;
     }
+
     private static int clampMaxClipChars(int v) {
         if (v < 10_000) return 10_000;
         if (v > 5_000_000) return 5_000_000;

@@ -1,9 +1,12 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
  * SPDX-License-Identifier: GPL-3.0-only
  */
 package io.xseries.xclip.data.db;
+
+import io.xseries.xclip.domain.duplicate.DuplicateContentKeys;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -15,14 +18,16 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 public final class Database {
 
-    private static final int CURRENT_SCHEMA_VERSION = 5;
+    private static final int CURRENT_SCHEMA_VERSION = 6;
 
     private final Path dbPath;
     private final String jdbcUrl;
@@ -116,6 +121,9 @@ public final class Database {
             ensureColumn(c, "use_count", "INTEGER NOT NULL DEFAULT 1");
             ensureColumn(c, "title", "TEXT");
             ensureColumn(c, "pin_order", "INTEGER");
+            ensureColumn(c, "content_exact_hash", "TEXT");
+            ensureColumn(c, "content_exact_ci_hash", "TEXT");
+            ensureColumn(c, "content_norm_ci_hash", "TEXT");
 
             try (Statement st = c.createStatement()) {
                 // Existing v1 rows did not have last_copied_at.
@@ -125,25 +133,27 @@ public final class Database {
                         WHERE last_copied_at IS NULL OR last_copied_at <= 0
                         """);
 
-                // The old schema used a non-unique hash index. Keep the best row
-                // before enforcing uniqueness: pinned first, then most recently used.
-                st.executeUpdate("""
-                        DELETE FROM clip_entries
-                        WHERE id NOT IN (
-                            SELECT keeper.id
-                            FROM clip_entries AS keeper
-                            WHERE keeper.id = (
-                                SELECT candidate.id
-                                FROM clip_entries AS candidate
-                                WHERE candidate.content_hash = keeper.content_hash
-                                ORDER BY candidate.is_favorite DESC,
-                                         candidate.last_copied_at DESC,
-                                         candidate.created_at DESC,
-                                         candidate.id DESC
-                                LIMIT 1
+                if (existingVersion < 6) {
+                    // Versions through v5 enforced one row per normalized hash.
+                    // Keep the best legacy row before removing that uniqueness rule.
+                    st.executeUpdate("""
+                            DELETE FROM clip_entries
+                            WHERE id NOT IN (
+                                SELECT keeper.id
+                                FROM clip_entries AS keeper
+                                WHERE keeper.id = (
+                                    SELECT candidate.id
+                                    FROM clip_entries AS candidate
+                                    WHERE candidate.content_hash = keeper.content_hash
+                                    ORDER BY candidate.is_favorite DESC,
+                                             candidate.last_copied_at DESC,
+                                             candidate.created_at DESC,
+                                             candidate.id DESC
+                                    LIMIT 1
+                                )
                             )
-                        )
-                        """);
+                            """);
+                }
 
                 if (existingVersion < 4) {
                     // Preserve the exact pinned order users saw before manual ordering existed:
@@ -171,12 +181,32 @@ public final class Database {
                             """);
                 }
 
+                // Remove v5 uniqueness before recalculating hashes. Finite
+                // duplicate windows intentionally permit equal keys in v6.
+                st.execute("DROP INDEX IF EXISTS idx_clip_hash_unique;");
+
+                if (existingVersion < 6 || hasMissingDuplicateHashes(c)) {
+                    backfillDuplicateHashes(c);
+                }
+
                 st.execute("DROP INDEX IF EXISTS idx_clip_hash;");
                 st.execute("DROP INDEX IF EXISTS idx_clip_fav_created;");
                 st.execute("DROP INDEX IF EXISTS idx_clip_fav_last_copied;");
                 st.execute("""
-                        CREATE UNIQUE INDEX IF NOT EXISTS idx_clip_hash_unique
-                        ON clip_entries(content_hash)
+                        CREATE INDEX IF NOT EXISTS idx_clip_hash
+                        ON clip_entries(content_hash, last_copied_at DESC, id DESC)
+                        """);
+                st.execute("""
+                        CREATE INDEX IF NOT EXISTS idx_clip_exact_hash
+                        ON clip_entries(content_exact_hash, last_copied_at DESC, id DESC)
+                        """);
+                st.execute("""
+                        CREATE INDEX IF NOT EXISTS idx_clip_exact_ci_hash
+                        ON clip_entries(content_exact_ci_hash, last_copied_at DESC, id DESC)
+                        """);
+                st.execute("""
+                        CREATE INDEX IF NOT EXISTS idx_clip_norm_ci_hash
+                        ON clip_entries(content_norm_ci_hash, last_copied_at DESC, id DESC)
                         """);
                 st.execute("""
                         CREATE INDEX IF NOT EXISTS idx_clip_pinned_order
@@ -228,6 +258,72 @@ public final class Database {
             c.setAutoCommit(previousAutoCommit);
         }
     }
+
+    private boolean hasMissingDuplicateHashes(Connection c) throws SQLException {
+        try (Statement st = c.createStatement();
+             ResultSet rs = st.executeQuery("""
+                     SELECT 1
+                     FROM clip_entries
+                     WHERE content_exact_hash IS NULL
+                        OR content_exact_ci_hash IS NULL
+                        OR content_norm_ci_hash IS NULL
+                     LIMIT 1
+                     """)) {
+            return rs.next();
+        }
+    }
+
+    private void backfillDuplicateHashes(Connection c) throws SQLException {
+        long lastId = 0L;
+        final int batchSize = 16;
+
+        while (true) {
+            List<ExistingContent> rows = new ArrayList<>(batchSize);
+            try (java.sql.PreparedStatement select = c.prepareStatement("""
+                    SELECT id, content
+                    FROM clip_entries
+                    WHERE id > ?
+                    ORDER BY id ASC
+                    LIMIT ?
+                    """)) {
+                select.setLong(1, lastId);
+                select.setInt(2, batchSize);
+                try (ResultSet rs = select.executeQuery()) {
+                    while (rs.next()) {
+                        rows.add(new ExistingContent(
+                                rs.getLong("id"),
+                                rs.getString("content")
+                        ));
+                    }
+                }
+            }
+
+            if (rows.isEmpty()) return;
+
+            try (java.sql.PreparedStatement update = c.prepareStatement("""
+                    UPDATE clip_entries
+                    SET content_hash = ?,
+                        content_exact_hash = ?,
+                        content_exact_ci_hash = ?,
+                        content_norm_ci_hash = ?
+                    WHERE id = ?
+                    """)) {
+                for (ExistingContent row : rows) {
+                    DuplicateContentKeys keys = DuplicateContentKeys.from(row.content());
+                    update.setString(1, keys.normalizedHash());
+                    update.setString(2, keys.exactHash());
+                    update.setString(3, keys.exactCaseInsensitiveHash());
+                    update.setString(4, keys.normalizedCaseInsensitiveHash());
+                    update.setLong(5, row.id());
+                    update.addBatch();
+                    lastId = row.id();
+                }
+                update.executeBatch();
+            }
+        }
+    }
+
+    private record ExistingContent(long id, String content) {}
 
     private void ensureColumn(Connection c, String columnName, String definition) throws SQLException {
         if (tableColumns(c, "clip_entries").contains(columnName)) return;

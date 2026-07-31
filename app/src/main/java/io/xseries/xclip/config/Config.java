@@ -1,37 +1,33 @@
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
  * SPDX-License-Identifier: GPL-3.0-only
  */
-
-//Config.java
 package io.xseries.xclip.config;
 
+import io.xseries.xclip.domain.duplicate.DuplicateBehaviorPolicy;
+
+import java.util.Locale;
+import java.util.Objects;
+
 /**
- * Immutable XClip configuration.
- *
- * Stored in JSON (config.json) under {@link AppPaths#dataDir()}.
+ * Immutable XClip configuration stored in config.json.
  */
 public final class Config {
 
-    public static final int CURRENT_VERSION = 1;
+    public static final int CURRENT_VERSION = 2;
 
     private final int version;
-
     private final int maxHistory;
     private final int minClipLength;
 
-    // Max chars to capture from clipboard text (hard safety guard)
     public static final int DEFAULT_MAX_CLIP_CHARS = 500_000;
     private final int maxClipChars;
 
-    // Max clips shown in popup UI
     public static final int DEFAULT_UI_CLIP_LIMIT = 200;
     private final int uiClipLimit;
 
     private final boolean startOnBoot;
-
     private final boolean startMinimized;
     private final boolean watcherEnabled;
 
@@ -40,12 +36,19 @@ public final class Config {
     public static final int DEFAULT_WINDOW_W = 520;
     public static final int DEFAULT_WINDOW_H = 420;
 
-    // Window state (persistent)
     private final boolean windowMaximized;
     private final double windowX;
     private final double windowY;
     private final double windowW;
     private final double windowH;
+
+    // Stored as stable enum names so malformed/unknown values can fall back safely.
+    private final String duplicateRecentPosition;
+    private final String duplicatePinnedPosition;
+    private final String duplicateWhitespaceMode;
+    private final String duplicateCaseSensitivity;
+    private final long duplicateWindowMillis;
+    private final boolean duplicateExactContentMode;
 
     public Config(
             int version,
@@ -72,17 +75,6 @@ public final class Config {
         );
     }
 
-    public static Config defaults() {
-        return new Config(
-                CURRENT_VERSION,
-                800,
-                0,
-                false,
-                false,
-                true
-        );
-    }
-
     public Config(
             int version,
             int maxHistory,
@@ -98,6 +90,50 @@ public final class Config {
             double windowH,
             boolean windowMaximized
     ) {
+        this(
+                version,
+                maxHistory,
+                minClipLength,
+                maxClipChars,
+                uiClipLimit,
+                startOnBoot,
+                startMinimized,
+                watcherEnabled,
+                windowX,
+                windowY,
+                windowW,
+                windowH,
+                windowMaximized,
+                null,
+                null,
+                null,
+                null,
+                DuplicateBehaviorPolicy.UNLIMITED_WINDOW,
+                false
+        );
+    }
+
+    private Config(
+            int version,
+            int maxHistory,
+            int minClipLength,
+            int maxClipChars,
+            int uiClipLimit,
+            boolean startOnBoot,
+            boolean startMinimized,
+            boolean watcherEnabled,
+            double windowX,
+            double windowY,
+            double windowW,
+            double windowH,
+            boolean windowMaximized,
+            String duplicateRecentPosition,
+            String duplicatePinnedPosition,
+            String duplicateWhitespaceMode,
+            String duplicateCaseSensitivity,
+            long duplicateWindowMillis,
+            boolean duplicateExactContentMode
+    ) {
         this.version = version;
         this.maxHistory = maxHistory;
         this.minClipLength = minClipLength;
@@ -111,18 +147,30 @@ public final class Config {
         this.windowW = windowW;
         this.windowH = windowH;
         this.windowMaximized = windowMaximized;
+        this.duplicateRecentPosition = duplicateRecentPosition;
+        this.duplicatePinnedPosition = duplicatePinnedPosition;
+        this.duplicateWhitespaceMode = duplicateWhitespaceMode;
+        this.duplicateCaseSensitivity = duplicateCaseSensitivity;
+        this.duplicateWindowMillis = duplicateWindowMillis;
+        this.duplicateExactContentMode = duplicateExactContentMode;
+    }
+
+    public static Config defaults() {
+        return new Config(
+                CURRENT_VERSION,
+                800,
+                0,
+                false,
+                false,
+                true
+        ).normalized();
     }
 
     public Config normalized() {
-        int v = version <= 0 ? CURRENT_VERSION : version;
+        int v = version <= CURRENT_VERSION ? CURRENT_VERSION : version;
 
-        int mh = maxHistory;
-        if (mh < 100) mh = 100;
-        if (mh > 50_000) mh = 50_000;
-
-        int ml = minClipLength;
-        if (ml < 0) ml = 0;
-        if (ml > 10_000) ml = 10_000;
+        int mh = Math.max(100, Math.min(50_000, maxHistory));
+        int ml = Math.max(0, Math.min(10_000, minClipLength));
 
         int mcc = maxClipChars;
         if (mcc < 10_000) mcc = 10_000;
@@ -130,8 +178,7 @@ public final class Config {
 
         int ucl = uiClipLimit;
         if (ucl <= 0) ucl = DEFAULT_UI_CLIP_LIMIT;
-        if (ucl < 50) ucl = 50;
-        if (ucl > 5_000) ucl = 5_000;
+        ucl = Math.max(50, Math.min(5_000, ucl));
 
         double x = windowX;
         double y = windowY;
@@ -139,7 +186,6 @@ public final class Config {
         double h = windowH;
         boolean max = windowMaximized;
 
-        // if fields are absent in json, Gson gives 0.0 -> treat as "not set"
         if (w == 0.0 && h == 0.0) {
             x = -1;
             y = -1;
@@ -148,8 +194,6 @@ public final class Config {
             max = false;
         }
 
-        // Basic validity. Screen-dependent upper bounds are applied by the
-        // window geometry layer because monitor topology and DPI can change.
         if (!Double.isFinite(w) || w <= 0) w = DEFAULT_WINDOW_W;
         if (!Double.isFinite(h) || h <= 0) h = DEFAULT_WINDOW_H;
         w = Math.max(MIN_WINDOW_W, w);
@@ -157,7 +201,29 @@ public final class Config {
         if (!Double.isFinite(x)) x = -1;
         if (!Double.isFinite(y)) y = -1;
 
-        return new Config(v, mh, ml, mcc, ucl, startOnBoot, startMinimized, watcherEnabled, x, y, w, h, max);
+        DuplicateBehaviorPolicy duplicatePolicy = duplicateBehaviorPolicy();
+
+        return new Config(
+                v,
+                mh,
+                ml,
+                mcc,
+                ucl,
+                startOnBoot,
+                startMinimized,
+                watcherEnabled,
+                x,
+                y,
+                w,
+                h,
+                max,
+                duplicatePolicy.recentDuplicatePosition().name(),
+                duplicatePolicy.pinnedDuplicatePosition().name(),
+                duplicatePolicy.whitespaceMode().name(),
+                duplicatePolicy.caseSensitivity().name(),
+                duplicatePolicy.duplicateWindowMillis(),
+                duplicatePolicy.exactContentMode()
+        );
     }
 
     public int version() { return version; }
@@ -168,67 +234,169 @@ public final class Config {
     public boolean startOnBoot() { return startOnBoot; }
     public boolean startMinimized() { return startMinimized; }
     public boolean watcherEnabled() { return watcherEnabled; }
-
     public double windowX() { return windowX; }
     public double windowY() { return windowY; }
     public double windowW() { return windowW; }
     public double windowH() { return windowH; }
     public boolean windowMaximized() { return windowMaximized; }
 
-    /**
-     * Negative coordinates are valid on Windows when a monitor is positioned
-     * to the left of or above the primary display. Only the legacy (-1, -1)
-     * pair means that no position has been persisted yet.
-     */
+    public DuplicateBehaviorPolicy duplicateBehaviorPolicy() {
+        DuplicateBehaviorPolicy defaults = DuplicateBehaviorPolicy.defaults();
+        long window = duplicateWindowMillis < 0
+                ? DuplicateBehaviorPolicy.UNLIMITED_WINDOW
+                : duplicateWindowMillis;
+
+        return new DuplicateBehaviorPolicy(
+                parseEnum(
+                        duplicateRecentPosition,
+                        DuplicateBehaviorPolicy.RecentDuplicatePosition.class,
+                        defaults.recentDuplicatePosition()
+                ),
+                parseEnum(
+                        duplicatePinnedPosition,
+                        DuplicateBehaviorPolicy.PinnedDuplicatePosition.class,
+                        defaults.pinnedDuplicatePosition()
+                ),
+                parseEnum(
+                        duplicateWhitespaceMode,
+                        DuplicateBehaviorPolicy.WhitespaceMode.class,
+                        defaults.whitespaceMode()
+                ),
+                parseEnum(
+                        duplicateCaseSensitivity,
+                        DuplicateBehaviorPolicy.CaseSensitivity.class,
+                        defaults.caseSensitivity()
+                ),
+                window,
+                duplicateExactContentMode
+        );
+    }
+
+    String duplicateRecentPositionValue() { return duplicateRecentPosition; }
+    String duplicatePinnedPositionValue() { return duplicatePinnedPosition; }
+    String duplicateWhitespaceModeValue() { return duplicateWhitespaceMode; }
+    String duplicateCaseSensitivityValue() { return duplicateCaseSensitivity; }
+    long duplicateWindowMillisValue() { return duplicateWindowMillis; }
+    boolean duplicateExactContentModeValue() { return duplicateExactContentMode; }
+
     public boolean hasWindowPos() {
         return Double.isFinite(windowX)
                 && Double.isFinite(windowY)
                 && !(windowX == -1.0 && windowY == -1.0);
     }
 
-    // Withers (for UI)
     public Config withMaxHistory(int value) {
-        return new Config(version, value, minClipLength, maxClipChars, uiClipLimit, startOnBoot, startMinimized, watcherEnabled, windowX, windowY, windowW, windowH, windowMaximized)
-                .normalized();
+        return copy(value, minClipLength, maxClipChars, uiClipLimit, startOnBoot,
+                startMinimized, watcherEnabled, windowX, windowY, windowW, windowH,
+                windowMaximized, duplicateBehaviorPolicy()).normalized();
     }
 
     public Config withMinClipLength(int value) {
-        return new Config(version, maxHistory, value, maxClipChars, uiClipLimit, startOnBoot, startMinimized, watcherEnabled, windowX, windowY, windowW, windowH, windowMaximized)
-                .normalized();
+        return copy(maxHistory, value, maxClipChars, uiClipLimit, startOnBoot,
+                startMinimized, watcherEnabled, windowX, windowY, windowW, windowH,
+                windowMaximized, duplicateBehaviorPolicy()).normalized();
     }
 
     public Config withMaxClipChars(int value) {
-        return new Config(version, maxHistory, minClipLength, value, uiClipLimit, startOnBoot, startMinimized, watcherEnabled, windowX, windowY, windowW, windowH, windowMaximized)
-                .normalized();
+        return copy(maxHistory, minClipLength, value, uiClipLimit, startOnBoot,
+                startMinimized, watcherEnabled, windowX, windowY, windowW, windowH,
+                windowMaximized, duplicateBehaviorPolicy()).normalized();
     }
 
     public Config withUiClipLimit(int value) {
-        return new Config(version, maxHistory, minClipLength, maxClipChars, value, startOnBoot, startMinimized, watcherEnabled, windowX, windowY, windowW, windowH, windowMaximized)
-                .normalized();
+        return copy(maxHistory, minClipLength, maxClipChars, value, startOnBoot,
+                startMinimized, watcherEnabled, windowX, windowY, windowW, windowH,
+                windowMaximized, duplicateBehaviorPolicy()).normalized();
     }
 
     public Config withStartOnBoot(boolean value) {
-        return new Config(version, maxHistory, minClipLength, maxClipChars, uiClipLimit, value, startMinimized, watcherEnabled, windowX, windowY, windowW, windowH, windowMaximized)
-                .normalized();
+        return copy(maxHistory, minClipLength, maxClipChars, uiClipLimit, value,
+                startMinimized, watcherEnabled, windowX, windowY, windowW, windowH,
+                windowMaximized, duplicateBehaviorPolicy()).normalized();
     }
 
     public Config withStartMinimized(boolean value) {
-        return new Config(version, maxHistory, minClipLength, maxClipChars, uiClipLimit, startOnBoot, value, watcherEnabled, windowX, windowY, windowW, windowH, windowMaximized)
-                .normalized();
+        return copy(maxHistory, minClipLength, maxClipChars, uiClipLimit, startOnBoot,
+                value, watcherEnabled, windowX, windowY, windowW, windowH,
+                windowMaximized, duplicateBehaviorPolicy()).normalized();
     }
 
     public Config withWatcherEnabled(boolean value) {
-        return new Config(version, maxHistory, minClipLength, maxClipChars, uiClipLimit, startOnBoot, startMinimized, value, windowX, windowY, windowW, windowH, windowMaximized)
-                .normalized();
+        return copy(maxHistory, minClipLength, maxClipChars, uiClipLimit, startOnBoot,
+                startMinimized, value, windowX, windowY, windowW, windowH,
+                windowMaximized, duplicateBehaviorPolicy()).normalized();
     }
 
     public Config withWindowState(double x, double y, double w, double h, boolean maximized) {
-        return new Config(version, maxHistory, minClipLength, maxClipChars, uiClipLimit, startOnBoot, startMinimized, watcherEnabled, x, y, w, h, maximized)
-                .normalized();
+        return copy(maxHistory, minClipLength, maxClipChars, uiClipLimit, startOnBoot,
+                startMinimized, watcherEnabled, x, y, w, h, maximized,
+                duplicateBehaviorPolicy()).normalized();
     }
 
-    // Backwards-compatible overload (kept for existing call sites)
     public Config withWindowState(double x, double y, double w, double h) {
         return withWindowState(x, y, w, h, windowMaximized);
+    }
+
+    public Config withDuplicateBehaviorPolicy(DuplicateBehaviorPolicy policy) {
+        DuplicateBehaviorPolicy normalizedPolicy = Objects.requireNonNull(policy, "policy");
+        return copy(maxHistory, minClipLength, maxClipChars, uiClipLimit, startOnBoot,
+                startMinimized, watcherEnabled, windowX, windowY, windowW, windowH,
+                windowMaximized, normalizedPolicy).normalized();
+    }
+
+    private Config copy(
+            int maxHistory,
+            int minClipLength,
+            int maxClipChars,
+            int uiClipLimit,
+            boolean startOnBoot,
+            boolean startMinimized,
+            boolean watcherEnabled,
+            double windowX,
+            double windowY,
+            double windowW,
+            double windowH,
+            boolean windowMaximized,
+            DuplicateBehaviorPolicy duplicatePolicy
+    ) {
+        return new Config(
+                version,
+                maxHistory,
+                minClipLength,
+                maxClipChars,
+                uiClipLimit,
+                startOnBoot,
+                startMinimized,
+                watcherEnabled,
+                windowX,
+                windowY,
+                windowW,
+                windowH,
+                windowMaximized,
+                duplicatePolicy.recentDuplicatePosition().name(),
+                duplicatePolicy.pinnedDuplicatePosition().name(),
+                duplicatePolicy.whitespaceMode().name(),
+                duplicatePolicy.caseSensitivity().name(),
+                duplicatePolicy.duplicateWindowMillis(),
+                duplicatePolicy.exactContentMode()
+        );
+    }
+
+    private static <E extends Enum<E>> E parseEnum(
+            String value,
+            Class<E> type,
+            E fallback
+    ) {
+        if (value == null || value.isBlank()) return fallback;
+
+        try {
+            String normalized = value.trim()
+                    .replace('-', '_')
+                    .replace(' ', '_')
+                    .toUpperCase(Locale.ROOT);
+            return Enum.valueOf(type, normalized);
+        } catch (IllegalArgumentException ignored) {
+            return fallback;
+        }
     }
 }

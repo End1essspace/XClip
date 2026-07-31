@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -34,8 +35,8 @@ public final class ClipboardWatcher implements AutoCloseable {
     private volatile boolean closed  = false;
     private volatile boolean started = false;
 
-    /** Normalized snapshot of last seen clipboard value */
-    private volatile String lastSeenNorm = null;
+    /** Exact snapshot of the last seen clipboard value after the safety cap. */
+    private volatile String lastSeenText = null;
 
     /** Pause transition tracking */
     private volatile boolean wasPaused = false;
@@ -125,42 +126,27 @@ public final class ClipboardWatcher implements AutoCloseable {
                 return;
             }
 
-            String trimmed = raw.trim();
-            if (trimmed.isEmpty()) {
+            String captured = applySafetyCap(raw);
+            if (captured == null || captured.isBlank()) {
                 consecutiveFailures = 0;
                 consecutiveNoChange++;
                 scheduleNext(idleDelayMs());
                 return;
             }
 
-            int cap = maxTextLen.getAsInt();
-            if (cap > 0 && trimmed.length() > cap) {
-                trimmed = trimmed.substring(0, cap);
-            }
-
-            String norm = normalize(trimmed);
-            if (norm.isEmpty()) {
+            // Compare exact clipboard text. Duplicate policy normalization belongs
+            // to ClipService, so case/whitespace-only changes must reach it.
+            if (captured.equals(lastSeenText)) {
                 consecutiveFailures = 0;
                 consecutiveNoChange++;
                 scheduleNext(idleDelayMs());
                 return;
             }
 
-            // -------- WATCHER BARRIER --------
-            if (norm.equals(lastSeenNorm)) {
-                consecutiveFailures = 0;
-                consecutiveNoChange++;
-                scheduleNext(idleDelayMs());
-                return;
-            }
-
-            // update immediately to prevent races
-            lastSeenNorm = norm;
-
-            // reset idle backoff on real change
+            lastSeenText = captured;
             consecutiveNoChange = 0;
 
-            onText.accept(trimmed);
+            onText.accept(captured);
 
             consecutiveFailures = 0;
             scheduleNext(MIN_POLL_MS);
@@ -178,14 +164,10 @@ public final class ClipboardWatcher implements AutoCloseable {
             String raw = access.getTextSafely();
             if (raw == null) return;
 
-            String trimmed = raw.trim();
-            if (trimmed.isEmpty()) return;
-            int cap2 = maxTextLen.getAsInt();
-            if (cap2 > 0 && trimmed.length() > cap2) {
-                trimmed = trimmed.substring(0, cap2);
-            }
+            String captured = applySafetyCap(raw);
+            if (captured == null || captured.isBlank()) return;
 
-            lastSeenNorm = normalize(trimmed);
+            lastSeenText = captured;
         } catch (Exception ignored) {
         }
     }
@@ -205,25 +187,14 @@ public final class ClipboardWatcher implements AutoCloseable {
         return MAX_POLL_MS;
     }
 
-    /**
-     * Same normalization logic as ClipService
-     */
-    private String normalize(String s) {
-        int n = s.length();
-        StringBuilder sb = new StringBuilder(n);
-        boolean inWs = false;
+    private String applySafetyCap(String value) {
+        if (value == null) return null;
 
-        for (int i = 0; i < n; i++) {
-            char ch = s.charAt(i);
-            if (Character.isWhitespace(ch)) {
-                inWs = true;
-                continue;
-            }
-            if (inWs && sb.length() > 0) sb.append(' ');
-            sb.append(ch);
-            inWs = false;
+        int cap = maxTextLen.getAsInt();
+        if (cap > 0 && value.length() > cap) {
+            return value.substring(0, cap);
         }
-        return sb.toString().trim();
+        return value;
     }
 
     @Override
