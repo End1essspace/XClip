@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -20,11 +21,15 @@ import java.util.Optional;
 /**
  * Central controller for both native and custom JavaFX window chrome.
  *
- * R2.2 activates an undecorated popup shell. The controller owns window-state
- * transitions, restored bounds, title-bar dragging, and manual edge resizing
+ * R2.3 hardens the undecorated popup shell for persisted geometry,
+ * multi-monitor topologies, maximized drag restore, and manual edge resizing
  * while keeping the geometry rules independently testable.
  */
 public final class WindowChromeController {
+
+    private static final double MIN_VISIBLE_WIDTH = 96.0;
+    private static final double MIN_VISIBLE_HEIGHT = 48.0;
+    private static final double MAX_RESTORE_DRAG_TOP_OFFSET = 40.0;
 
     /**
      * Logical JavaFX screen bounds. Negative x/y values are valid on multi-monitor setups.
@@ -66,6 +71,10 @@ public final class WindowChromeController {
         boolean isMaximized();
         void setMaximized(boolean maximized);
         WindowBounds visualBounds();
+
+        default WindowBounds visualBoundsAt(double pointerX, double pointerY) {
+            return visualBounds();
+        }
     }
 
     private final WindowHost host;
@@ -74,8 +83,11 @@ public final class WindowChromeController {
     private WindowBounds normalBounds;
 
     private boolean dragging;
+    private boolean maximizedDragPending;
     private double dragOffsetX;
     private double dragOffsetY;
+    private double dragRestoreRatioX;
+    private double dragRestoreOffsetY;
 
     private boolean resizing;
     private ResizeEdge resizeEdge = ResizeEdge.NONE;
@@ -223,27 +235,52 @@ public final class WindowChromeController {
     }
 
     /**
-     * Starts title-bar dragging only in restored mode. Dragging a maximized
-     * window into restored mode is intentionally reserved for R2.3.
+     * Arms title-bar dragging. In maximized mode the window stays maximized
+     * until the pointer actually moves, which preserves normal double-click
+     * maximize/restore behavior.
      */
     public boolean beginDrag(double pointerScreenX, double pointerScreenY) {
-        if (!host.isShowing() || host.isIconified() || host.isMaximized() || resizing) {
-            dragging = false;
+        if (!host.isShowing() || host.isIconified() || resizing) {
+            cancelDrag();
             return false;
         }
         if (!Double.isFinite(pointerScreenX) || !Double.isFinite(pointerScreenY)) {
-            dragging = false;
+            cancelDrag();
             return false;
+        }
+
+        if (host.isMaximized()) {
+            WindowBounds visual = host.visualBounds();
+            WindowBounds restored = restoredBoundsForDrag();
+            if (visual == null || !visual.isValid() || restored == null || !restored.isValid()) {
+                cancelDrag();
+                return false;
+            }
+
+            dragRestoreRatioX = clamp(
+                    (pointerScreenX - visual.x()) / visual.width(),
+                    0.0,
+                    1.0
+            );
+            dragRestoreOffsetY = clamp(
+                    pointerScreenY - visual.y(),
+                    0.0,
+                    Math.min(MAX_RESTORE_DRAG_TOP_OFFSET, restored.height())
+            );
+            maximizedDragPending = true;
+            dragging = true;
+            return true;
         }
 
         WindowBounds current = host.bounds();
         if (current == null || !current.isValid()) {
-            dragging = false;
+            cancelDrag();
             return false;
         }
 
         dragOffsetX = pointerScreenX - current.x();
         dragOffsetY = pointerScreenY - current.y();
+        maximizedDragPending = false;
         dragging = true;
         return true;
     }
@@ -252,6 +289,39 @@ public final class WindowChromeController {
         if (!dragging) return false;
         if (!Double.isFinite(pointerScreenX) || !Double.isFinite(pointerScreenY)) {
             return false;
+        }
+
+        if (maximizedDragPending) {
+            WindowBounds restored = restoredBoundsForDrag();
+            if (restored == null || !restored.isValid()) {
+                cancelDrag();
+                return false;
+            }
+
+            WindowBounds targetVisual =
+                    host.visualBoundsAt(pointerScreenX, pointerScreenY);
+            double restoredWidth = restored.width();
+            double restoredHeight = restored.height();
+            if (targetVisual != null && targetVisual.isValid()) {
+                restoredWidth = Math.min(restoredWidth, targetVisual.width());
+                restoredHeight = Math.min(restoredHeight, targetVisual.height());
+            }
+
+            dragOffsetX = restoredWidth * dragRestoreRatioX;
+            dragOffsetY = Math.min(dragRestoreOffsetY, restoredHeight);
+
+            WindowBounds moved = new WindowBounds(
+                    pointerScreenX - dragOffsetX,
+                    pointerScreenY - dragOffsetY,
+                    restoredWidth,
+                    restoredHeight
+            );
+
+            host.setMaximized(false);
+            host.setBounds(moved);
+            normalBounds = moved;
+            maximizedDragPending = false;
+            return true;
         }
 
         host.setPosition(
@@ -264,8 +334,11 @@ public final class WindowChromeController {
     public void endDrag() {
         if (!dragging) return;
 
-        dragging = false;
-        captureNormalBounds();
+        boolean restoredDuringDrag = !maximizedDragPending;
+        cancelDrag();
+        if (restoredDuringDrag) {
+            captureNormalBounds();
+        }
     }
 
     public boolean isDragging() {
@@ -429,6 +502,218 @@ public final class WindowChromeController {
         closeToBackground.run();
     }
 
+    /**
+     * Returns a geometry that remains recoverable on the current monitor
+     * topology. Valid negative coordinates are preserved. A rectangle is moved
+     * only when its draggable area is effectively lost or when it is larger
+     * than the selected monitor's visual bounds.
+     */
+    public static Optional<WindowBounds> recoverToVisibleScreens(
+            WindowBounds requested,
+            List<WindowBounds> visualScreens
+    ) {
+        if (requested == null || !requested.isValid()) return Optional.empty();
+
+        List<WindowBounds> screens = validBounds(visualScreens);
+        if (screens.isEmpty()) return Optional.empty();
+
+        WindowBounds target = bestScreenForWindow(requested, screens);
+        if (target == null) return Optional.empty();
+
+        boolean oversized = requested.width() > target.width()
+                || requested.height() > target.height();
+        if (!oversized && isSufficientlyVisible(requested, screens)) {
+            return Optional.of(requested);
+        }
+
+        double width = Math.min(requested.width(), target.width());
+        double height = Math.min(requested.height(), target.height());
+        double x = clamp(
+                requested.x(),
+                target.x(),
+                target.x() + target.width() - width
+        );
+        double y = clamp(
+                requested.y(),
+                target.y(),
+                target.y() + target.height() - height
+        );
+
+        return Optional.of(new WindowBounds(x, y, width, height));
+    }
+
+    /**
+     * Selects the visual screen containing a logical JavaFX pointer coordinate.
+     * When the point is outside all screens, the nearest screen is returned.
+     */
+    public static Optional<WindowBounds> screenForPoint(
+            double pointerX,
+            double pointerY,
+            List<WindowBounds> visualScreens
+    ) {
+        if (!Double.isFinite(pointerX) || !Double.isFinite(pointerY)) {
+            return Optional.empty();
+        }
+
+        List<WindowBounds> screens = validBounds(visualScreens);
+        if (screens.isEmpty()) return Optional.empty();
+
+        for (WindowBounds screen : screens) {
+            if (pointerX >= screen.x()
+                    && pointerX < screen.x() + screen.width()
+                    && pointerY >= screen.y()
+                    && pointerY < screen.y() + screen.height()) {
+                return Optional.of(screen);
+            }
+        }
+
+        WindowBounds nearest = null;
+        double nearestDistance = Double.POSITIVE_INFINITY;
+        for (WindowBounds screen : screens) {
+            double distance = squaredDistanceToRectangle(pointerX, pointerY, screen);
+            if (distance < nearestDistance) {
+                nearestDistance = distance;
+                nearest = screen;
+            }
+        }
+        return Optional.ofNullable(nearest);
+    }
+
+    private WindowBounds restoredBoundsForDrag() {
+        if (normalBounds != null && normalBounds.isValid()) {
+            return normalBounds;
+        }
+
+        WindowBounds visual = host.visualBounds();
+        if (visual == null || !visual.isValid()) return null;
+
+        double width = Math.max(1.0, visual.width() * 0.75);
+        double height = Math.max(1.0, visual.height() * 0.75);
+        return new WindowBounds(
+                visual.x() + (visual.width() - width) / 2.0,
+                visual.y() + (visual.height() - height) / 2.0,
+                width,
+                height
+        );
+    }
+
+    private static List<WindowBounds> validBounds(List<WindowBounds> bounds) {
+        if (bounds == null || bounds.isEmpty()) return List.of();
+
+        java.util.ArrayList<WindowBounds> valid = new java.util.ArrayList<>(bounds.size());
+        for (WindowBounds value : bounds) {
+            if (value != null && value.isValid()) valid.add(value);
+        }
+        return List.copyOf(valid);
+    }
+
+    private static boolean isSufficientlyVisible(
+            WindowBounds window,
+            List<WindowBounds> screens
+    ) {
+        double requiredWidth = Math.min(MIN_VISIBLE_WIDTH, window.width());
+        double requiredHeight = Math.min(MIN_VISIBLE_HEIGHT, window.height());
+
+        for (WindowBounds screen : screens) {
+            double overlapWidth = overlap(
+                    window.x(),
+                    window.x() + window.width(),
+                    screen.x(),
+                    screen.x() + screen.width()
+            );
+            double overlapHeight = overlap(
+                    window.y(),
+                    window.y() + window.height(),
+                    screen.y(),
+                    screen.y() + screen.height()
+            );
+            if (overlapWidth >= requiredWidth && overlapHeight >= requiredHeight) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static WindowBounds bestScreenForWindow(
+            WindowBounds window,
+            List<WindowBounds> screens
+    ) {
+        WindowBounds best = null;
+        double bestIntersection = -1.0;
+        double bestDistance = Double.POSITIVE_INFINITY;
+        double windowCenterX = window.x() + window.width() / 2.0;
+        double windowCenterY = window.y() + window.height() / 2.0;
+
+        for (WindowBounds screen : screens) {
+            double intersection = intersectionArea(window, screen);
+            double distance = squaredDistanceToRectangle(
+                    windowCenterX,
+                    windowCenterY,
+                    screen
+            );
+
+            if (intersection > bestIntersection
+                    || (intersection == bestIntersection && distance < bestDistance)) {
+                best = screen;
+                bestIntersection = intersection;
+                bestDistance = distance;
+            }
+        }
+        return best;
+    }
+
+    private static double intersectionArea(WindowBounds a, WindowBounds b) {
+        double width = overlap(
+                a.x(),
+                a.x() + a.width(),
+                b.x(),
+                b.x() + b.width()
+        );
+        double height = overlap(
+                a.y(),
+                a.y() + a.height(),
+                b.y(),
+                b.y() + b.height()
+        );
+        return width * height;
+    }
+
+    private static double overlap(
+            double firstMin,
+            double firstMax,
+            double secondMin,
+            double secondMax
+    ) {
+        return Math.max(0.0, Math.min(firstMax, secondMax) - Math.max(firstMin, secondMin));
+    }
+
+    private static double squaredDistanceToRectangle(
+            double x,
+            double y,
+            WindowBounds rectangle
+    ) {
+        double dx = 0.0;
+        if (x < rectangle.x()) {
+            dx = rectangle.x() - x;
+        } else if (x > rectangle.x() + rectangle.width()) {
+            dx = x - (rectangle.x() + rectangle.width());
+        }
+
+        double dy = 0.0;
+        if (y < rectangle.y()) {
+            dy = rectangle.y() - y;
+        } else if (y > rectangle.y() + rectangle.height()) {
+            dy = y - (rectangle.y() + rectangle.height());
+        }
+
+        return dx * dx + dy * dy;
+    }
+
+    private static double clamp(double value, double minimum, double maximum) {
+        if (maximum < minimum) return minimum;
+        return Math.max(minimum, Math.min(maximum, value));
+    }
+
     static ResizeEdge resizeEdgeFor(
             double sceneX,
             double sceneY,
@@ -525,10 +810,19 @@ public final class WindowChromeController {
     }
 
     private void cancelPointerOperation() {
-        dragging = false;
+        cancelDrag();
         resizing = false;
         resizeEdge = ResizeEdge.NONE;
         resizeStartBounds = null;
+    }
+
+    private void cancelDrag() {
+        dragging = false;
+        maximizedDragPending = false;
+        dragOffsetX = 0.0;
+        dragOffsetY = 0.0;
+        dragRestoreRatioX = 0.0;
+        dragRestoreOffsetY = 0.0;
     }
 
     private static double normalizeMinimum(double value) {
@@ -608,18 +902,29 @@ public final class WindowChromeController {
 
         @Override
         public WindowBounds visualBounds() {
-            double width = Math.max(1.0, stage.getWidth());
-            double height = Math.max(1.0, stage.getHeight());
+            WindowBounds current = bounds();
+            List<WindowBounds> screens = visualScreens();
 
-            List<Screen> screens = Screen.getScreensForRectangle(
-                    stage.getX(),
-                    stage.getY(),
-                    width,
-                    height
-            );
-            Screen screen = screens.isEmpty() ? Screen.getPrimary() : screens.get(0);
-            Rectangle2D bounds = screen.getVisualBounds();
+            WindowBounds selected = bestScreenForWindow(current, validBounds(screens));
+            if (selected != null) return selected;
 
+            return toWindowBounds(Screen.getPrimary().getVisualBounds());
+        }
+
+        @Override
+        public WindowBounds visualBoundsAt(double pointerX, double pointerY) {
+            return screenForPoint(pointerX, pointerY, visualScreens())
+                    .orElseGet(this::visualBounds);
+        }
+
+        private static List<WindowBounds> visualScreens() {
+            return Screen.getScreens().stream()
+                    .map(Screen::getVisualBounds)
+                    .map(StageWindowHost::toWindowBounds)
+                    .toList();
+        }
+
+        private static WindowBounds toWindowBounds(Rectangle2D bounds) {
             return new WindowBounds(
                     bounds.getMinX(),
                     bounds.getMinY(),

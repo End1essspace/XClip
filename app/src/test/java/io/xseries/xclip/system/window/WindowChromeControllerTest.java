@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -7,6 +8,7 @@ package io.xseries.xclip.system.window;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -109,10 +111,119 @@ class WindowChromeControllerTest {
 
         assertFalse(controller.isDragging());
         assertEquals(host.bounds, controller.normalBounds().orElseThrow());
+    }
 
-        host.maximized = true;
-        assertFalse(controller.beginDrag(200, 200));
-        assertFalse(controller.dragTo(300, 300));
+    @Test
+    void restoresMaximizedWindowUnderPointerWhenDragActuallyStarts() {
+        FakeWindowHost host = new FakeWindowHost(
+                new WindowChromeController.WindowBounds(100, 80, 800, 600)
+        );
+        WindowChromeController controller =
+                new WindowChromeController(host, () -> {});
+
+        assertTrue(controller.captureNormalBounds());
+        assertTrue(controller.maximize());
+        host.bounds = host.visualBounds;
+
+        assertTrue(controller.beginDrag(960, 20));
+        assertTrue(controller.isDragging());
+        assertTrue(host.maximized);
+
+        assertTrue(controller.dragTo(1000, 34));
+        assertFalse(host.maximized);
+        assertEquals(
+                new WindowChromeController.WindowBounds(600, 14, 800, 600),
+                host.bounds
+        );
+
+        controller.endDrag();
+        assertFalse(controller.isDragging());
+        assertEquals(host.bounds, controller.normalBounds().orElseThrow());
+    }
+
+    @Test
+    void maximizedPressWithoutMovementDoesNotRestorePrematurely() {
+        FakeWindowHost host = new FakeWindowHost(
+                new WindowChromeController.WindowBounds(100, 80, 800, 600)
+        );
+        WindowChromeController controller =
+                new WindowChromeController(host, () -> {});
+
+        assertTrue(controller.captureNormalBounds());
+        assertTrue(controller.maximize());
+        host.bounds = host.visualBounds;
+
+        assertTrue(controller.beginDrag(960, 18));
+        controller.endDrag();
+
+        assertTrue(host.maximized);
+        assertEquals(
+                new WindowChromeController.WindowBounds(100, 80, 800, 600),
+                controller.normalBounds().orElseThrow()
+        );
+    }
+
+    @Test
+    void preservesVisibleNegativeMonitorCoordinates() {
+        WindowChromeController.WindowBounds requested =
+                new WindowChromeController.WindowBounds(-1700, 80, 900, 640);
+        List<WindowChromeController.WindowBounds> screens = List.of(
+                new WindowChromeController.WindowBounds(-1920, 0, 1920, 1040),
+                new WindowChromeController.WindowBounds(0, 0, 1920, 1040)
+        );
+
+        assertEquals(
+                requested,
+                WindowChromeController.recoverToVisibleScreens(requested, screens)
+                        .orElseThrow()
+        );
+    }
+
+    @Test
+    void recoversWindowAfterItsMonitorWasDisconnected() {
+        WindowChromeController.WindowBounds requested =
+                new WindowChromeController.WindowBounds(-1800, 100, 900, 640);
+        List<WindowChromeController.WindowBounds> screens = List.of(
+                new WindowChromeController.WindowBounds(0, 0, 1920, 1040)
+        );
+
+        assertEquals(
+                new WindowChromeController.WindowBounds(0, 100, 900, 640),
+                WindowChromeController.recoverToVisibleScreens(requested, screens)
+                        .orElseThrow()
+        );
+    }
+
+    @Test
+    void fitsOversizedPersistedBoundsInsideCurrentVisualScreen() {
+        WindowChromeController.WindowBounds requested =
+                new WindowChromeController.WindowBounds(-200, -100, 2600, 1400);
+        List<WindowChromeController.WindowBounds> screens = List.of(
+                new WindowChromeController.WindowBounds(0, 0, 1920, 1040)
+        );
+
+        assertEquals(
+                new WindowChromeController.WindowBounds(0, 0, 1920, 1040),
+                WindowChromeController.recoverToVisibleScreens(requested, screens)
+                        .orElseThrow()
+        );
+    }
+
+    @Test
+    void selectsScreenByLogicalPointerIncludingNegativeCoordinates() {
+        WindowChromeController.WindowBounds left =
+                new WindowChromeController.WindowBounds(-1920, 0, 1920, 1040);
+        WindowChromeController.WindowBounds primary =
+                new WindowChromeController.WindowBounds(0, 0, 1920, 1040);
+
+        assertEquals(
+                left,
+                WindowChromeController.screenForPoint(
+                        -500,
+                        300,
+                        List.of(left, primary)
+                ).orElseThrow()
+        );
     }
 
     @Test

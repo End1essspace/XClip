@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -41,6 +42,7 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.geometry.Point2D;
 import javafx.geometry.Rectangle2D;
 import javafx.scene.Node;
 import javafx.scene.Scene;
@@ -51,13 +53,12 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.*;
+import javafx.scene.robot.Robot;
 import javafx.stage.Modality;
 import javafx.stage.Screen;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import javafx.util.Duration;
-import java.awt.MouseInfo;
-import java.awt.Point;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -69,6 +70,7 @@ public final class PopupWindow {
 
     private static final int WIDTH = 520;
     private static final int HEIGHT = 420;
+    private static final double WINDOW_EDGE_MARGIN = 12.0;
     private volatile int uiClipLimit = io.xseries.xclip.config.Config.DEFAULT_UI_CLIP_LIMIT;
 
     private int selectionAnchorIndex = -1;
@@ -247,8 +249,8 @@ public final class PopupWindow {
         ));
         stage.setAlwaysOnTop(true);
         stage.setResizable(true);
-        stage.setMinWidth(500);
-        stage.setMinHeight(300);
+        stage.setMinWidth(io.xseries.xclip.config.Config.MIN_WINDOW_W);
+        stage.setMinHeight(io.xseries.xclip.config.Config.MIN_WINDOW_H);
 
         // R2.2 custom chrome: the undecorated stage is controlled entirely
         // through one window-state controller and a JavaFX title bar.
@@ -517,6 +519,7 @@ public final class PopupWindow {
         stage.focusedProperty().addListener((o, was, now) -> {
             if (now) {
                 autoHideDelay.stop();
+                Platform.runLater(this::recoverWindowForCurrentTopology);
                 return;
             }
 
@@ -1130,38 +1133,89 @@ public final class PopupWindow {
     }
 
     private void applyWindowStateOrFallback() {
+        WindowBounds applied;
+
         if (configService == null || config == null) {
-            positionNearMouse();
-            windowChrome.captureNormalBounds();
+            applied = positionNearMouse();
+            windowChrome.rememberNormalBounds(applied);
             return;
         }
 
-        stage.setWidth(config.windowW());
-        stage.setHeight(config.windowH());
+        WindowBounds requested = new WindowBounds(
+                config.windowX(),
+                config.windowY(),
+                config.windowW(),
+                config.windowH()
+        );
 
-        if (config.hasWindowPos()
-                && isOnSomeScreen(
-                        config.windowX(),
-                        config.windowY(),
-                        config.windowW(),
-                        config.windowH()
-                )) {
-            stage.setX(config.windowX());
-            stage.setY(config.windowY());
+        java.util.Optional<WindowBounds> recovered = config.hasWindowPos()
+                ? WindowChromeController.recoverToVisibleScreens(
+                        requested,
+                        currentVisualScreens()
+                )
+                : java.util.Optional.empty();
+
+        if (recovered.isPresent()) {
+            applied = recovered.get();
+            windowChrome.applyRestoredBounds(applied);
         } else {
-            positionNearMouse();
+            stage.setWidth(config.windowW());
+            stage.setHeight(config.windowH());
+            applied = positionNearMouse();
         }
 
-        windowChrome.captureNormalBounds();
+        windowChrome.rememberNormalBounds(applied);
+        if (!applied.equals(requested)) {
+            scheduleWindowPersist();
+        }
     }
 
-    private boolean isOnSomeScreen(double x, double y, double w, double h) {
-        try {
-            var screens = Screen.getScreensForRectangle(x, y, w, h);
-            return screens != null && !screens.isEmpty();
-        } catch (Exception e) {
-            return false;
+    /**
+     * Revalidates the last restored rectangle against the current display
+     * topology. This is intentionally safe to call on every show/focus event:
+     * visible negative-coordinate windows are preserved unchanged.
+     */
+    private void recoverWindowForCurrentTopology() {
+        if (!stage.isShowing() || windowChrome.isIconified()) return;
+
+        WindowBounds requested = windowChrome.normalBounds()
+                .orElseGet(() -> windowChrome.persistenceBounds()
+                        .orElse(windowChrome.currentBounds()));
+
+        java.util.Optional<WindowBounds> recovered =
+                WindowChromeController.recoverToVisibleScreens(
+                        requested,
+                        currentVisualScreens()
+                );
+        if (recovered.isEmpty()) return;
+
+        WindowBounds safe = recovered.get();
+        windowChrome.rememberNormalBounds(safe);
+
+        if (!windowChrome.isMaximized()
+                && !safe.equals(windowChrome.currentBounds())) {
+            windowChrome.applyRestoredBounds(safe);
         }
+
+        if (!safe.equals(requested)) {
+            scheduleWindowPersist();
+        }
+    }
+
+    private List<WindowBounds> currentVisualScreens() {
+        return Screen.getScreens().stream()
+                .map(Screen::getVisualBounds)
+                .map(PopupWindow::toWindowBounds)
+                .toList();
+    }
+
+    private static WindowBounds toWindowBounds(Rectangle2D bounds) {
+        return new WindowBounds(
+                bounds.getMinX(),
+                bounds.getMinY(),
+                bounds.getWidth(),
+                bounds.getHeight()
+        );
     }
 
     // v1.1: called from TrayController to reflect paused state in UI
@@ -1246,6 +1300,8 @@ public final class PopupWindow {
             if (config != null && config.windowMaximized()) {
                 Platform.runLater(windowChrome::maximize);
             }
+        } else {
+            recoverWindowForCurrentTopology();
         }
 
         stage.toFront();
@@ -1867,15 +1923,59 @@ public final class PopupWindow {
         });
     }
 
-    private void positionNearMouse() {
-        Point p = MouseInfo.getPointerInfo().getLocation();
+    private WindowBounds positionNearMouse() {
+        List<WindowBounds> screens = currentVisualScreens();
+        Point2D pointer = currentPointerPosition();
 
-        Rectangle2D screen = Screen.getPrimary().getVisualBounds();
-        double x = Math.min(p.getX(), screen.getMaxX() - stage.getWidth() - 12);
-        double y = Math.min(p.getY(), screen.getMaxY() - stage.getHeight() - 12);
+        WindowBounds screen = WindowChromeController.screenForPoint(
+                pointer.getX(),
+                pointer.getY(),
+                screens
+        ).orElseGet(() -> toWindowBounds(Screen.getPrimary().getVisualBounds()));
 
-        stage.setX(Math.max(screen.getMinX() + 12, x));
-        stage.setY(Math.max(screen.getMinY() + 12, y));
+        double width = Math.min(
+                Math.max(stage.getMinWidth(), stage.getWidth()),
+                screen.width()
+        );
+        double height = Math.min(
+                Math.max(stage.getMinHeight(), stage.getHeight()),
+                screen.height()
+        );
+
+        double minX = screen.x() + WINDOW_EDGE_MARGIN;
+        double minY = screen.y() + WINDOW_EDGE_MARGIN;
+        double maxX = screen.x() + screen.width() - width - WINDOW_EDGE_MARGIN;
+        double maxY = screen.y() + screen.height() - height - WINDOW_EDGE_MARGIN;
+
+        double x = clamp(pointer.getX(), minX, Math.max(minX, maxX));
+        double y = clamp(pointer.getY(), minY, Math.max(minY, maxY));
+
+        WindowBounds placed = new WindowBounds(x, y, width, height);
+        windowChrome.applyRestoredBounds(placed);
+        return placed;
+    }
+
+    private Point2D currentPointerPosition() {
+        try {
+            Point2D point = new Robot().getMousePosition();
+            if (point != null
+                    && Double.isFinite(point.getX())
+                    && Double.isFinite(point.getY())) {
+                return point;
+            }
+        } catch (Throwable ignored) {
+        }
+
+        Rectangle2D primary = Screen.getPrimary().getVisualBounds();
+        return new Point2D(
+                primary.getMinX() + primary.getWidth() / 2.0,
+                primary.getMinY() + primary.getHeight() / 2.0
+        );
+    }
+
+    private static double clamp(double value, double minimum, double maximum) {
+        if (maximum < minimum) return minimum;
+        return Math.max(minimum, Math.min(maximum, value));
     }
 
     private PreviewData getPreviewData(long id, String full) {

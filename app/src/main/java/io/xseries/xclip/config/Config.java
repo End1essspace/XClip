@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -34,6 +35,8 @@ public final class Config {
     private final boolean startMinimized;
     private final boolean watcherEnabled;
 
+    public static final int MIN_WINDOW_W = 500;
+    public static final int MIN_WINDOW_H = 300;
     public static final int DEFAULT_WINDOW_W = 520;
     public static final int DEFAULT_WINDOW_H = 420;
 
@@ -145,9 +148,12 @@ public final class Config {
             max = false;
         }
 
-        // basic validity
+        // Basic validity. Screen-dependent upper bounds are applied by the
+        // window geometry layer because monitor topology and DPI can change.
         if (!Double.isFinite(w) || w <= 0) w = DEFAULT_WINDOW_W;
         if (!Double.isFinite(h) || h <= 0) h = DEFAULT_WINDOW_H;
+        w = Math.max(MIN_WINDOW_W, w);
+        h = Math.max(MIN_WINDOW_H, h);
         if (!Double.isFinite(x)) x = -1;
         if (!Double.isFinite(y)) y = -1;
 
@@ -169,7 +175,16 @@ public final class Config {
     public double windowH() { return windowH; }
     public boolean windowMaximized() { return windowMaximized; }
 
-    public boolean hasWindowPos() { return windowX >= 0 && windowY >= 0; }
+    /**
+     * Negative coordinates are valid on Windows when a monitor is positioned
+     * to the left of or above the primary display. Only the legacy (-1, -1)
+     * pair means that no position has been persisted yet.
+     */
+    public boolean hasWindowPos() {
+        return Double.isFinite(windowX)
+                && Double.isFinite(windowY)
+                && !(windowX == -1.0 && windowY == -1.0);
+    }
 
     // Withers (for UI)
     public Config withMaxHistory(int value) {
