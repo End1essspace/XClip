@@ -1,12 +1,16 @@
+
 # Changelog
 
 All notable changes to this project will be documented in this file.
 
 
-## [Unreleased] — Complete Tags workflow and frozen UI extension
+## [Unreleased] — Tags workflow and advanced search foundation
 
 ### Added
 
+* Added a deterministic pure-Java advanced-search parser foundation for `type:`, `is:`, and `tag:` operators.
+* Added quoted values, negative type/tag clauses, pure-text remainder extraction, and non-fatal invalid-query fallback diagnostics.
+* Added parser contract tests without connecting advanced operators to popup query execution yet.
 * Added a global `Manage tags…` dialog that remains available even when clipboard history is empty.
 * Added deterministic tag usage counts based on current clip assignments.
 * Added inline tag rename with shared validation and case-insensitive collision reporting.
@@ -187,7 +191,3 @@ All notable changes to this project will be documented in this file.
 - Clipboard polling backoff improvements
 - Connection reuse for SQLite
 - Preview rendering optimization
-
-
-
-
