@@ -19,5 +19,10 @@ class QuickHelpContentTest {
         assertTrue(keys.contains("E"));
         assertTrue(keys.contains("Esc"));
         assertTrue(keys.contains("Ctrl+K / Ctrl+F"));
+
+        assertTrue(QuickHelpContent.sections().stream()
+                .flatMap(section -> section.shortcuts().stream())
+                .filter(shortcut -> shortcut.keys().equals("Delete"))
+                .anyMatch(shortcut -> shortcut.description().contains("require confirmation")));
     }
 }

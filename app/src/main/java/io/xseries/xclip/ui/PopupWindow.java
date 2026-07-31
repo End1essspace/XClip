@@ -10,6 +10,7 @@ package io.xseries.xclip.ui;
 import io.xseries.xclip.ui.popup.ClipRowCell;
 import io.xseries.xclip.ui.popup.ClipRowCell.PreviewData;
 import io.xseries.xclip.ui.popup.PopupActionBar;
+import io.xseries.xclip.ui.popup.PopupActionBar.StatusTone;
 import io.xseries.xclip.ui.popup.PopupActionsMenu;
 import io.xseries.xclip.ui.popup.PopupFilterBar;
 import io.xseries.xclip.ui.popup.QuickHelpPopover;
@@ -25,7 +26,6 @@ import io.xseries.xclip.ui.components.SvgIcon;
 import io.xseries.xclip.ui.components.UiIcon;
 import io.xseries.xclip.system.window.WindowChromeController;
 import io.xseries.xclip.system.window.WindowChromeController.WindowBounds;
-import io.xseries.xclip.system.window.WindowsTitleBar;
 import io.xseries.xclip.data.dao.ClipEntryDao;
 import io.xseries.xclip.data.model.ClipEntry;
 import io.xseries.xclip.domain.model.ClipContentType;
@@ -56,7 +56,6 @@ import javafx.scene.input.MouseEvent;
 import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.*;
 import javafx.scene.robot.Robot;
-import javafx.stage.Modality;
 import javafx.stage.Screen;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
@@ -67,6 +66,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.*;
+import java.util.function.Supplier;
 
 public final class PopupWindow {
 
@@ -1237,7 +1237,10 @@ public final class PopupWindow {
             }
             updateEmptyStateText();
             if (changed && stage.isShowing()) {
-                showToast(paused ? "Capturing paused" : "Capturing resumed");
+                showToast(
+                        paused ? "Capturing paused" : "Capturing resumed",
+                        paused ? StatusTone.WARNING : StatusTone.SUCCESS
+                );
             }
         });
     }
@@ -1345,11 +1348,54 @@ public final class PopupWindow {
     }
 
     private void showToast(String msg) {
+        showToast(msg, StatusTone.NEUTRAL);
+    }
+
+    private void showToast(String msg, StatusTone tone) {
         if (actionBar == null) return;
 
         statusReset.stop();
-        actionBar.showStatus(msg);
+        actionBar.showStatus(msg, tone);
         statusReset.playFromStart();
+    }
+
+    private <T> T showPopupModal(Supplier<T> dialogAction) {
+        java.util.Objects.requireNonNull(dialogAction, "dialogAction");
+
+        pasteService.clearTarget();
+        suppressAutoHide = true;
+        autoHideDelay.stop();
+        actionsMenu.hide();
+        quickHelp.hide();
+
+        try {
+            return dialogAction.get();
+        } finally {
+            suppressAutoHide = false;
+            restorePopupFocus();
+        }
+    }
+
+    private void restorePopupFocus() {
+        Platform.runLater(() -> {
+            if (!stage.isShowing()) return;
+            stage.toFront();
+            stage.requestFocus();
+            listView.requestFocus();
+        });
+    }
+
+    private void showOperationError(
+            String status,
+            String windowTitle,
+            String heading,
+            String body
+    ) {
+        showPopupModal(() -> {
+            UiDialogs.showError(stage, windowTitle, heading, body);
+            return null;
+        });
+        showToast(status, StatusTone.ERROR);
     }
 
     private void debounceReload() {
@@ -1549,7 +1595,7 @@ public final class PopupWindow {
     private void pasteText(String text) {
         PasteService.StartResult result = pasteService.paste(text, this::hideForPaste);
         if (result == PasteService.StartResult.CLIPBOARD_UNAVAILABLE) {
-            showToast("Clipboard unavailable");
+            showToast("Clipboard unavailable", StatusTone.ERROR);
         }
     }
 
@@ -1585,7 +1631,7 @@ public final class PopupWindow {
         if (clipboard.setTextSafely(text)) {
             hide();
         } else {
-            showToast("Clipboard unavailable");
+            showToast("Clipboard unavailable", StatusTone.ERROR);
         }
     }
 
@@ -1597,7 +1643,7 @@ public final class PopupWindow {
     private void performPrimaryTypeActionForSelection() {
         List<ClipEntry> selected = getSelectedClipsOrdered();
         if (selected.size() != 1) {
-            showToast("Select one clip");
+            showToast("Select one clip", StatusTone.WARNING);
             return;
         }
         performPrimaryTypeAction(selected.get(0));
@@ -1626,11 +1672,16 @@ public final class PopupWindow {
                     ClipContentActionService.clipboardTextFor(action, content)
                             .ifPresentOrElse(
                                     this::copyText,
-                                    () -> showToast(action == ClipPrimaryAction.COPY_FORMATTED_JSON
-                                            ? "Invalid JSON"
-                                            : "Nothing to copy")
+                                    () -> showToast(
+                                            action == ClipPrimaryAction.COPY_FORMATTED_JSON
+                                                    ? "Invalid JSON"
+                                                    : "Nothing to copy",
+                                            action == ClipPrimaryAction.COPY_FORMATTED_JSON
+                                                    ? StatusTone.ERROR
+                                                    : StatusTone.WARNING
+                                    )
                             );
-            case NONE -> showToast("No type action available");
+            case NONE -> showToast("No type action available", StatusTone.WARNING);
         }
     }
 
@@ -1641,16 +1692,16 @@ public final class PopupWindow {
             String failedMessage
     ) {
         if (result == null) {
-            showToast(failedMessage);
+            showToast(failedMessage, StatusTone.ERROR);
             return;
         }
 
         switch (result) {
-            case OPENED -> showToast(successMessage);
-            case INVALID_INPUT -> showToast(invalidMessage);
-            case NOT_FOUND -> showToast("Path not found");
-            case UNSUPPORTED -> showToast("Action unavailable on this system");
-            case FAILED -> showToast(failedMessage);
+            case OPENED -> showToast(successMessage, StatusTone.SUCCESS);
+            case INVALID_INPUT -> showToast(invalidMessage, StatusTone.ERROR);
+            case NOT_FOUND -> showToast("Path not found", StatusTone.ERROR);
+            case UNSUPPORTED -> showToast("Action unavailable on this system", StatusTone.WARNING);
+            case FAILED -> showToast(failedMessage, StatusTone.ERROR);
         }
     }
 
@@ -1674,7 +1725,11 @@ public final class PopupWindow {
             }
             Platform.runLater(() -> {
                 reloadNow(searchField.getText());
-                showToast((shouldPin ? "Pinned" : "Unpinned") + (selected.size() > 1 ? (" (" + selected.size() + ")") : ""));
+                showToast(
+                        (shouldPin ? "Pinned" : "Unpinned")
+                                + (selected.size() > 1 ? (" (" + selected.size() + ")") : ""),
+                        StatusTone.SUCCESS
+                );
             });
         });
     }
@@ -1682,7 +1737,7 @@ public final class PopupWindow {
     private void moveSelectedPinned(PinnedMoveAction action) {
         List<ClipEntry> selected = getSelectedClipsOrdered();
         if (selected.size() != 1 || !selected.get(0).favorite()) {
-            showToast("Select one pinned clip");
+            showToast("Select one pinned clip", StatusTone.WARNING);
             return;
         }
 
@@ -1698,17 +1753,23 @@ public final class PopupWindow {
             Platform.runLater(() -> {
                 reloadNow(searchField.getText());
                 if (moved) {
-                    showToast(switch (action) {
-                        case UP -> "Moved up";
-                        case DOWN -> "Moved down";
-                        case TOP -> "Moved to top";
-                        case BOTTOM -> "Moved to bottom";
-                    });
+                    showToast(
+                            switch (action) {
+                                case UP -> "Moved up";
+                                case DOWN -> "Moved down";
+                                case TOP -> "Moved to top";
+                                case BOTTOM -> "Moved to bottom";
+                            },
+                            StatusTone.SUCCESS
+                    );
                 } else {
-                    showToast(switch (action) {
-                        case UP, TOP -> "Already at top";
-                        case DOWN, BOTTOM -> "Already at bottom";
-                    });
+                    showToast(
+                            switch (action) {
+                                case UP, TOP -> "Already at top";
+                                case DOWN, BOTTOM -> "Already at bottom";
+                            },
+                            StatusTone.WARNING
+                    );
                 }
             });
         });
@@ -1717,85 +1778,73 @@ public final class PopupWindow {
     private void renameSelectedPinned() {
         List<ClipEntry> selected = getSelectedClipsOrdered();
         if (selected.size() != 1 || !selected.get(0).favorite()) {
-            showToast("Select one pinned clip");
+            showToast("Select one pinned clip", StatusTone.WARNING);
             return;
         }
 
         ClipEntry entry = selected.get(0);
-        pasteService.clearTarget();
-        suppressAutoHide = true;
-        autoHideDelay.stop();
+        java.util.Optional<String> result = showPopupModal(() ->
+                UiDialogs.promptPinnedTitle(
+                        stage,
+                        entry.title(),
+                        PINNED_TITLE_MAX_LENGTH
+                )
+        );
+        if (result.isEmpty()) return;
 
-        TextInputDialog dialog = new TextInputDialog(entry.title() == null ? "" : entry.title());
-        dialog.initOwner(stage);
-        dialog.initModality(Modality.WINDOW_MODAL);
-        dialog.setTitle("Rename pinned clip");
-        dialog.setHeaderText("Give this pinned clip a short title");
-        dialog.setContentText("Title:");
+        String normalized = result.get();
+        String oldTitle = entry.title() == null ? "" : entry.title().trim();
+        if (normalized.equals(oldTitle)) return;
 
-        UiStyles.applyDialog(dialog.getDialogPane());
-        dialog.getDialogPane().getStyleClass().add("x-dialog");
-
-        TextField editor = dialog.getEditor();
-        editor.setPromptText("Example: XCC release checklist");
-        editor.setTextFormatter(new TextFormatter<String>(change ->
-                change.getControlNewText().length() <= PINNED_TITLE_MAX_LENGTH ? change : null
-        ));
-
-        dialog.setOnShown(ev -> {
-            Object window = dialog.getDialogPane().getScene().getWindow();
-            if (window instanceof Stage dialogStage) {
-                WindowsTitleBar.applyDarkTitleBar(dialogStage);
-            }
-            editor.requestFocus();
-            editor.selectAll();
-        });
-
-        dialog.setOnHidden(ev -> {
-            suppressAutoHide = false;
-            Platform.runLater(() -> {
-                if (stage.isShowing()) {
-                    stage.toFront();
-                    stage.requestFocus();
-                    listView.requestFocus();
-                }
-            });
-        });
-
-        dialog.showAndWait().ifPresent(value -> {
-            String normalized = value == null ? "" : value.trim();
-            String oldTitle = entry.title() == null ? "" : entry.title().trim();
-            if (normalized.equals(oldTitle)) return;
-
-            dbExec.submit(() -> {
+        dbExec.submit(() -> {
+            try {
                 dao.setTitle(entry.id(), normalized);
                 Platform.runLater(() -> {
                     reloadNow(searchField.getText());
-                    showToast(normalized.isEmpty() ? "Title cleared" : "Title saved");
+                    showToast(
+                            normalized.isEmpty() ? "Title cleared" : "Title saved",
+                            StatusTone.SUCCESS
+                    );
                 });
-            });
+            } catch (Throwable failure) {
+                Platform.runLater(() -> showOperationError(
+                        "Rename failed",
+                        "Rename failed",
+                        "The pinned clip title was not saved",
+                        "The clipboard entry is unchanged. Try again after reopening XClip."
+                ));
+            }
         });
     }
 
     private void clearSelectedTitle() {
         List<ClipEntry> selected = getSelectedClipsOrdered();
         if (selected.size() != 1 || !selected.get(0).favorite()) {
-            showToast("Select one pinned clip");
+            showToast("Select one pinned clip", StatusTone.WARNING);
             return;
         }
 
         ClipEntry entry = selected.get(0);
         if (!entry.hasTitle()) {
-            showToast("No title to clear");
+            showToast("No title to clear", StatusTone.WARNING);
             return;
         }
 
         dbExec.submit(() -> {
-            dao.setTitle(entry.id(), null);
-            Platform.runLater(() -> {
-                reloadNow(searchField.getText());
-                showToast("Title cleared");
-            });
+            try {
+                dao.setTitle(entry.id(), null);
+                Platform.runLater(() -> {
+                    reloadNow(searchField.getText());
+                    showToast("Title cleared", StatusTone.SUCCESS);
+                });
+            } catch (Throwable failure) {
+                Platform.runLater(() -> showOperationError(
+                        "Clear title failed",
+                        "Clear title failed",
+                        "The pinned clip title was not cleared",
+                        "The clipboard entry is unchanged. Try again after reopening XClip."
+                ));
+            }
         });
     }
 
@@ -1825,7 +1874,7 @@ public final class PopupWindow {
         }
 
         if (target == null) {
-            showToast("Pinned clips stay compact");
+            showToast("Pinned clips stay compact", StatusTone.WARNING);
             return;
         }
 
@@ -1841,7 +1890,7 @@ public final class PopupWindow {
 
         expandedById.clear();
         listView.refresh();
-        showToast("Preview collapsed");
+        showToast("Preview collapsed", StatusTone.NEUTRAL);
         return true;
     }
 
@@ -1849,72 +1898,90 @@ public final class PopupWindow {
         List<ClipEntry> selected = getSelectedClipsOrdered();
         if (selected.isEmpty()) return;
 
-        for (ClipEntry e : selected) {
-            expandedById.remove(e.id());
-            previewCache.remove(e.id());
-            contentTypeCache.remove(e.id());
+        if (selected.size() > 1) {
+            int pinnedCount = (int) selected.stream().filter(ClipEntry::favorite).count();
+            boolean confirmed = showPopupModal(() ->
+                    UiDialogs.confirmBatchDelete(stage, selected.size(), pinnedCount)
+            );
+            if (!confirmed) return;
         }
 
         dbExec.submit(() -> {
-            for (ClipEntry e : selected) {
-                dao.deleteById(e.id());
+            try {
+                for (ClipEntry entry : selected) {
+                    dao.deleteById(entry.id());
+                }
+
+                Platform.runLater(() -> {
+                    for (ClipEntry entry : selected) {
+                        expandedById.remove(entry.id());
+                        previewCache.remove(entry.id());
+                        contentTypeCache.remove(entry.id());
+                    }
+                    reloadNow(searchField.getText());
+                    showToast(
+                            selected.size() == 1
+                                    ? "Deleted"
+                                    : "Deleted " + selected.size() + " clips",
+                            StatusTone.SUCCESS
+                    );
+                });
+            } catch (Throwable failure) {
+                Platform.runLater(() -> {
+                    reloadNow(searchField.getText());
+                    showOperationError(
+                        "Delete failed",
+                        "Delete failed",
+                        "The selected clips were not fully deleted",
+                        "XClip could not complete the database operation. Reopen the popup and try again."
+                    );
+                });
             }
-            Platform.runLater(() -> {
-                reloadNow(searchField.getText());
-                showToast(selected.size() == 1 ? "Deleted" : ("Deleted (" + selected.size() + ")"));
-            });
         });
     }
 
     private void clearHistoryNonFavorites() {
         java.util.List<Long> visibleNonFavoriteIds = new java.util.ArrayList<>();
 
-        for (PopupRow r : items) {
-            if (r instanceof ClipRow cr && !cr.entry().favorite()) {
-                visibleNonFavoriteIds.add(cr.entry().id());
+        for (PopupRow row : items) {
+            if (row instanceof ClipRow clipRow && !clipRow.entry().favorite()) {
+                visibleNonFavoriteIds.add(clipRow.entry().id());
             }
         }
 
         if (visibleNonFavoriteIds.isEmpty()) {
-            showToast("Nothing to clear");
+            showToast("Nothing to clear", StatusTone.WARNING);
             return;
         }
 
-        suppressAutoHide = true;
-        autoHideDelay.stop();
+        boolean confirmed = showPopupModal(() ->
+                UiDialogs.confirmClearVisible(stage, visibleNonFavoriteIds.size())
+        );
+        if (!confirmed) return;
 
-        Alert a = new Alert(Alert.AlertType.CONFIRMATION);
-        UiStyles.applyDialog(a.getDialogPane());
-        a.getDialogPane().getStyleClass().add("x-dialog");
-        a.setTitle("Clear visible history");
-        a.setHeaderText("Delete visible non-pinned clips?");
-        a.setContentText("This will delete only the clips currently shown in the popup.\nPinned clips are kept.");
-        a.initOwner(stage);
-        a.initModality(Modality.WINDOW_MODAL);
-        a.setOnHidden(ev -> suppressAutoHide = false);
-        a.setOnShown(ev -> {
-            Object window = a.getDialogPane().getScene().getWindow();
-            if (window instanceof Stage dialogStage) {
-                WindowsTitleBar.applyDarkTitleBar(dialogStage);
-            }
-        });
-
-        a.showAndWait().ifPresent(btn -> {
-            if (btn != ButtonType.OK) return;
-
-            java.util.Set<Long> removed = new java.util.HashSet<>(visibleNonFavoriteIds);
-            expandedById.keySet().removeIf(removed::contains);
-            previewCache.keySet().removeIf(removed::contains);
-            contentTypeCache.keySet().removeIf(removed::contains);
-
-            dbExec.submit(() -> {
+        dbExec.submit(() -> {
+            try {
                 dao.deleteByIds(visibleNonFavoriteIds);
                 Platform.runLater(() -> {
+                    java.util.Set<Long> removed = new java.util.HashSet<>(visibleNonFavoriteIds);
+                    expandedById.keySet().removeIf(removed::contains);
+                    previewCache.keySet().removeIf(removed::contains);
+                    contentTypeCache.keySet().removeIf(removed::contains);
                     clearSelection();
                     reloadNow(searchField.getText());
-                    showToast("Cleared visible clips (" + visibleNonFavoriteIds.size() + ")");
+                    showToast(
+                            "Cleared " + visibleNonFavoriteIds.size() + " visible clips",
+                            StatusTone.SUCCESS
+                    );
                 });
-            });
+            } catch (Throwable failure) {
+                Platform.runLater(() -> showOperationError(
+                        "Clear failed",
+                        "Clear history failed",
+                        "Visible clipboard history was not cleared",
+                        "No pinned clips were affected. Reopen the popup and try again."
+                ));
+            }
         });
     }
 
@@ -2223,6 +2290,3 @@ public final class PopupWindow {
         updateSelectionUi();
     }
 }
-
-
-

@@ -85,34 +85,146 @@
 }
 
 /* =========================================================
-   Dialog / Alert
+   R8 — unified modal surface
    ========================================================= */
 
 .x-dialog {
     -fx-background-color: -x-bg;
+    -fx-padding: 0;
 }
 
-.x-dialog > *.header-panel {
-    -fx-background-color: -x-surface;
-}
-
-.x-dialog > *.header-panel *.label {
-    -fx-text-fill: -x-text;
-}
-
-.x-dialog .content.label {
+.x-dialog > .content,
+.x-dialog > .content.label {
+    -fx-padding: 0;
     -fx-text-fill: -x-text-secondary;
 }
 
+.x-dialog .dialog-pane,
+.x-dialog .dialog-content {
+    -fx-background-color: -x-bg;
+}
+
+.x-dialog .dialog-content {
+    -fx-padding: 24 26 18 26;
+}
+
+.x-dialog .dialog-eyebrow {
+    -fx-text-fill: #7891AD;
+    -fx-font-size: 10px;
+    -fx-font-weight: 800;
+}
+
+.x-dialog.dialog-danger .dialog-eyebrow,
+.x-dialog.dialog-error .dialog-eyebrow {
+    -fx-text-fill: #E88989;
+}
+
+.x-dialog.dialog-success .dialog-eyebrow {
+    -fx-text-fill: #70C89A;
+}
+
+.x-dialog .dialog-heading {
+    -fx-text-fill: #F1F5FA;
+    -fx-font-size: 17px;
+    -fx-font-weight: 800;
+}
+
+.x-dialog .dialog-description {
+    -fx-text-fill: #AAB6C6;
+    -fx-font-size: 12px;
+    -fx-line-spacing: 2px;
+}
+
+.x-dialog .dialog-field-label {
+    -fx-text-fill: #CBD5E2;
+    -fx-font-size: 11px;
+    -fx-font-weight: 700;
+}
+
+.x-dialog .dialog-character-count,
+.x-dialog .dialog-hint {
+    -fx-text-fill: #74869D;
+    -fx-font-size: 10.5px;
+}
+
+.x-dialog .dialog-text-field {
+    -fx-background-color: #101722;
+    -fx-text-fill: #EEF3F9;
+    -fx-prompt-text-fill: #62748A;
+    -fx-border-color: #334055;
+    -fx-border-width: 1;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-padding: 9 11 9 11;
+}
+
+.x-dialog .dialog-text-field:focused {
+    -fx-border-color: #5D8FC8;
+    -fx-effect: dropshadow(gaussian, rgba(66, 132, 210, 0.18), 8, 0.15, 0, 0);
+}
+
+.x-dialog > .button-bar {
+    -fx-background-color: #121821;
+    -fx-border-color: #273142 transparent transparent transparent;
+    -fx-border-width: 1 0 0 0;
+    -fx-padding: 13 18 13 18;
+}
+
 .x-dialog .button-bar .button {
+    -fx-min-width: 92px;
+    -fx-min-height: 32px;
+    -fx-padding: 7 14 7 14;
     -fx-background-color: -x-surface-2;
     -fx-text-fill: -x-text-secondary;
     -fx-border-color: -x-border;
     -fx-border-radius: 8;
     -fx-background-radius: 8;
+    -fx-font-weight: 700;
 }
 
 .x-dialog .button-bar .button:hover {
     -fx-background-color: -x-surface-3;
+    -fx-text-fill: #F2F6FB;
     -fx-border-color: -x-accent-border;
+}
+
+.x-dialog .button-bar .button.dialog-primary-button {
+    -fx-background-color: #2F70BC;
+    -fx-text-fill: #FFFFFF;
+    -fx-border-color: #4A8AD1;
+}
+
+.x-dialog .button-bar .button.dialog-primary-button:hover {
+    -fx-background-color: #377ECD;
+    -fx-border-color: #67A0DF;
+}
+
+.x-dialog .button-bar .button.dialog-danger-button {
+    -fx-background-color: #8D3434;
+    -fx-text-fill: #FFFFFF;
+    -fx-border-color: #B34E4E;
+}
+
+.x-dialog .button-bar .button.dialog-danger-button:hover {
+    -fx-background-color: #A33D3D;
+    -fx-border-color: #D16767;
+}
+
+.x-dialog .button-bar .button.dialog-secondary-button {
+    -fx-background-color: #1A2230;
+    -fx-text-fill: #B6C1D0;
+    -fx-border-color: #344052;
+}
+
+.x-dialog .button-bar .button.dialog-secondary-button:hover {
+    -fx-background-color: #242E3D;
+    -fx-text-fill: #EEF3F9;
+    -fx-border-color: #506079;
+}
+
+.x-dialog .button-bar .button:disabled {
+    -fx-opacity: 1;
+    -fx-background-color: #202734;
+    -fx-text-fill: #657184;
+    -fx-border-color: #303949;
 }

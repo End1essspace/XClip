@@ -88,6 +88,7 @@ public final class PopupActionsMenu {
         );
 
         deleteItem.setOnAction(e -> actions.delete());
+        deleteItem.getStyleClass().add("menu-item-danger");
 
         contextMenu.getItems().addAll(
                 pasteItem,
@@ -189,4 +190,3 @@ public final class PopupActionsMenu {
         };
     }
 }
-

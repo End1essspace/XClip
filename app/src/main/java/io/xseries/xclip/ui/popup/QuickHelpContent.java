@@ -47,7 +47,7 @@ public final class QuickHelpContent {
                     new Shortcut("Esc", "Close menu, collapse preview, then clear or hide"),
                     new Shortcut("F2", "Rename pinned clip"),
                     new Shortcut("Alt+↑ / Alt+↓", "Move pinned clip"),
-                    new Shortcut("Delete", "Delete selection"),
+                    new Shortcut("Delete", "Delete selection; multiple clips require confirmation"),
                     new Shortcut("Ctrl+,", "Open Settings"),
                     new Shortcut("Double-click", "Paste one clip"),
                     new Shortcut("Click type badge", "Run safe type action"),

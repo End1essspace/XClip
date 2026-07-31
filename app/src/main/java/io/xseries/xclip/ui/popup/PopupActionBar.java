@@ -33,6 +33,19 @@ public final class PopupActionBar extends StackPane {
             "↑↓ Navigate   •   Enter Paste   •   Del Delete";
     private static final PseudoClass MESSAGE_PC =
             PseudoClass.getPseudoClass("message");
+    private static final PseudoClass SUCCESS_PC =
+            PseudoClass.getPseudoClass("success");
+    private static final PseudoClass WARNING_PC =
+            PseudoClass.getPseudoClass("warning");
+    private static final PseudoClass ERROR_PC =
+            PseudoClass.getPseudoClass("error");
+
+    public enum StatusTone {
+        NEUTRAL,
+        SUCCESS,
+        WARNING,
+        ERROR
+    }
 
     private final HBox left;
     private final HBox right;
@@ -40,6 +53,7 @@ public final class PopupActionBar extends StackPane {
 
     private boolean messageMode;
     private String messageText = "";
+    private StatusTone statusTone = StatusTone.NEUTRAL;
 
     public PopupActionBar(
             Node paste,
@@ -91,21 +105,43 @@ public final class PopupActionBar extends StackPane {
     }
 
     public void showStatus(String message) {
+        showStatus(message, StatusTone.NEUTRAL);
+    }
+
+    public void showStatus(String message, StatusTone tone) {
         messageText = Objects.requireNonNullElse(message, "").trim();
         messageMode = !messageText.isEmpty();
-        statusLabel.pseudoClassStateChanged(MESSAGE_PC, messageMode);
+        statusTone = tone == null ? StatusTone.NEUTRAL : tone;
+        applyStatusPseudoClasses();
         refreshPresentation();
     }
 
     public void showHints() {
         messageMode = false;
         messageText = "";
-        statusLabel.pseudoClassStateChanged(MESSAGE_PC, false);
+        statusTone = StatusTone.NEUTRAL;
+        applyStatusPseudoClasses();
         refreshPresentation();
     }
 
     public boolean isShowingStatus() {
         return messageMode;
+    }
+
+    private void applyStatusPseudoClasses() {
+        statusLabel.pseudoClassStateChanged(MESSAGE_PC, messageMode);
+        statusLabel.pseudoClassStateChanged(
+                SUCCESS_PC,
+                messageMode && statusTone == StatusTone.SUCCESS
+        );
+        statusLabel.pseudoClassStateChanged(
+                WARNING_PC,
+                messageMode && statusTone == StatusTone.WARNING
+        );
+        statusLabel.pseudoClassStateChanged(
+                ERROR_PC,
+                messageMode && statusTone == StatusTone.ERROR
+        );
     }
 
     private void refreshPresentation() {

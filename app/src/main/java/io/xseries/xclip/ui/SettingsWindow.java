@@ -456,63 +456,42 @@ public final class SettingsWindow {
     }
 
     private void clearAllDataFlow() {
-        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
-        styleAlert(confirm);
+        boolean confirmed = UiDialogs.confirmClearAllData(stage, AppPaths.dataDir());
+        if (!confirmed) return;
 
-        confirm.setTitle("Clear ALL data");
-        confirm.setHeaderText("This will permanently delete all XClip data");
-        confirm.setContentText("Clipboard history (database) and settings (config.json) will be removed.\nContinue?");
+        try {
+            watcherController.disable();
+        } catch (Throwable ignored) {
+        }
 
-        confirm.showAndWait().ifPresent(btn -> {
-            if (btn != ButtonType.OK) return;
-
-            try { watcherController.disable(); } catch (Throwable ignored) {}
-
+        try {
+            dataOwnershipService.clearAllData();
+        } catch (Throwable failure) {
             try {
-                dataOwnershipService.clearAllData();
-            } catch (Throwable ex) {
-                Alert err = new Alert(Alert.AlertType.ERROR);
-                styleAlert(err);
-
-                err.setTitle("Failed to clear data");
-                err.setHeaderText("XClip couldn't delete its data files");
-                err.setContentText(
-                        "Close other XClip instances and try again.\n\n" +
-                        "Data folder: " + AppPaths.dataDir().toAbsolutePath()
-                );
-                err.showAndWait();
-                return;
+                if (current.watcherEnabled()) watcherController.enable();
+            } catch (Throwable ignored) {
             }
 
-            Alert done = new Alert(Alert.AlertType.INFORMATION);
-            styleAlert(done);
+            UiDialogs.showError(
+                    stage,
+                    "Failed to clear data",
+                    "XClip couldn't delete its local data",
+                    "Close other XClip instances and try again.\n\nData folder: "
+                            + AppPaths.dataDir().toAbsolutePath()
+            );
+            showStatus("Clear data failed");
+            return;
+        }
 
-            done.setTitle("Data cleared");
-            done.setHeaderText("All data removed");
-            done.setContentText("XClip will exit now. Restart it to continue.");
-            done.showAndWait();
+        UiDialogs.showInformation(
+                stage,
+                "Data cleared",
+                "All local XClip data was removed",
+                "XClip will exit now. Restart it to continue."
+        );
 
-            Platform.exit();
-            System.exit(0);
-        });
-    }
-
-    private void styleAlert(Alert alert) {
-        if (alert == null) return;
-
-        alert.initOwner(stage);
-        alert.initModality(Modality.WINDOW_MODAL);
-        alert.setResizable(false);
-
-        UiStyles.applyDialog(alert.getDialogPane());
-        alert.getDialogPane().getStyleClass().add("x-dialog");
-
-        alert.setOnShown(e -> {
-            Object window = alert.getDialogPane().getScene().getWindow();
-            if (window instanceof Stage dialogStage) {
-                WindowsTitleBar.applyDarkTitleBar(dialogStage);
-            }
-        });
+        Platform.exit();
+        System.exit(0);
     }
 
     private void markDirty() {
@@ -653,5 +632,3 @@ public final class SettingsWindow {
         uiClipLimit.getEditor().getStyleClass().remove("input-error");
     }
 }
-
-

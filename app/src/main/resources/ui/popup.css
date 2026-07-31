@@ -1982,3 +1982,42 @@
     -fx-font-size: 10.5px;
     -fx-padding: 1 0 0 0;
 }
+
+/* =========================================================
+   R8 — semantic footer status and destructive menu states
+   ========================================================= */
+
+.actions-status:message:success {
+    -fx-text-fill: #82D9AE;
+}
+
+.actions-status:message:warning {
+    -fx-text-fill: #F1C96A;
+}
+
+.actions-status:message:error {
+    -fx-text-fill: #FF9292;
+}
+
+.context-menu .menu-item.menu-item-danger .label {
+    -fx-text-fill: #F0A0A0;
+}
+
+.context-menu .menu-item.menu-item-danger .menu-item-icon {
+    -x-icon-color: #E78C8C;
+}
+
+.context-menu .menu-item.menu-item-danger:focused,
+.context-menu .menu-item.menu-item-danger:hover {
+    -fx-background-color: rgba(201, 72, 72, 0.20);
+}
+
+.context-menu .menu-item.menu-item-danger:focused .label,
+.context-menu .menu-item.menu-item-danger:hover .label {
+    -fx-text-fill: #FFD1D1;
+}
+
+.context-menu .menu-item.menu-item-danger:focused .menu-item-icon,
+.context-menu .menu-item.menu-item-danger:hover .menu-item-icon {
+    -x-icon-color: #FFAAAA;
+}
