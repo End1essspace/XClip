@@ -33,6 +33,14 @@ public final class QuickHelpContent {
                     new Shortcut("Tab / Shift+Tab", "Move through every interactive control"),
                     new Shortcut("F6 / Shift+F6", "Move between Search, Filters, List, Actions, and Header")
             )),
+            new Section("Search syntax", List.of(
+                    new Shortcut("type:url", "Include one derived content type; repeat type: values to use OR"),
+                    new Shortcut("-type:text", "Exclude one derived content type"),
+                    new Shortcut("is:pinned / is:recent", "Restrict results by pinned state"),
+                    new Shortcut("tag:work", "Require an assigned tag; repeat tag: values to require all"),
+                    new Shortcut("-tag:private", "Exclude clips assigned to a tag"),
+                    new Shortcut("tag:\"Project Work\"", "Quote tag names that contain spaces")
+            )),
             new Section("Selection", List.of(
                     new Shortcut("Click", "Select one clip"),
                     new Shortcut("Ctrl+Click", "Toggle one clip"),
@@ -68,4 +76,3 @@ public final class QuickHelpContent {
         return SECTIONS;
     }
 }
-

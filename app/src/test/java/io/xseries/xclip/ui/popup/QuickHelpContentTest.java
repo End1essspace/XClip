@@ -22,6 +22,12 @@ class QuickHelpContentTest {
         assertTrue(keys.contains("F6 / Shift+F6"));
         assertTrue(keys.contains("Shift+F10 / Menu"));
         assertTrue(keys.contains("↑ / ↓"));
+        assertTrue(keys.contains("type:url"));
+        assertTrue(keys.contains("-type:text"));
+        assertTrue(keys.contains("is:pinned / is:recent"));
+        assertTrue(keys.contains("tag:work"));
+        assertTrue(keys.contains("-tag:private"));
+        assertTrue(keys.contains("tag:\"Project Work\""));
 
         assertTrue(QuickHelpContent.sections().stream()
                 .flatMap(section -> section.shortcuts().stream())
@@ -29,4 +35,3 @@ class QuickHelpContentTest {
                 .anyMatch(shortcut -> shortcut.description().contains("require confirmation")));
     }
 }
-

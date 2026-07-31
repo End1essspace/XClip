@@ -1,4 +1,3 @@
-
 [ENG]
 
 📋 **XClip**
@@ -20,6 +19,7 @@ Unlike simple clipboard utilities, XClip focuses on engineering quality: layered
 - Live search across full clipboard history
 - Advanced operators: `type:`, `is:`, `tag:`, `-type:`, and `-tag:`
 - Quoted tag values such as `tag:"Project Work"`
+- Inline syntax hints, contextual suggestions, active operator chips, and non-blocking query diagnostics
 - Operators combine with toolbar scope, type, and tag filters
 - Highlighted matching substrings from the pure-text part of the query
 - Optimized rendering with preview caching
@@ -186,6 +186,7 @@ Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
 - Живой поиск по всей истории буфера обмена
 - Расширенные операторы: `type:`, `is:`, `tag:`, `-type:` и `-tag:`
 - Значения тегов в кавычках, например `tag:"Project Work"`
+- Inline-подсказки синтаксиса, контекстные suggestions, chips активных операторов и неблокирующие diagnostics
 - Операторы объединяются с toolbar-фильтрами scope, type и tag
 - Подсветка совпадений из обычной текстовой части запроса
 - Оптимизированный рендеринг с кэшированием preview

@@ -1,5 +1,3 @@
-
-
 # Changelog
 
 All notable changes to this project will be documented in this file.
@@ -9,6 +7,10 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+* Added a responsive inline advanced-search assistance surface beneath the popup search field.
+* Added contextual operator completions for `type:`, `is:`, `tag:`, `-type:`, and `-tag:` with tag-name quoting.
+* Added bounded active-operator chips with deterministic `+N` overflow.
+* Added non-blocking inline parser diagnostics and a complete Search syntax section in Quick Help.
 * Connected parsed `type:`, `is:`, `tag:`, `-type:`, and `-tag:` operators to the popup query pipeline.
 * Added immutable search execution plans that combine advanced operators with toolbar scope, type, and tag filters.
 * Added exact tag-identity `EXISTS`/`NOT EXISTS` constraints with deterministic AND/exclusion semantics.
@@ -36,6 +38,9 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+* Extended the frozen UI contract to revision 6 for Milestone 3.3 Search UI.
+* Search suggestions replace only the token at the caret and preserve the remainder of the query.
+* Valid operator syntax remains excluded from clip-content highlighting; only the pure-text remainder is highlighted.
 * Extended the frozen UI contract to revision 5 for Milestone 3.2 advanced-search execution.
 * Search highlighting now uses only the parsed pure-text remainder instead of valid operator syntax.
 * Removed the redundant UI-side resort so query results retain the exact deterministic DAO order.

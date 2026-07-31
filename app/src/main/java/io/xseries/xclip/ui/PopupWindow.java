@@ -1,4 +1,3 @@
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -19,6 +18,7 @@ import io.xseries.xclip.ui.popup.PopupKeyBindings;
 import io.xseries.xclip.ui.popup.PopupPerformancePolicy;
 import io.xseries.xclip.ui.popup.PopupRows;
 import io.xseries.xclip.ui.popup.ReloadRequestGate;
+import io.xseries.xclip.ui.popup.SearchAssistBar;
 import io.xseries.xclip.ui.popup.TagEditorModel.EditPlan;
 import io.xseries.xclip.ui.popup.BoundedLruCache;
 import io.xseries.xclip.ui.popup.PopupTitleBar;
@@ -116,6 +116,8 @@ public final class PopupWindow {
     private final Stage stage;
     private final WindowChromeController windowChrome;
     private final TextField searchField = new TextField();
+    private SearchAssistBar searchAssistBar;
+    private List<ClipTag> searchSuggestionTags = List.of();
     private final ListView<PopupRow> listView = new ListView<>();
     private final ObservableList<PopupRow> items = FXCollections.observableArrayList();
 
@@ -346,13 +348,28 @@ public final class PopupWindow {
         selectedLabel.setVisible(false);
         selectedLabel.setManaged(false);
 
-        searchField.setPromptText("Search clips...");
+        searchField.setPromptText("Search clips or use type:, is:, tag:...");
         searchField.setAccessibleText("Search clipboard history");
         searchField.setAccessibleHelp(
-                "Type to filter clips. Press F6 to move between popup regions."
+                "Type ordinary text or advanced operators. Press Down to focus suggestions "
+                        + "and F6 to move between popup regions."
         );
         searchField.setMaxWidth(Double.MAX_VALUE);
         searchField.getStyleClass().add("search-field");
+
+        searchAssistBar = new SearchAssistBar(
+                applied -> {
+                    searchField.setText(applied.query());
+                    searchField.positionCaret(applied.caretPosition());
+                    searchField.requestFocus();
+                    updateSearchAssist();
+                },
+                () -> {
+                    searchField.requestFocus();
+                    searchField.positionCaret(searchField.getText().length());
+                }
+        );
+        searchAssistBar.setOnSuggestionFocusExited(this::updateSearchAssist);
 
         Button clearSearchBtn = new Button();
         clearSearchBtn.setGraphic(SvgIcon.of(UiIcon.X, 12, "search-clear-icon"));
@@ -380,10 +397,30 @@ public final class PopupWindow {
             clearSearchBtn.setManaged(has);
             searchShortcut.setVisible(!has);
             searchShortcut.setManaged(!has);
+            updateSearchAssist();
             debounceReload();
         });
+        searchField.focusedProperty().addListener((obs, oldValue, newValue) -> {
+            if (newValue) {
+                updateSearchAssist();
+            } else {
+                Platform.runLater(() -> {
+                    if (!searchAssistBar.hasFocusedSuggestion()) {
+                        updateSearchAssist();
+                    }
+                });
+            }
+        });
+        searchField.caretPositionProperty().addListener((obs, oldValue, newValue) ->
+                updateSearchAssist()
+        );
 
         searchField.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+            if (e.getCode() == KeyCode.DOWN && searchAssistBar.focusFirstSuggestion()) {
+                e.consume();
+                return;
+            }
+
             if (e.getCode() == KeyCode.ENTER) {
                 e.consume();
                 int firstClip = findFirstClipIndex();
@@ -455,7 +492,14 @@ public final class PopupWindow {
         searchWrap.setMinWidth(0);
         searchWrap.setPrefWidth(820);
         searchWrap.setMaxWidth(Double.MAX_VALUE);
-        HBox.setHgrow(searchWrap, Priority.ALWAYS);
+
+        VBox searchArea = new VBox(5, searchWrap, searchAssistBar);
+        searchArea.setMinWidth(0);
+        searchArea.setPrefWidth(820);
+        searchArea.setMaxWidth(Double.MAX_VALUE);
+        searchArea.getStyleClass().add("search-area");
+        HBox.setHgrow(searchArea, Priority.ALWAYS);
+        updateSearchAssist();
 
         HBox statusGroup = new HBox(10, countLabel, selectedLabel);
         statusGroup.setAlignment(Pos.CENTER_RIGHT);
@@ -476,7 +520,7 @@ public final class PopupWindow {
                 resetFiltersBtn
         );
         PopupHeader popupHeader = new PopupHeader(
-                searchWrap,
+                searchArea,
                 statusGroup,
                 controlGroup,
                 filterBar
@@ -698,6 +742,16 @@ public final class PopupWindow {
     }
 
     private void handlePopupKeyPressed(KeyEvent event) {
+        if (event.getCode() == KeyCode.ESCAPE
+                && event.getTarget() instanceof Node target
+                && searchAssistBar != null
+                && searchAssistBar.ownsFocusTarget(target)) {
+            event.consume();
+            searchField.requestFocus();
+            searchField.positionCaret(searchField.getText().length());
+            return;
+        }
+
         boolean textInputFocused = event.getTarget() instanceof TextInputControl;
         PopupKeyBindings.Action action = PopupKeyBindings.resolve(
                 event.getCode().name(),
@@ -1782,6 +1836,16 @@ public final class PopupWindow {
         showToast(status, StatusTone.ERROR);
     }
 
+    private void updateSearchAssist() {
+        if (searchAssistBar == null) return;
+        searchAssistBar.update(
+                searchField.getText(),
+                searchField.getCaretPosition(),
+                searchSuggestionTags,
+                searchField.isFocused() || searchAssistBar.hasFocusedSuggestion()
+        );
+    }
+
     private void debounceReload() {
         String q = searchField.getText();
         MultiSelectionSnapshot snap = MultiSelectionSnapshot.capture(listView, items, selectionAnchorIndex);
@@ -1864,7 +1928,9 @@ public final class PopupWindow {
             Platform.runLater(() -> {
                 if (!reloadGate.isCurrent(requestGeneration)) return;
 
+                searchSuggestionTags = List.copyOf(availableTags);
                 syncTagFilterOptions(availableTags);
+                updateSearchAssist();
                 items.setAll(preparedRows);
                 countLabel.setText("Clips " + totalClipCount);
                 countLabel.setAccessibleText(

@@ -1,4 +1,3 @@
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -16,6 +15,7 @@ import io.xseries.xclip.ui.popup.PopupActionBar;
 import io.xseries.xclip.ui.popup.PopupKeyBindings;
 import io.xseries.xclip.ui.popup.PopupPerformancePolicy;
 import io.xseries.xclip.ui.popup.PopupResponsivePolicy;
+import io.xseries.xclip.ui.popup.SearchUiModel;
 import io.xseries.xclip.ui.popup.TagChipPolicy;
 import io.xseries.xclip.ui.popup.TagEditorModel;
 import org.junit.jupiter.api.Test;
@@ -37,7 +37,7 @@ class UiContractFreezeTest {
     void frozenContractMatchesRuntimeConstantsAndEnums() throws Exception {
         Properties contract = loadContract();
 
-        assertEquals("5", contract.getProperty("contract.version"));
+        assertEquals("6", contract.getProperty("contract.version"));
         assertEquals("1.3.0", contract.getProperty("product.version"));
         assertEquals(Config.MIN_WINDOW_W, intValue(contract, "window.minWidth"));
         assertEquals(Config.MIN_WINDOW_H, intValue(contract, "window.minHeight"));
@@ -143,6 +143,35 @@ class UiContractFreezeTest {
         );
         assertEquals("DAO_STABLE", required(contract, "search.ordering"));
         assertEquals("GENERATION", required(contract, "search.staleResultGate"));
+        assertEquals("INLINE_ASSIST", required(contract, "search.ui"));
+        assertEquals(
+                "FOCUS_OR_ACTIVE_QUERY",
+                required(contract, "search.syntaxHint")
+        );
+        assertEquals(
+                "CONTEXTUAL_TOKEN_REPLACE",
+                required(contract, "search.suggestions")
+        );
+        assertEquals(
+                SearchUiModel.MAX_VISIBLE_CHIPS,
+                intValue(contract, "search.maxVisibleChips")
+        );
+        assertEquals(
+                SearchUiModel.MAX_SUGGESTIONS,
+                intValue(contract, "search.maxSuggestions")
+        );
+        assertEquals(
+                "INLINE_NON_BLOCKING",
+                required(contract, "search.errorDisplay")
+        );
+        assertEquals(
+                "TEXT_REMAINDER_ONLY",
+                required(contract, "search.highlight")
+        );
+        assertEquals(
+                "DEFERRED_OPTIONAL",
+                required(contract, "search.savedQueries")
+        );
         assertEquals(UiStyles.popupResourcePaths(), values(contract, "popup.stylesheets"));
         assertEquals(UiStyles.settingsResourcePaths(), values(contract, "settings.stylesheets"));
         assertEquals(UiIcon.values().length, intValue(contract, "popup.iconCount"));

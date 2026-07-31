@@ -155,6 +155,98 @@
     -fx-text-fill: -x-text;
 }
 
+.search-area {
+    -fx-min-width: 0;
+    -fx-max-width: 100000;
+}
+
+.search-assist {
+    -fx-min-width: 0;
+    -fx-max-width: 100000;
+    -fx-padding: 1 2 0 2;
+}
+
+.search-chip-pane,
+.search-detail-pane {
+    -fx-alignment: center-left;
+}
+
+.search-query-chip {
+    -fx-text-fill: #C8D8EB;
+    -fx-font-family: "Consolas";
+    -fx-font-size: 10px;
+    -fx-font-weight: 700;
+    -fx-padding: 3 7 3 7;
+    -fx-background-color: rgba(43, 66, 94, 0.56);
+    -fx-border-color: #385374;
+    -fx-border-width: 1;
+    -fx-background-radius: 6;
+    -fx-border-radius: 6;
+}
+
+.search-query-chip-type {
+    -fx-text-fill: #B9D8FF;
+    -fx-background-color: rgba(50, 104, 166, 0.25);
+    -fx-border-color: rgba(94, 151, 216, 0.52);
+}
+
+.search-query-chip-scope {
+    -fx-text-fill: #F2D885;
+    -fx-background-color: rgba(169, 126, 35, 0.20);
+    -fx-border-color: rgba(219, 176, 78, 0.48);
+}
+
+.search-query-chip-tag {
+    -fx-text-fill: #BDE6D1;
+    -fx-background-color: rgba(47, 126, 88, 0.20);
+    -fx-border-color: rgba(86, 169, 126, 0.46);
+}
+
+.search-query-chip-negative {
+    -fx-text-fill: #F1B8B8;
+    -fx-background-color: rgba(151, 64, 64, 0.20);
+    -fx-border-color: rgba(206, 103, 103, 0.48);
+}
+
+.search-query-chip-overflow {
+    -fx-text-fill: #AEBCCE;
+    -fx-background-color: rgba(255, 255, 255, 0.045);
+    -fx-border-color: #33445B;
+}
+
+.search-assist-message {
+    -fx-font-size: 10.5px;
+    -fx-padding: 2 3 2 0;
+}
+
+.search-assist-hint {
+    -fx-text-fill: #8294AB;
+}
+
+.search-assist-error {
+    -fx-text-fill: #F0A4A4;
+}
+
+.search-suggestion {
+    -fx-background-color: #111F31;
+    -fx-border-color: #2C405A;
+    -fx-border-width: 1;
+    -fx-background-radius: 6;
+    -fx-border-radius: 6;
+    -fx-text-fill: #B7C8DC;
+    -fx-font-family: "Consolas";
+    -fx-font-size: 10px;
+    -fx-padding: 3 7 3 7;
+    -fx-cursor: hand;
+}
+
+.search-suggestion:hover,
+.search-suggestion:focused {
+    -fx-background-color: #182A41;
+    -fx-border-color: -x-accent-border;
+    -fx-text-fill: #EEF4FC;
+}
+
 /* =========================================================
    Topbar buttons
    ========================================================= */
@@ -2098,6 +2190,7 @@
 .popup-root .filter-reset:focused,
 .popup-root .action-btn:focused,
 .popup-root .search-clear:focused,
+.popup-root .search-suggestion:focused,
 .popup-root .window-control-button:focused,
 .quick-help-menu .quick-help-close:focused {
     -fx-border-color: -x-accent;
@@ -2139,6 +2232,20 @@
     -fx-padding: 7 10 7 10;
 }
 
+.popup-header.responsive-compact .search-assist {
+    -fx-padding: 0;
+}
+
+.popup-header.responsive-compact .search-query-chip,
+.popup-header.responsive-compact .search-suggestion {
+    -fx-font-size: 9.5px;
+    -fx-padding: 2 6 2 6;
+}
+
+.popup-header.responsive-compact .search-assist-message {
+    -fx-font-size: 10px;
+}
+
 .filter-bar.responsive-compact {
     -fx-padding: 7 10 8 10;
 }
@@ -2178,5 +2285,3 @@
 .clip-list .list-cell .clip-time {
     -fx-opacity: 0.92;
 }
-
-

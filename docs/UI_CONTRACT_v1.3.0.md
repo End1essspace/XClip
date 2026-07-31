@@ -1,4 +1,3 @@
-
 # XClip UI Contract v1.3.0
 
 **Status:** Frozen R11 baseline, deliberately extended by Milestones 2.2–2.4 and 3.2
@@ -177,3 +176,21 @@ reload pipeline without redesigning the search field.
 - Every asynchronous stage is protected by the monotonic reload generation gate.
 - Database schema v5, Direct Paste, Tags workflows, preview budgets, and the R11 visual shell remain unchanged.
 
+## 13. Advanced Search UI extension — contract revision 6
+
+Milestone 3.3 adds a visible assistance layer to the executable M3.2 search
+pipeline without changing query semantics or schema v5.
+
+- The assistance surface is rendered inline beneath Search and never opens a blocking modal.
+- A focused empty Search field exposes a compact syntax hint for `type:`, `is:`, `tag:`, `-type:`, and `-tag:`.
+- Contextual suggestions replace only the token containing the caret and preserve the rest of the raw query.
+- `type:` and `-type:` suggestions enumerate the canonical derived content types.
+- `is:` suggestions expose `is:pinned` and `is:recent`.
+- `tag:` and `-tag:` suggestions are derived from the persisted tag catalog and quote names containing spaces.
+- At most `6` active operator chips are visible; remaining operators use one deterministic `+N` overflow chip.
+- Parser diagnostics are displayed inline and remain non-fatal; the existing ordinary-text fallback still executes.
+- Search highlighting receives only the parsed pure-text remainder.
+- Suggestions are keyboard reachable with Down from Search and support cyclic arrow-key navigation.
+- The Search syntax section in Quick Help documents the executable operator contract.
+- Saved queries remain an optional deferred roadmap item and are not part of revision 6.
+- DAO ordering, toolbar combination rules, bounded scans, stale-result protection, Direct Paste, and all Tags behavior remain unchanged.
