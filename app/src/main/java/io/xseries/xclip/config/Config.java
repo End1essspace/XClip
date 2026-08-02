@@ -452,10 +452,6 @@ public final class Config {
                 sensitiveContentPolicy(), historyRetentionPolicy()).normalized();
     }
 
-    public Config withWindowState(double x, double y, double w, double h) {
-        return withWindowState(x, y, w, h, windowMaximized);
-    }
-
     public Config withDuplicateBehaviorPolicy(DuplicateBehaviorPolicy policy) {
         return copy(maxHistory, minClipLength, maxClipChars, uiClipLimit, startOnBoot,
                 startMinimized, watcherEnabled, windowX, windowY, windowW, windowH,

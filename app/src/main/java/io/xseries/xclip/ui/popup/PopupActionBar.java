@@ -1,4 +1,3 @@
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -99,10 +98,6 @@ public final class PopupActionBar extends GridPane {
 
         applyResponsiveLayout(0.0);
         showHints();
-    }
-
-    public void showStatus(String message) {
-        showStatus(message, StatusTone.NEUTRAL);
     }
 
     public void showStatus(String message, StatusTone tone) {

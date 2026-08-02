@@ -1,5 +1,3 @@
-
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -80,10 +78,6 @@ public final class TrayController {
     private volatile boolean hotkeyRunning = false;
     private volatile int hotkeyNativeThreadId = 0;
     private Thread hotkeyThread;
-
-    public void install(Runnable onOpen, Runnable onExit) {
-        install(onOpen, onOpen, onExit);
-    }
 
     public void install(Runnable onOpen, Runnable onHotkeyOpen, Runnable onExit) {
         if (!SystemTray.isSupported()) return;

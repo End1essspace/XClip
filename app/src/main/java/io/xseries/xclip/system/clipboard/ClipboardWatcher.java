@@ -51,71 +51,13 @@ public final class ClipboardWatcher implements AutoCloseable {
     public ClipboardWatcher(
             ClipboardAccess access,
             Consumer<String> onText,
-            BooleanSupplier isPaused
-    ) {
-        this(access, onText, isPaused, () -> DEFAULT_MAX_TEXT_LEN, content -> true);
-    }
-
-    public ClipboardWatcher(
-            ClipboardAccess access,
-            Consumer<String> onText,
             BooleanSupplier isPaused,
-            BooleanSupplier isCaptureAllowed
-    ) {
-        this(
-                access,
-                onText,
-                isPaused,
-                () -> DEFAULT_MAX_TEXT_LEN,
-                adapt(isCaptureAllowed)
-        );
-    }
-
-    public ClipboardWatcher(
-            ClipboardAccess access,
-            Consumer<String> onText,
-            BooleanSupplier isPaused,
-            Predicate<String> isCaptureAllowed
-    ) {
-        this(access, onText, isPaused, () -> DEFAULT_MAX_TEXT_LEN, isCaptureAllowed);
-    }
-
-    public ClipboardWatcher(
-            ClipboardAccess access,
-            Consumer<String> onText,
-            BooleanSupplier isPaused,
-            java.util.function.IntSupplier maxTextLen
-    ) {
-        this(access, onText, isPaused, maxTextLen, content -> true);
-    }
-
-    public ClipboardWatcher(
-            ClipboardAccess access,
-            Consumer<String> onText,
-            BooleanSupplier isPaused,
-            java.util.function.IntSupplier maxTextLen,
-            BooleanSupplier isCaptureAllowed
-    ) {
-        this(
-                access,
-                onText,
-                isPaused,
-                maxTextLen,
-                adapt(isCaptureAllowed)
-        );
-    }
-
-    public ClipboardWatcher(
-            ClipboardAccess access,
-            Consumer<String> onText,
-            BooleanSupplier isPaused,
-            java.util.function.IntSupplier maxTextLen,
             Predicate<String> isCaptureAllowed
     ) {
         this.access = Objects.requireNonNull(access);
         this.onText = Objects.requireNonNull(onText);
         this.isPaused = Objects.requireNonNull(isPaused);
-        this.maxTextLen = Objects.requireNonNull(maxTextLen);
+        this.maxTextLen = () -> DEFAULT_MAX_TEXT_LEN;
         this.isCaptureAllowed = Objects.requireNonNull(isCaptureAllowed);
     }
 
@@ -262,14 +204,6 @@ public final class ClipboardWatcher implements AutoCloseable {
             return value.substring(0, cap);
         }
         return value;
-    }
-
-    private static Predicate<String> adapt(BooleanSupplier captureAllowed) {
-        BooleanSupplier supplier = Objects.requireNonNull(
-                captureAllowed,
-                "isCaptureAllowed"
-        );
-        return content -> supplier.getAsBoolean();
     }
 
     @Override

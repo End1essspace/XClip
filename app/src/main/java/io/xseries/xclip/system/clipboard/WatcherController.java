@@ -1,4 +1,3 @@
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -31,28 +30,6 @@ public final class WatcherController implements AutoCloseable {
     private final AtomicBoolean enabled = new AtomicBoolean(false);
 
     private ClipboardWatcher watcher;
-
-    public WatcherController(
-            ClipboardAccess access,
-            Consumer<String> onText,
-            BooleanSupplier isPaused
-    ) {
-        this(access, onText, isPaused, content -> true);
-    }
-
-    public WatcherController(
-            ClipboardAccess access,
-            Consumer<String> onText,
-            BooleanSupplier isPaused,
-            BooleanSupplier isCaptureAllowed
-    ) {
-        this(
-                access,
-                onText,
-                isPaused,
-                adapt(isCaptureAllowed)
-        );
-    }
 
     public WatcherController(
             ClipboardAccess access,
@@ -105,14 +82,6 @@ public final class WatcherController implements AutoCloseable {
                 enabled.set(false);
             }
         }
-    }
-
-    private static Predicate<String> adapt(BooleanSupplier captureAllowed) {
-        BooleanSupplier supplier = Objects.requireNonNull(
-                captureAllowed,
-                "isCaptureAllowed"
-        );
-        return content -> supplier.getAsBoolean();
     }
 
     @Override

@@ -1,4 +1,3 @@
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -33,17 +32,9 @@ public final class ClipService {
     private final AtomicLong insertCounter = new AtomicLong(0);
 
     public ClipService(ClipEntryDao dao) {
-        this(dao, 800, 0);
-    }
-
-    public ClipService(ClipEntryDao dao, int retentionLimit) {
-        this(dao, retentionLimit, 0);
-    }
-
-    public ClipService(ClipEntryDao dao, int retentionLimit, int minClipLength) {
         this.dao = dao;
-        this.retentionLimit = clampRetention(retentionLimit);
-        this.minClipLength = clampMinLen(minClipLength);
+        this.retentionLimit = clampRetention(800);
+        this.minClipLength = clampMinLen(0);
     }
 
     /**

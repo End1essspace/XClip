@@ -232,56 +232,6 @@ public final class PopupWindow {
     private final PopupActionsMenu actionsMenu;
     private final QuickHelpPopover quickHelp;
 
-    public PopupWindow(ClipEntryDao dao, ClipboardAccess clipboard, ClipService clipService) {
-        this(dao, clipboard, clipService, () -> {});
-    }
-
-    public PopupWindow(
-            ClipEntryDao dao,
-            ClipboardAccess clipboard,
-            ClipService clipService,
-            Runnable onOpenSettings
-    ) {
-        this(
-                dao,
-                null,
-                clipboard,
-                clipService,
-                onOpenSettings,
-                () -> {},
-                PasteService.createDefault(clipboard, clipService)
-        );
-    }
-
-    public PopupWindow(
-            ClipEntryDao dao,
-            ClipboardAccess clipboard,
-            ClipService clipService,
-            Runnable onOpenSettings,
-            PasteService pasteService
-    ) {
-        this(dao, null, clipboard, clipService, onOpenSettings, () -> {}, pasteService);
-    }
-
-    public PopupWindow(
-            ClipEntryDao dao,
-            ClipboardAccess clipboard,
-            ClipService clipService,
-            Runnable onOpenSettings,
-            Runnable onTogglePaused,
-            PasteService pasteService
-    ) {
-        this(
-                dao,
-                null,
-                clipboard,
-                clipService,
-                onOpenSettings,
-                onTogglePaused,
-                pasteService
-        );
-    }
-
     public PopupWindow(
             ClipEntryDao dao,
             TagDao tagDao,
