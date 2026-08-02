@@ -1,3 +1,4 @@
+
 [ENG]
 
 📋 **XClip**
@@ -149,6 +150,14 @@ To build MSI installer:
 ```bash
 gradlew clean packageMsi
 ```
+
+
+📚 **Engineering Documentation**
+
+- [UI contract](docs/UI_CONTRACT_v1.3.0.md)
+- [Feature validation history](docs/FEATURE_VALIDATION_HISTORY_v1.3.0.md)
+- [Responsive and performance validation](docs/R10_VALIDATION.md)
+- [Full regression and UI freeze](docs/R11_REGRESSION_UI_FREEZE.md)
 
 
 🖥 **System Requirements**
@@ -337,6 +346,14 @@ gradlew build
 ```bash
 gradlew clean packageMsi
 ```
+
+
+📚 **Инженерная документация**
+
+- [UI contract](docs/UI_CONTRACT_v1.3.0.md)
+- [История feature validation](docs/FEATURE_VALIDATION_HISTORY_v1.3.0.md)
+- [Responsive и performance validation](docs/R10_VALIDATION.md)
+- [Full regression и UI freeze](docs/R11_REGRESSION_UI_FREEZE.md)
 
 
 🖥 **Системные требования**
