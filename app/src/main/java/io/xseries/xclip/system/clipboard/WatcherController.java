@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -102,20 +103,6 @@ public final class WatcherController implements AutoCloseable {
             } finally {
                 watcher = null;
                 enabled.set(false);
-            }
-        }
-    }
-
-    /**
-     * Convenience: restart watcher (disable -> enable).
-     * Useful after config changes.
-     */
-    public void restart() {
-        synchronized (lock) {
-            boolean wasEnabled = enabled.get();
-            if (wasEnabled) {
-                disable();
-                enable();
             }
         }
     }

@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -134,10 +135,6 @@ public final class TagEditorModel {
             );
         }
         return model;
-    }
-
-    public List<Long> clipIds() {
-        return clipIds;
     }
 
     public int clipCount() {

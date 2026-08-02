@@ -1,4 +1,5 @@
 
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -78,18 +79,6 @@ public final class SvgIcon extends StackPane {
 
     public static SvgIcon of(UiIcon icon, double iconSize, String... extraStyleClasses) {
         return new SvgIcon(icon, iconSize, extraStyleClasses);
-    }
-
-    public UiIcon icon() {
-        return icon;
-    }
-
-    public String iconName() {
-        return icon.resourceName();
-    }
-
-    public double iconSize() {
-        return iconSize;
     }
 
     private static Node buildGraphic(IconDefinition definition, double requestedSize) {
@@ -391,4 +380,3 @@ public final class SvgIcon extends StackPane {
             List<ShapeSpec> shapes
     ) {}
 }
-

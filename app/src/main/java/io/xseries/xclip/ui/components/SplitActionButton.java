@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -81,9 +82,4 @@ public final class SplitActionButton extends HBox {
         return menuButton;
     }
 
-    public void hideMenu() {
-        menu.hide();
-    }
 }
-
-

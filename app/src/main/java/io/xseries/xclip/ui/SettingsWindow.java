@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -852,17 +853,6 @@ public final class SettingsWindow {
         stage.toFront();
         stage.requestFocus();
         WindowsTitleBar.applyDarkTitleBar(stage);
-    }
-
-    /**
-     * Reloads config.json and discards every unsaved Settings edit.
-     */
-    public void reloadFromDisk() {
-        internalSync = true;
-        current = configService.loadOrCreate();
-        syncUiFromCurrent();
-        internalSync = false;
-        clearDirty();
     }
 
     private void apply() {

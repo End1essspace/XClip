@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -25,7 +26,4 @@ public record ClipEntry(
         return title != null && !title.isBlank();
     }
 
-    public int effectivePinOrder() {
-        return pinOrder == null ? Integer.MAX_VALUE : pinOrder;
-    }
 }

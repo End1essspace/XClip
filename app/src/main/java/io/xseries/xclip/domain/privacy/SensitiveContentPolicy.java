@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -6,7 +7,6 @@
 package io.xseries.xclip.domain.privacy;
 
 import java.util.EnumSet;
-import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -153,10 +153,6 @@ public record SensitiveContentPolicy(
 
     public enum SensitiveKind {
         PAYMENT_CARD,
-        ONE_TIME_CODE;
-
-        public String stableName() {
-            return name().toLowerCase(Locale.ROOT);
-        }
+        ONE_TIME_CODE
     }
 }

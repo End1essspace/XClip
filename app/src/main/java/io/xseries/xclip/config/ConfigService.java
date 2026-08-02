@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -35,10 +36,6 @@ public final class ConfigService {
     public ConfigService(Path path) {
         this.path = path;
         this.gson = new GsonBuilder().setPrettyPrinting().create();
-    }
-
-    public Path path() {
-        return path;
     }
 
     public void applyRuntime(Config cfg) {

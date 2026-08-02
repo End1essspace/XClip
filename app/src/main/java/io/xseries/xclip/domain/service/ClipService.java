@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -63,10 +64,6 @@ public final class ClipService {
             lastPushedDuplicateHash.set("");
             lastPushedAtMs.set(0);
         }
-    }
-
-    public DuplicateBehaviorPolicy duplicatePolicy() {
-        return duplicatePolicy;
     }
 
     public void ingestText(String text) {

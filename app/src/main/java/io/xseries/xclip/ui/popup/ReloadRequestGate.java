@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -26,7 +27,4 @@ public final class ReloadRequestGate {
         return generation.incrementAndGet();
     }
 
-    public long currentGeneration() {
-        return generation.get();
-    }
 }
