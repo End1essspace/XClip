@@ -20,14 +20,22 @@ import io.xseries.xclip.system.DataOwnershipService;
 import io.xseries.xclip.system.WindowsAutoStartService;
 import io.xseries.xclip.system.clipboard.WatcherController;
 import io.xseries.xclip.system.window.WindowChromeController;
+import io.xseries.xclip.ui.settings.AboutSettingsPage;
+import io.xseries.xclip.ui.settings.AppearanceSettingsPage;
+import io.xseries.xclip.ui.settings.CaptureSettingsPage;
+import io.xseries.xclip.ui.settings.DataSettingsPage;
+import io.xseries.xclip.ui.settings.DuplicateBehaviorSettingsPage;
 import io.xseries.xclip.ui.settings.DuplicateSettingsModel;
 import io.xseries.xclip.ui.settings.DuplicateSettingsModel.WindowPreset;
+import io.xseries.xclip.ui.settings.GeneralSettingsPage;
+import io.xseries.xclip.ui.settings.HistorySettingsPage;
+import io.xseries.xclip.ui.settings.PrivacySettingsPage;
+import io.xseries.xclip.ui.settings.SettingsDraft;
 import io.xseries.xclip.ui.settings.SettingsPage;
+import io.xseries.xclip.ui.settings.ShortcutsSettingsPage;
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
-import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -42,11 +50,7 @@ import javafx.scene.control.TextField;
 import javafx.scene.control.TextFormatter;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
-import javafx.scene.input.Clipboard;
-import javafx.scene.input.ClipboardContent;
 import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.ColumnConstraints;
-import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -62,7 +66,6 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.EnumMap;
-import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
 
@@ -144,9 +147,6 @@ public final class SettingsWindow {
     private final Label cleanupStatusLabel;
     private final Button runCleanupNowBtn;
     private final Button resetRetentionDefaultsBtn;
-
-    private final Button openDataFolderBtn;
-    private final Button clearAllDataBtn;
 
     private final Button applyBtn = new Button("Apply");
     private boolean dirty = false;
@@ -377,423 +377,91 @@ public final class SettingsWindow {
         );
         resetRetentionDefaultsBtn.getStyleClass().add("btn-subtle");
 
-        GridPane generalGrid = settingsGrid();
-        int generalRow = 0;
-        generalRow = addSettingRow(
-                generalGrid,
-                generalRow,
-                "Clipboard capture",
-                "Enable or pause background clipboard monitoring.",
-                watcherEnabled
-        );
-        generalRow = addSettingRow(
-                generalGrid,
-                generalRow,
-                "Start minimized",
-                "Open XClip in the system tray without showing the popup.",
-                startMinimized
-        );
-        addSettingRow(
-                generalGrid,
-                generalRow,
-                "Start on Windows boot",
-                "Launch XClip automatically after signing in.",
-                startOnBoot
-        );
-
-        VBox generalSection = section(
-                "Application behavior",
-                "Core runtime and startup preferences.",
-                generalGrid
-        );
-
-        GridPane captureGrid = settingsGrid();
-        int captureRow = 0;
-        captureRow = addSettingRow(
-                captureGrid,
-                captureRow,
-                "Min clip length",
-                "Ignore clipboard text shorter than this number of characters.",
-                minClipLength
-        );
-        captureRow = addSettingRow(
-                captureGrid,
-                captureRow,
-                "Max clip chars",
-                "Longer clipboard text is truncated before storage.",
-                maxClipChars
-        );
-        addSettingRow(
-                captureGrid,
-                captureRow,
-                "UI clip limit",
-                "Maximum number of prepared rows shown in the popup.",
-                uiClipLimit
-        );
-
-        VBox captureSection = section(
-                "Capture limits",
-                "Bounds applied before clipboard entries reach persistent history.",
-                captureGrid
-        );
-
-        GridPane historyCapacityGrid = settingsGrid();
-        addSettingRow(
-                historyCapacityGrid,
-                0,
-                "Max history",
-                "Maximum number of unpinned clipboard entries retained locally.",
-                maxHistory
-        );
-
-        VBox historyCapacitySection = section(
-                "History capacity",
-                "The normal size limit for RECENT clipboard history.",
-                historyCapacityGrid
-        );
-
-        GridPane duplicateGrid = settingsGrid();
-        int duplicateRow = 0;
-        duplicateRow = addSettingRow(
-                duplicateGrid,
-                duplicateRow,
-                "Recent duplicates",
-                "Move an existing RECENT clip to the top or keep its current position.",
-                duplicateRecentPosition
-        );
-        duplicateRow = addSettingRow(
-                duplicateGrid,
-                duplicateRow,
-                "Pinned duplicates",
-                "Keep manual PINNED order or move the copied pinned clip to the top.",
-                duplicatePinnedPosition
-        );
-        duplicateRow = addSettingRow(
-                duplicateGrid,
-                duplicateRow,
-                "Whitespace",
-                "Normalize collapses whitespace runs; Preserve compares copied characters.",
-                duplicateWhitespaceMode
-        );
-        duplicateRow = addSettingRow(
-                duplicateGrid,
-                duplicateRow,
-                "Letter case",
-                "Case-sensitive treats Alpha and alpha as different content.",
-                duplicateCaseSensitivity
-        );
-
-        VBox windowControl = new VBox(7, duplicateWindowPreset, duplicateCustomWindowMillis);
-        duplicateRow = addSettingRow(
-                duplicateGrid,
-                duplicateRow,
-                "Duplicate window",
-                "Unlimited checks all history. A finite window allows older matches to create a new row.",
-                windowControl
-        );
-
-        VBox exactControl = new VBox(
-                5,
-                duplicateExactContentMode,
-                duplicateExactOverrideHint
-        );
-        duplicateGrid.add(settingText(
-                "Exact content mode",
-                "Compares every character exactly and overrides Whitespace and Letter case."
-        ), 0, duplicateRow);
-        duplicateGrid.add(exactControl, 1, duplicateRow);
-
-        HBox duplicateActions = new HBox(resetDuplicateDefaultsBtn);
-        duplicateActions.setAlignment(Pos.CENTER_RIGHT);
-
-        VBox duplicateSection = section(
-                "Duplicate behavior",
-                "These rules apply immediately after Apply and are persisted in config.json.",
-                duplicateGrid,
-                duplicateActions
-        );
-        duplicateSection.getStyleClass().add("duplicate-settings-section");
-
-        GridPane privacyGrid = settingsGrid();
-        addSettingRow(
-                privacyGrid,
-                0,
-                "Excluded applications",
-                "XClip skips clipboard changes while a listed executable owns the foreground window. Matching uses the executable name only and is case-insensitive.",
-                excludedApplications
-        );
-
-        Label privacyFallbackHint = new Label(
-                "Resolver failures are fail-open: unidentified applications remain capturable instead of silently losing clipboard data."
-        );
-        privacyFallbackHint.setWrapText(true);
-        privacyFallbackHint.getStyleClass().add("settings-privacy-hint");
-
-        HBox privacyActions = new HBox(clearExcludedApplicationsBtn);
-        privacyActions.setAlignment(Pos.CENTER_RIGHT);
-
-        VBox privacySection = section(
-                "Excluded applications",
-                "Process-based capture exclusions are stored locally in config.json.",
-                privacyGrid,
-                privacyFallbackHint,
-                privacyActions
-        );
-        privacySection.getStyleClass().add("privacy-settings-section");
-
-        GridPane sensitiveGrid = settingsGrid();
-        int sensitiveRow = 0;
-        sensitiveRow = addSettingRow(
-                sensitiveGrid,
-                sensitiveRow,
-                "Payment card numbers",
-                "A match requires 13–19 digits, a valid Luhn checksum, and safe token boundaries.",
-                paymentCardAction
-        );
-        addSettingRow(
-                sensitiveGrid,
-                sensitiveRow,
-                "One-time codes",
-                "Only 4–8 digit values near explicit OTP or verification wording are matched.",
-                oneTimeCodeAction
-        );
-
-        Label sensitiveDetectionHint = new Label(
-                "Detection runs locally. Standalone short numbers are not treated as OTP. Rules apply only to new clipboard changes; existing history is never scanned or deleted."
-        );
-        sensitiveDetectionHint.setWrapText(true);
-        sensitiveDetectionHint.getStyleClass().add("settings-sensitive-hint");
-
-        HBox sensitiveActions = new HBox(resetSensitiveRulesBtn);
-        sensitiveActions.setAlignment(Pos.CENTER_RIGHT);
-
-        VBox sensitiveSection = section(
-                "Sensitive content",
-                "Explicit opt-in rules can skip selected sensitive text before it reaches clipboard history.",
-                sensitiveGrid,
-                sensitiveDetectionHint,
-                sensitiveActions
-        );
-        sensitiveSection.getStyleClass().add("sensitive-settings-section");
-
-        GridPane retentionGrid = settingsGrid();
-        int retentionRow = 0;
-        retentionGrid.add(retentionRecentEnabled, 1, retentionRow++);
-        retentionRow = addSettingRow(
-                retentionGrid,
-                retentionRow,
-                "General RECENT age",
-                "Applies to every unpinned content type when automatic age cleanup is enabled.",
-                retentionRecentDays
-        );
-        retentionRow = addSettingRow(
-                retentionGrid,
-                retentionRow,
-                "TEXT override",
-                "Days to keep TEXT clips. Zero disables this type-specific rule.",
-                retentionTextDays
-        );
-        retentionRow = addSettingRow(
-                retentionGrid,
-                retentionRow,
-                "CODE override",
-                "Days to keep CODE clips. Zero disables this type-specific rule.",
-                retentionCodeDays
-        );
-        retentionRow = addSettingRow(
-                retentionGrid,
-                retentionRow,
-                "URL override",
-                "Days to keep URL clips. Zero disables this type-specific rule.",
-                retentionUrlDays
-        );
-        retentionRow = addSettingRow(
-                retentionGrid,
-                retentionRow,
-                "PATH override",
-                "Days to keep PATH clips. Zero disables this type-specific rule.",
-                retentionPathDays
-        );
-        retentionRow = addSettingRow(
-                retentionGrid,
-                retentionRow,
-                "JSON override",
-                "Days to keep JSON clips. Zero disables this type-specific rule.",
-                retentionJsonDays
-        );
-        retentionRow = addSettingRow(
-                retentionGrid,
-                retentionRow,
-                "COMMAND override",
-                "Days to keep COMMAND clips. Zero disables this type-specific rule.",
-                retentionCommandDays
-        );
-        retentionGrid.add(clearRecentOnExit, 1, retentionRow);
-
-        Label retentionHint = new Label(
-                "PINNED clips are always preserved. If both general and per-type rules apply, the shorter age wins. Cleanup never rewrites clipboard content."
-        );
-        retentionHint.setWrapText(true);
-        retentionHint.getStyleClass().add("settings-retention-hint");
-
-        HBox retentionActions = new HBox(
-                10,
-                cleanupStatusLabel,
-                runCleanupNowBtn,
-                resetRetentionDefaultsBtn
-        );
-        retentionActions.setAlignment(Pos.CENTER_RIGHT);
-        HBox.setHgrow(cleanupStatusLabel, Priority.ALWAYS);
-
-        VBox retentionSection = section(
-                "History retention & cleanup",
-                "Age-based cleanup is opt-in and applies only to RECENT history.",
-                retentionGrid,
-                retentionHint,
-                retentionActions
-        );
-        retentionSection.getStyleClass().add("retention-settings-section");
-
         statusLabel.getStyleClass().add("status-text");
         statusLabel.setAccessibleText("Settings operation status");
         statusLabel.setManaged(false);
         statusLabel.setVisible(false);
 
-        TextField dataPath = new TextField(
-                AppPaths.dataDir().toAbsolutePath().toString()
-        );
-        dataPath.setEditable(false);
-        dataPath.setFocusTraversable(true);
-        dataPath.setAccessibleText("XClip data folder path");
-        dataPath.setAccessibleHelp(
-                "Read-only path. Use Ctrl+C to copy selected text."
-        );
-        dataPath.setPrefColumnCount(28);
-        dataPath.getStyleClass().add("data-path");
-
-        Button copyPathBtn = new Button("Copy path");
-        copyPathBtn.setAccessibleHelp(
-                "Copy the XClip data folder path to the clipboard."
-        );
-        copyPathBtn.getStyleClass().add("btn-subtle");
-        copyPathBtn.setOnAction(event -> {
-            ClipboardContent content = new ClipboardContent();
-            content.putString(dataPath.getText());
-            Clipboard.getSystemClipboard().setContent(content);
-            showStatus("Path copied");
-        });
-
-        HBox pathRow = new HBox(10, dataPath, copyPathBtn);
-        pathRow.setAlignment(Pos.CENTER_LEFT);
-        HBox.setHgrow(dataPath, Priority.ALWAYS);
-
-        openDataFolderBtn = new Button("Open data folder");
-        openDataFolderBtn.setAccessibleHelp(
-                "Open the XClip data folder in File Explorer."
-        );
-        openDataFolderBtn.getStyleClass().add("btn-subtle");
-        openDataFolderBtn.setOnAction(
-                event -> dataOwnershipService.openDataFolder()
-        );
-
-        HBox dataActions = new HBox(openDataFolderBtn);
-        dataActions.setAlignment(Pos.CENTER_RIGHT);
-
-        VBox dataSection = section(
-                "Local data",
-                "All history and preferences stay in this user-owned folder.",
-                pathRow,
-                dataActions
-        );
-
-        clearAllDataBtn = new Button("Clear ALL data");
-        clearAllDataBtn.setAccessibleHelp(
-                "Permanently delete clipboard history and configuration."
-        );
-        clearAllDataBtn.getStyleClass().add("button-danger");
-        clearAllDataBtn.setOnAction(event -> clearAllDataFlow());
-
-        Label dangerTitle = new Label("Danger zone");
-        dangerTitle.getStyleClass().add("danger-title");
-
-        Label dangerHint = new Label(
-                "Clearing data deletes clipboard history and config.json."
-        );
-        dangerHint.getStyleClass().add("settings-section-description");
-
-        VBox dangerBox = new VBox(8, dangerTitle, dangerHint, clearAllDataBtn);
-        dangerBox.getStyleClass().addAll("settings-section", "danger-box");
-
-        VBox appearanceSection = informationSection(
-                "Current appearance",
-                "The v1.3.0 interface uses the frozen XClip dark theme.",
-                List.of(
-                        infoRow("Theme", "Dark"),
-                        infoRow("Interface stack", "Programmatic JavaFX 21"),
-                        infoRow("Theme controls", "No speculative controls in M6.1")
-                )
-        );
-
-        VBox shortcutsSection = informationSection(
-                "Keyboard workflow",
-                "The popup shortcut contract remains unchanged by the Settings redesign.",
-                List.of(
-                        infoRow("Open XClip", "Ctrl+Shift+V"),
-                        infoRow("Open Settings", "Ctrl+,"),
-                        infoRow("Search", "Ctrl+F / Ctrl+K"),
-                        infoRow("Direct Paste", "Enter"),
-                        infoRow("Actions", "Shift+F10 / Menu"),
-                        infoRow("Focus zones", "F6 / Shift+F6")
-                )
-        );
-
-        VBox aboutSection = informationSection(
-                "About XClip",
-                "Local-first Windows clipboard management.",
-                List.of(
-                        infoRow("Version", AppVersion.VERSION),
-                        infoRow("Author", "XCON | RX"),
-                        infoRow("License", "GNU GPL v3.0"),
-                        infoRow("Data model", "Local SQLite + config.json"),
-                        infoRow("UI contract", "v1.3.0 revision 12")
-                )
-        );
-
         pageViews.put(
                 SettingsPage.GENERAL,
-                pageScroll(generalSection)
+                GeneralSettingsPage.create(
+                        watcherEnabled,
+                        startMinimized,
+                        startOnBoot
+                )
         );
         pageViews.put(
                 SettingsPage.CAPTURE,
-                pageScroll(captureSection)
+                CaptureSettingsPage.create(
+                        minClipLength,
+                        maxClipChars,
+                        uiClipLimit
+                )
         );
         pageViews.put(
                 SettingsPage.HISTORY,
-                pageScroll(historyCapacitySection, retentionSection)
+                HistorySettingsPage.create(new HistorySettingsPage.Controls(
+                        maxHistory,
+                        retentionRecentEnabled,
+                        retentionRecentDays,
+                        retentionTextDays,
+                        retentionCodeDays,
+                        retentionUrlDays,
+                        retentionPathDays,
+                        retentionJsonDays,
+                        retentionCommandDays,
+                        clearRecentOnExit,
+                        cleanupStatusLabel,
+                        runCleanupNowBtn,
+                        resetRetentionDefaultsBtn
+                ))
         );
         pageViews.put(
                 SettingsPage.DUPLICATE_BEHAVIOR,
-                pageScroll(duplicateSection)
+                DuplicateBehaviorSettingsPage.create(
+                        new DuplicateBehaviorSettingsPage.Controls(
+                                duplicateRecentPosition,
+                                duplicatePinnedPosition,
+                                duplicateWhitespaceMode,
+                                duplicateCaseSensitivity,
+                                duplicateWindowPreset,
+                                duplicateCustomWindowMillis,
+                                duplicateExactContentMode,
+                                duplicateExactOverrideHint,
+                                resetDuplicateDefaultsBtn
+                        )
+                )
         );
         pageViews.put(
                 SettingsPage.PRIVACY,
-                pageScroll(privacySection, sensitiveSection)
+                PrivacySettingsPage.create(new PrivacySettingsPage.Controls(
+                        excludedApplications,
+                        clearExcludedApplicationsBtn,
+                        paymentCardAction,
+                        oneTimeCodeAction,
+                        resetSensitiveRulesBtn
+                ))
         );
         pageViews.put(
                 SettingsPage.APPEARANCE,
-                pageScroll(appearanceSection)
+                AppearanceSettingsPage.create()
         );
         pageViews.put(
                 SettingsPage.SHORTCUTS,
-                pageScroll(shortcutsSection)
+                ShortcutsSettingsPage.create()
         );
         pageViews.put(
                 SettingsPage.DATA,
-                pageScroll(dataSection, dangerBox)
+                DataSettingsPage.create(
+                        AppPaths.dataDir(),
+                        dataOwnershipService::openDataFolder,
+                        this::clearAllDataFlow,
+                        this::showStatus
+                )
         );
         pageViews.put(
                 SettingsPage.ABOUT,
-                pageScroll(aboutSection)
+                AboutSettingsPage.create(AppVersion.VERSION)
         );
 
         Button cancelBtn = new Button("Cancel");
@@ -1013,18 +681,20 @@ public final class SettingsWindow {
         SensitiveContentPolicy sensitivePolicy = sensitiveContentPolicyFromUi();
         HistoryRetentionPolicy retentionPolicy = historyRetentionPolicyFromUi();
 
-        Config next = current
-                .withMaxHistory(maxHistory.getValue())
-                .withMinClipLength(minClipLength.getValue())
-                .withMaxClipChars(maxClipChars.getValue())
-                .withUiClipLimit(uiClipLimit.getValue())
-                .withWatcherEnabled(watcherEnabled.isSelected())
-                .withStartMinimized(startMinimized.isSelected())
-                .withStartOnBoot(startOnBoot.isSelected())
-                .withDuplicateBehaviorPolicy(duplicatePolicy)
-                .withExcludedApplications(excludedPolicy.executableNames())
-                .withSensitiveContentPolicy(sensitivePolicy)
-                .withHistoryRetentionPolicy(retentionPolicy);
+        SettingsDraft draft = new SettingsDraft(
+                maxHistory.getValue(),
+                minClipLength.getValue(),
+                maxClipChars.getValue(),
+                uiClipLimit.getValue(),
+                watcherEnabled.isSelected(),
+                startMinimized.isSelected(),
+                startOnBoot.isSelected(),
+                duplicatePolicy,
+                excludedPolicy,
+                sensitivePolicy,
+                retentionPolicy
+        );
+        Config next = draft.toConfig(current);
 
         boolean autoStartChanged = current.startOnBoot() != next.startOnBoot();
 
@@ -1741,104 +1411,6 @@ public final class SettingsWindow {
         stage.hide();
     }
 
-    private static ScrollPane pageScroll(Node... cards) {
-        VBox content = new VBox(14);
-        content.setPadding(new Insets(20, 22, 24, 22));
-        content.getChildren().addAll(cards);
-        content.getStyleClass().add("settings-page-content");
 
-        ScrollPane scroll = new ScrollPane(content);
-        scroll.setFitToWidth(true);
-        scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-        scroll.getStyleClass().add("settings-page-scroll");
-        return scroll;
-    }
-
-    private static VBox informationSection(
-            String title,
-            String description,
-            List<? extends Node> rows
-    ) {
-        VBox list = new VBox(0);
-        list.getStyleClass().add("settings-info-list");
-        list.getChildren().addAll(rows);
-        return section(title, description, list);
-    }
-
-    private static HBox infoRow(String label, String value) {
-        Label name = new Label(label);
-        name.getStyleClass().add("settings-info-name");
-
-        Label detail = new Label(value == null || value.isBlank() ? "DEV" : value);
-        detail.setWrapText(true);
-        detail.getStyleClass().add("settings-info-value");
-
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
-
-        HBox row = new HBox(14, name, spacer, detail);
-        row.setAlignment(Pos.CENTER_LEFT);
-        row.getStyleClass().add("settings-info-row");
-        return row;
-    }
-
-    private static GridPane settingsGrid() {
-        GridPane grid = new GridPane();
-        grid.setHgap(18);
-        grid.setVgap(14);
-
-        ColumnConstraints textColumn = new ColumnConstraints();
-        textColumn.setMinWidth(250);
-        textColumn.setHgrow(Priority.ALWAYS);
-
-        ColumnConstraints controlColumn = new ColumnConstraints();
-        controlColumn.setMinWidth(250);
-
-        grid.getColumnConstraints().addAll(textColumn, controlColumn);
-        return grid;
-    }
-
-    private static int addSettingRow(
-            GridPane grid,
-            int row,
-            String title,
-            String description,
-            Node control
-    ) {
-        grid.add(settingText(title, description), 0, row);
-        grid.add(control, 1, row);
-        GridPane.setHgrow(control, Priority.ALWAYS);
-        return row + 1;
-    }
-
-    private static VBox settingText(String title, String description) {
-        Label titleLabel = new Label(title);
-        titleLabel.getStyleClass().add("settings-field-title");
-
-        Label descriptionLabel = new Label(description);
-        descriptionLabel.setWrapText(true);
-        descriptionLabel.getStyleClass().add("settings-field-description");
-
-        return new VBox(3, titleLabel, descriptionLabel);
-    }
-
-    private static VBox section(
-            String title,
-            String description,
-            Node... content
-    ) {
-        Label titleLabel = new Label(title);
-        titleLabel.getStyleClass().add("settings-section-title");
-
-        Label descriptionLabel = new Label(description);
-        descriptionLabel.setWrapText(true);
-        descriptionLabel.getStyleClass().add("settings-section-description");
-
-        VBox section = new VBox(12);
-        section.getChildren().addAll(titleLabel, descriptionLabel);
-        section.getChildren().addAll(content);
-        section.getStyleClass().add("settings-section");
-        return section;
-    }
 }
 
