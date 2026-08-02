@@ -86,6 +86,20 @@ class UiStylesResourceTest {
         }
     }
 
+
+    @Test
+    void privacySettingsSelectorsArePackaged() throws Exception {
+        try (InputStream stream = UiStyles.class.getResourceAsStream("/ui/dialogs.css")) {
+            assertNotNull(stream);
+            String css = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+
+            assertTrue(css.contains(".privacy-settings-section"));
+            assertTrue(css.contains(".settings-excluded-apps"));
+            assertTrue(css.contains(".settings-privacy-hint"));
+            assertTrue(css.contains(".text-area.input-error"));
+        }
+    }
+
     private static int count(String value, char needle) {
         int count = 0;
         for (int index = 0; index < value.length(); index++) {

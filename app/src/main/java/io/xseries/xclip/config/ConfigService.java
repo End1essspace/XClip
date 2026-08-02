@@ -1,4 +1,3 @@
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -176,7 +175,7 @@ public final class ConfigService {
             // Forward version: keep known values and preserve the newer marker.
             return cfg;
         }
-        // Config.normalized() upgrades legacy versions and fills duplicate defaults.
+        // Config.normalized() upgrades legacy versions and fills duplicate/privacy defaults.
         return cfg.normalized();
     }
 
@@ -213,6 +212,10 @@ public final class ConfigService {
                         b.duplicateCaseSensitivityValue()
                 )
                 && a.duplicateWindowMillisValue() == b.duplicateWindowMillisValue()
-                && a.duplicateExactContentModeValue() == b.duplicateExactContentModeValue();
+                && a.duplicateExactContentModeValue() == b.duplicateExactContentModeValue()
+                && java.util.Objects.equals(
+                        a.excludedApplicationsValue(),
+                        b.excludedApplicationsValue()
+                );
     }
 }

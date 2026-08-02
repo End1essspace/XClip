@@ -90,4 +90,31 @@ class ConfigTest {
         assertEquals(DuplicateBehaviorPolicy.defaults(), config.duplicateBehaviorPolicy());
         assertEquals(1_500, config.maxHistory());
     }
+    @Test
+    void v2ConfigMigratesToEmptyExcludedApplicationDefaults() {
+        Config config = new Config(2, 800, 0, false, false, true).normalized();
+
+        assertEquals(Config.CURRENT_VERSION, config.version());
+        assertTrue(config.excludedApplications().isEmpty());
+    }
+
+    @Test
+    void excludedApplicationsSurviveUnrelatedWithers() {
+        Config config = Config.defaults()
+                .withExcludedApplications(java.util.List.of(
+                        "C:\\Program Files\\Google\\Chrome.EXE",
+                        "KeePassXC"
+                ))
+                .withMaxHistory(1_400)
+                .withStartMinimized(true)
+                .withDuplicateBehaviorPolicy(DuplicateBehaviorPolicy.defaults());
+
+        assertEquals(
+                java.util.List.of("chrome.exe", "keepassxc.exe"),
+                config.excludedApplications()
+        );
+        assertEquals(1_400, config.maxHistory());
+        assertTrue(config.startMinimized());
+    }
+
 }

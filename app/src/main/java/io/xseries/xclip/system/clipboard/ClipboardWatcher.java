@@ -1,4 +1,3 @@
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -31,12 +30,14 @@ public final class ClipboardWatcher implements AutoCloseable {
     private final ClipboardAccess access;
     private final Consumer<String> onText;
     private final BooleanSupplier isPaused;
+    private final BooleanSupplier isCaptureAllowed;
 
     private volatile boolean closed  = false;
     private volatile boolean started = false;
 
-    /** Exact snapshot of the last seen clipboard value after the safety cap. */
-    private volatile String lastSeenText = null;
+    /** Exact snapshot state after the clipboard safety cap. */
+    private final ClipboardObservationState observationState =
+            new ClipboardObservationState();
 
     /** Pause transition tracking */
     private volatile boolean wasPaused = false;
@@ -51,7 +52,16 @@ public final class ClipboardWatcher implements AutoCloseable {
             Consumer<String> onText,
             BooleanSupplier isPaused
     ) {
-        this(access, onText, isPaused, () -> DEFAULT_MAX_TEXT_LEN);
+        this(access, onText, isPaused, () -> DEFAULT_MAX_TEXT_LEN, () -> true);
+    }
+
+    public ClipboardWatcher(
+            ClipboardAccess access,
+            Consumer<String> onText,
+            BooleanSupplier isPaused,
+            BooleanSupplier isCaptureAllowed
+    ) {
+        this(access, onText, isPaused, () -> DEFAULT_MAX_TEXT_LEN, isCaptureAllowed);
     }
 
     public ClipboardWatcher(
@@ -60,10 +70,21 @@ public final class ClipboardWatcher implements AutoCloseable {
             BooleanSupplier isPaused,
             java.util.function.IntSupplier maxTextLen
     ) {
-        this.access     = Objects.requireNonNull(access);
-        this.onText     = Objects.requireNonNull(onText);
-        this.isPaused   = Objects.requireNonNull(isPaused);
+        this(access, onText, isPaused, maxTextLen, () -> true);
+    }
+
+    public ClipboardWatcher(
+            ClipboardAccess access,
+            Consumer<String> onText,
+            BooleanSupplier isPaused,
+            java.util.function.IntSupplier maxTextLen,
+            BooleanSupplier isCaptureAllowed
+    ) {
+        this.access = Objects.requireNonNull(access);
+        this.onText = Objects.requireNonNull(onText);
+        this.isPaused = Objects.requireNonNull(isPaused);
         this.maxTextLen = Objects.requireNonNull(maxTextLen);
+        this.isCaptureAllowed = Objects.requireNonNull(isCaptureAllowed);
     }
 
     public void start() {
@@ -134,19 +155,22 @@ public final class ClipboardWatcher implements AutoCloseable {
                 return;
             }
 
-            // Compare exact clipboard text. Duplicate policy normalization belongs
-            // to ClipService, so case/whitespace-only changes must reach it.
-            if (captured.equals(lastSeenText)) {
+            // Exact observation belongs to the watcher; duplicate normalization
+            // remains in ClipService. Mark before the privacy decision so blocked
+            // content cannot be ingested later after a foreground-window switch.
+            // This prevents excluded content from being captured later merely because
+            // the user switched to another application without changing the clipboard.
+            if (!observationState.markIfChanged(captured)) {
                 consecutiveFailures = 0;
                 consecutiveNoChange++;
                 scheduleNext(idleDelayMs());
                 return;
             }
-
-            lastSeenText = captured;
             consecutiveNoChange = 0;
 
-            onText.accept(captured);
+            if (captureAllowedFailOpen()) {
+                onText.accept(captured);
+            }
 
             consecutiveFailures = 0;
             scheduleNext(MIN_POLL_MS);
@@ -167,8 +191,16 @@ public final class ClipboardWatcher implements AutoCloseable {
             String captured = applySafetyCap(raw);
             if (captured == null || captured.isBlank()) return;
 
-            lastSeenText = captured;
+            observationState.snapshot(captured);
         } catch (Exception ignored) {
+        }
+    }
+
+    private boolean captureAllowedFailOpen() {
+        try {
+            return isCaptureAllowed.getAsBoolean();
+        } catch (Throwable ignored) {
+            return true;
         }
     }
 

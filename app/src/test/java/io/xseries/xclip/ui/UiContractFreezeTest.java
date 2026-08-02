@@ -8,6 +8,7 @@ package io.xseries.xclip.ui;
 import io.xseries.xclip.config.Config;
 import io.xseries.xclip.domain.duplicate.DuplicateBehaviorPolicy;
 import io.xseries.xclip.domain.model.ClipContentType;
+import io.xseries.xclip.domain.privacy.ExcludedApplicationPolicy;
 import io.xseries.xclip.domain.model.ClipViewScope;
 import io.xseries.xclip.domain.service.TagNamePolicy;
 import io.xseries.xclip.ui.components.UiIcon;
@@ -39,7 +40,7 @@ class UiContractFreezeTest {
     void frozenContractMatchesRuntimeConstantsAndEnums() throws Exception {
         Properties contract = loadContract();
 
-        assertEquals("7", contract.getProperty("contract.version"));
+        assertEquals("8", contract.getProperty("contract.version"));
         assertEquals("1.3.0", contract.getProperty("product.version"));
         assertEquals(Config.MIN_WINDOW_W, intValue(contract, "window.minWidth"));
         assertEquals(Config.MIN_WINDOW_H, intValue(contract, "window.minHeight"));
@@ -209,6 +210,29 @@ class UiContractFreezeTest {
         assertEquals(
                 "DUPLICATE_DEFAULTS_ONLY",
                 required(contract, "duplicate.resetScope")
+        );
+        assertEquals("DEDICATED", required(contract, "privacy.settingsSection"));
+        assertEquals(
+                "EXECUTABLE_BASENAME",
+                required(contract, "privacy.exclusionIdentity")
+        );
+        assertEquals("CASE_INSENSITIVE", required(contract, "privacy.matching"));
+        assertEquals(
+                "FOREGROUND_AT_CAPTURE_DETECTION",
+                required(contract, "privacy.captureDecision")
+        );
+        assertEquals("FAIL_OPEN", required(contract, "privacy.resolverFailure"));
+        assertEquals(
+                ExcludedApplicationPolicy.MAX_APPLICATIONS,
+                intValue(contract, "privacy.maxExcludedApplications")
+        );
+        assertEquals(
+                ExcludedApplicationPolicy.MAX_EXECUTABLE_NAME_LENGTH,
+                intValue(contract, "privacy.maxExecutableNameLength")
+        );
+        assertEquals(
+                "EMPTY",
+                required(contract, "privacy.defaultExcludedApplications")
         );
         assertEquals(UiStyles.popupResourcePaths(), values(contract, "popup.stylesheets"));
         assertEquals(UiStyles.settingsResourcePaths(), values(contract, "settings.stylesheets"));

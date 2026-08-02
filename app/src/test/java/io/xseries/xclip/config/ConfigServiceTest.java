@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -50,9 +51,11 @@ class ConfigServiceTest {
         assertEquals(900, loaded.maxHistory());
         assertTrue(loaded.startMinimized());
         assertEquals(DuplicateBehaviorPolicy.defaults(), loaded.duplicateBehaviorPolicy());
-        assertTrue(persisted.contains("\"version\": 2"));
+        assertTrue(persisted.contains("\"version\": 3"));
         assertTrue(persisted.contains("duplicateRecentPosition"));
         assertTrue(persisted.contains("MOVE_TO_TOP"));
+        assertTrue(persisted.contains("excludedApplications"));
+        assertTrue(loaded.excludedApplications().isEmpty());
     }
 
     @Test
@@ -96,4 +99,46 @@ class ConfigServiceTest {
         assertEquals(0, policy.duplicateWindowMillis());
         assertFalse(policy.exactContentMode());
     }
+    @Test
+    void migratesV2PrivacyDefaultsAndSanitizesManualEntries() throws Exception {
+        Path path = tempDir.resolve("config.json");
+        Files.writeString(path, """
+                {
+                  "version": 2,
+                  "maxHistory": 1200,
+                  "minClipLength": 0,
+                  "maxClipChars": 500000,
+                  "uiClipLimit": 200,
+                  "startOnBoot": false,
+                  "startMinimized": false,
+                  "watcherEnabled": true,
+                  "windowX": -1,
+                  "windowY": -1,
+                  "windowW": 520,
+                  "windowH": 420,
+                  "windowMaximized": false,
+                  "excludedApplications": [
+                    " Chrome.EXE ",
+                    "C:\\\\Tools\\\\KeePassXC.exe",
+                    "*.exe"
+                  ]
+                }
+                """, StandardCharsets.UTF_8);
+
+        Config loaded = new ConfigService(path).loadOrCreate();
+        String persisted = Files.readString(path, StandardCharsets.UTF_8);
+
+        assertEquals(Config.CURRENT_VERSION, loaded.version());
+        assertEquals(1200, loaded.maxHistory());
+        assertEquals(
+                java.util.List.of("chrome.exe", "keepassxc.exe"),
+                loaded.excludedApplications()
+        );
+        assertTrue(persisted.contains("\"version\": 3"));
+        assertTrue(persisted.contains("chrome.exe"));
+        assertTrue(persisted.contains("keepassxc.exe"));
+        assertFalse(persisted.contains("*.exe"));
+    }
+
 }
+

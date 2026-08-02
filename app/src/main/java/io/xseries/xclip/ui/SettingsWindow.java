@@ -9,6 +9,7 @@ import io.xseries.xclip.config.AppPaths;
 import io.xseries.xclip.config.Config;
 import io.xseries.xclip.config.ConfigService;
 import io.xseries.xclip.domain.duplicate.DuplicateBehaviorPolicy;
+import io.xseries.xclip.domain.privacy.ExcludedApplicationPolicy;
 import io.xseries.xclip.domain.service.ClipService;
 import io.xseries.xclip.system.DataOwnershipService;
 import io.xseries.xclip.system.WindowsAutoStartService;
@@ -29,6 +30,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Separator;
 import javafx.scene.control.Spinner;
+import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextFormatter;
 import javafx.scene.input.Clipboard;
@@ -93,6 +95,9 @@ public final class SettingsWindow {
     private final CheckBox duplicateExactContentMode;
     private final Label duplicateExactOverrideHint;
     private final Button resetDuplicateDefaultsBtn;
+
+    private final TextArea excludedApplications;
+    private final Button clearExcludedApplicationsBtn;
 
     private final Button openDataFolderBtn;
     private final Button clearAllDataBtn;
@@ -244,6 +249,25 @@ public final class SettingsWindow {
         );
         resetDuplicateDefaultsBtn.getStyleClass().add("btn-subtle");
 
+        excludedApplications = new TextArea();
+        excludedApplications.setPromptText("One executable per line, for example: 1password.exe");
+        excludedApplications.setPrefRowCount(5);
+        excludedApplications.setWrapText(false);
+        excludedApplications.setAccessibleText("Excluded applications");
+        excludedApplications.setAccessibleHelp(
+                "Clipboard changes are ignored while one of these executables owns the foreground window."
+        );
+        excludedApplications.getStyleClass().addAll(
+                "settings-control-wide",
+                "settings-excluded-apps"
+        );
+
+        clearExcludedApplicationsBtn = new Button("Clear exclusions");
+        clearExcludedApplicationsBtn.setAccessibleHelp(
+                "Remove every application from the clipboard capture exclusion list."
+        );
+        clearExcludedApplicationsBtn.getStyleClass().add("btn-subtle");
+
         GridPane captureGrid = settingsGrid();
         int captureRow = 0;
         captureRow = addSettingRow(
@@ -345,6 +369,33 @@ public final class SettingsWindow {
                 duplicateActions
         );
         duplicateSection.getStyleClass().add("duplicate-settings-section");
+
+        GridPane privacyGrid = settingsGrid();
+        addSettingRow(
+                privacyGrid,
+                0,
+                "Excluded applications",
+                "XClip skips clipboard changes while a listed executable owns the foreground window. Matching uses the executable name only and is case-insensitive.",
+                excludedApplications
+        );
+
+        Label privacyFallbackHint = new Label(
+                "Resolver failures are fail-open: unidentified applications remain capturable instead of silently losing clipboard data."
+        );
+        privacyFallbackHint.setWrapText(true);
+        privacyFallbackHint.getStyleClass().add("settings-privacy-hint");
+
+        HBox privacyActions = new HBox(clearExcludedApplicationsBtn);
+        privacyActions.setAlignment(Pos.CENTER_RIGHT);
+
+        VBox privacySection = section(
+                "Privacy — excluded applications",
+                "Process-based capture exclusions are stored locally in config.json.",
+                privacyGrid,
+                privacyFallbackHint,
+                privacyActions
+        );
+        privacySection.getStyleClass().add("privacy-settings-section");
 
         statusLabel.getStyleClass().add("status-text");
         statusLabel.setAccessibleText("Settings operation status");
@@ -448,6 +499,7 @@ public final class SettingsWindow {
                 12,
                 captureSection,
                 duplicateSection,
+                privacySection,
                 dataSection,
                 new Separator(),
                 dangerBox
@@ -532,6 +584,14 @@ public final class SettingsWindow {
                 event -> resetDuplicateControlsToDefaults()
         );
 
+        excludedApplications.textProperty().addListener(
+                (observable, oldValue, newValue) -> markDirtyUnlessSyncing()
+        );
+        clearExcludedApplicationsBtn.setOnAction(event -> {
+            excludedApplications.clear();
+            showStatus("Application exclusions cleared • Apply to save");
+        });
+
         internalSync = true;
         syncUiFromCurrent();
         internalSync = false;
@@ -584,6 +644,9 @@ public final class SettingsWindow {
         DuplicateBehaviorPolicy duplicatePolicy = duplicatePolicyFromUi();
         if (duplicatePolicy == null) return;
 
+        ExcludedApplicationPolicy excludedPolicy = excludedApplicationPolicyFromUi();
+        if (excludedPolicy == null) return;
+
         Config next = current
                 .withMaxHistory(maxHistory.getValue())
                 .withMinClipLength(minClipLength.getValue())
@@ -592,7 +655,8 @@ public final class SettingsWindow {
                 .withWatcherEnabled(watcherEnabled.isSelected())
                 .withStartMinimized(startMinimized.isSelected())
                 .withStartOnBoot(startOnBoot.isSelected())
-                .withDuplicateBehaviorPolicy(duplicatePolicy);
+                .withDuplicateBehaviorPolicy(duplicatePolicy)
+                .withExcludedApplications(excludedPolicy.executableNames());
 
         boolean autoStartChanged = current.startOnBoot() != next.startOnBoot();
 
@@ -646,6 +710,23 @@ public final class SettingsWindow {
         }
     }
 
+    private ExcludedApplicationPolicy excludedApplicationPolicyFromUi() {
+        excludedApplications.getStyleClass().remove("input-error");
+
+        try {
+            return ExcludedApplicationPolicy.fromMultilineText(
+                    excludedApplications.getText()
+            );
+        } catch (IllegalArgumentException error) {
+            excludedApplications.getStyleClass().add("input-error");
+            excludedApplications.requestFocus();
+            showStatus(error.getMessage() == null
+                    ? "Invalid excluded application"
+                    : error.getMessage());
+            return null;
+        }
+    }
+
     private void resetDuplicateControlsToDefaults() {
         internalSync = true;
         syncDuplicateControls(DuplicateBehaviorPolicy.defaults());
@@ -663,6 +744,10 @@ public final class SettingsWindow {
         startMinimized.setSelected(current.startMinimized());
         startOnBoot.setSelected(current.startOnBoot());
         syncDuplicateControls(current.duplicateBehaviorPolicy());
+        excludedApplications.setText(
+                current.excludedApplicationPolicy().toMultilineText()
+        );
+        excludedApplications.getStyleClass().remove("input-error");
         syncAutostartCheckbox();
         forceSyncSpinnerEditors();
     }

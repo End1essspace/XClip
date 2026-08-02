@@ -1,6 +1,3 @@
-
-
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -20,6 +17,8 @@ import io.xseries.xclip.system.DataOwnershipService;
 import io.xseries.xclip.system.clipboard.ClipboardAccess;
 import io.xseries.xclip.system.clipboard.WatcherController;
 import io.xseries.xclip.system.tray.TrayController;
+import io.xseries.xclip.system.privacy.ClipboardPrivacyGate;
+import io.xseries.xclip.system.privacy.ForegroundApplicationResolver;
 import io.xseries.xclip.ui.PopupWindow;
 import io.xseries.xclip.ui.SettingsWindow;
 import javafx.application.Application;
@@ -52,7 +51,7 @@ public final class XClipApp extends Application {
         // --- paths + config ---
         ConfigService configService = new ConfigService(AppPaths.configPath());
         Config config = configService.loadOrCreate();
-        
+
         // Sync Windows autostart with config on startup (best-effort)
         try {
             configService.applyRuntime(config);
@@ -70,6 +69,10 @@ public final class XClipApp extends Application {
 
         ClipboardAccess clipboard = new ClipboardAccess();
         PasteService pasteService = PasteService.createDefault(clipboard, clipService);
+        ClipboardPrivacyGate privacyGate = new ClipboardPrivacyGate(
+                new ForegroundApplicationResolver()
+        );
+        privacyGate.applyConfig(config);
 
         // --- runtime controllers ---
         this.tray = new TrayController();
@@ -77,7 +80,8 @@ public final class XClipApp extends Application {
         watcherController = new WatcherController(
                 clipboard,
                 clipService::ingestText,
-                tray::isPaused
+                tray::isPaused,
+                privacyGate::isCaptureAllowed
         );
 
         // data ownership service (needs instance Database)
@@ -98,11 +102,14 @@ public final class XClipApp extends Application {
                 watcherController,
                 dataOwnershipService,
                 config,
-                popup::applyConfig
+                nextConfig -> {
+                    privacyGate.applyConfig(nextConfig);
+                    popup.applyConfig(nextConfig);
+                }
         );
 
         openSettingsRef[0] = settingsWindow::show;
-        
+
         tray.install(
                 popup::showOrFocus,
                 popup::showOrFocusForPaste,
@@ -177,5 +184,3 @@ public final class XClipApp extends Application {
         launch(args);
     }
 }
-
-

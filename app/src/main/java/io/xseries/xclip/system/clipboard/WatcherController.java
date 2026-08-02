@@ -23,6 +23,7 @@ public final class WatcherController implements AutoCloseable {
     private final ClipboardAccess access;
     private final Consumer<String> onText;
     private final BooleanSupplier isPaused;
+    private final BooleanSupplier isCaptureAllowed;
 
     private final Object lock = new Object();
     private final AtomicBoolean enabled = new AtomicBoolean(false);
@@ -34,9 +35,19 @@ public final class WatcherController implements AutoCloseable {
             Consumer<String> onText,
             BooleanSupplier isPaused
     ) {
+        this(access, onText, isPaused, () -> true);
+    }
+
+    public WatcherController(
+            ClipboardAccess access,
+            Consumer<String> onText,
+            BooleanSupplier isPaused,
+            BooleanSupplier isCaptureAllowed
+    ) {
         this.access = Objects.requireNonNull(access);
         this.onText = Objects.requireNonNull(onText);
         this.isPaused = Objects.requireNonNull(isPaused);
+        this.isCaptureAllowed = Objects.requireNonNull(isCaptureAllowed);
     }
 
     public boolean isEnabled() {
@@ -50,7 +61,12 @@ public final class WatcherController implements AutoCloseable {
         synchronized (lock) {
             if (enabled.get()) return;
 
-            ClipboardWatcher w = new ClipboardWatcher(access, onText, isPaused);
+            ClipboardWatcher w = new ClipboardWatcher(
+                    access,
+                    onText,
+                    isPaused,
+                    isCaptureAllowed
+            );
             w.start();
 
             watcher = w;

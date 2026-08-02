@@ -237,6 +237,7 @@
 .settings-root .check-box:focused .box,
 .settings-root .spinner:focused,
 .settings-root .text-field:focused,
+.settings-root .text-area:focused,
 .x-dialog .button:focused,
 .x-dialog .text-field:focused {
     -fx-border-color: -x-accent;
@@ -658,4 +659,35 @@
 .settings-root .combo-box-popup .list-cell:filled:selected {
     -fx-background-color: -x-accent-soft;
     -fx-text-fill: -x-text;
+}
+
+/* =========================================================
+   Milestone 5.1 — excluded application privacy controls
+   ========================================================= */
+
+.privacy-settings-section {
+    -fx-border-color: #3A4B61;
+}
+
+.settings-excluded-apps {
+    -fx-pref-height: 118px;
+    -fx-max-height: 160px;
+    -fx-font-family: "Consolas";
+    -fx-font-size: 11px;
+}
+
+.settings-excluded-apps .content {
+    -fx-background-color: #111720;
+}
+
+.settings-privacy-hint {
+    -fx-text-fill: #82A9D5;
+    -fx-font-size: 10px;
+    -fx-line-spacing: 1px;
+    -fx-padding: 0 2 0 2;
+}
+
+.settings-root .text-area.input-error {
+    -fx-border-color: #D85B5B;
+    -fx-effect: dropshadow(gaussian, rgba(216, 91, 91, 0.34), 6, 0.2, 0, 0);
 }

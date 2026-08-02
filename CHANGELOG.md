@@ -3,10 +3,16 @@
 All notable changes to this project will be documented in this file.
 
 
-## [Unreleased] — Duplicate behavior preferences
+## [Unreleased] — Privacy controls and duplicate behavior preferences
 
 ### Added
 
+* Added process-based foreground application exclusions with a dedicated Privacy section in Settings.
+* Added config v3 persistence for a normalized, case-insensitive executable-basename exclusion list with backward-compatible migration from config v2.
+* Added a best-effort Windows foreground resolver that records process id, executable name, and window title without blocking capture on resolver failure.
+* Added a fail-open clipboard privacy gate: only a positive foreground executable match suppresses ingest.
+* Added strict UI validation, safe persisted-value sanitization, deterministic normalization, and one-click clearing for excluded applications.
+* Extended the frozen UI contract to revision 8 and added privacy policy, resolver parsing, runtime gate, config migration, and CSS resource tests.
 * Added a dedicated Duplicate behavior section to Settings with product-facing controls for RECENT/PINNED positioning, whitespace, letter case, duplicate windows, and exact-content mode.
 * Added stable duplicate-window presets plus lossless custom millisecond input for non-preset persisted values.
 * Added an exact-mode override state that visibly disables whitespace and case controls while their values remain preserved.
@@ -53,7 +59,8 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-* Duplicate behavior values now persist in config v2 and apply immediately through `ClipService`; the dedicated Settings controls remain deferred to Milestone 4.3.
+* Duplicate behavior values remain persisted in config v3 and continue to apply immediately through `ClipService` and the dedicated Settings controls.
+* Clipboard watcher now evaluates the foreground privacy gate after marking a changed value as observed, preventing excluded content from being captured later after a window switch without another clipboard change.
 * Clipboard watching now forwards exact capped text to the domain layer so case- and whitespace-only changes can be evaluated by the selected duplicate policy.
 * `content_hash` is no longer unique in schema v6 because finite duplicate windows can intentionally retain multiple equal clips.
 * Extended the frozen UI contract to revision 6 for Milestone 3.3 Search UI.

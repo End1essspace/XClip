@@ -6,7 +6,9 @@
 package io.xseries.xclip.config;
 
 import io.xseries.xclip.domain.duplicate.DuplicateBehaviorPolicy;
+import io.xseries.xclip.domain.privacy.ExcludedApplicationPolicy;
 
+import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 
@@ -15,7 +17,7 @@ import java.util.Objects;
  */
 public final class Config {
 
-    public static final int CURRENT_VERSION = 2;
+    public static final int CURRENT_VERSION = 3;
 
     private final int version;
     private final int maxHistory;
@@ -49,6 +51,8 @@ public final class Config {
     private final String duplicateCaseSensitivity;
     private final long duplicateWindowMillis;
     private final boolean duplicateExactContentMode;
+
+    private final List<String> excludedApplications;
 
     public Config(
             int version,
@@ -109,7 +113,8 @@ public final class Config {
                 null,
                 null,
                 DuplicateBehaviorPolicy.UNLIMITED_WINDOW,
-                false
+                false,
+                List.of()
         );
     }
 
@@ -132,7 +137,8 @@ public final class Config {
             String duplicateWhitespaceMode,
             String duplicateCaseSensitivity,
             long duplicateWindowMillis,
-            boolean duplicateExactContentMode
+            boolean duplicateExactContentMode,
+            List<String> excludedApplications
     ) {
         this.version = version;
         this.maxHistory = maxHistory;
@@ -153,6 +159,7 @@ public final class Config {
         this.duplicateCaseSensitivity = duplicateCaseSensitivity;
         this.duplicateWindowMillis = duplicateWindowMillis;
         this.duplicateExactContentMode = duplicateExactContentMode;
+        this.excludedApplications = excludedApplications;
     }
 
     public static Config defaults() {
@@ -202,6 +209,7 @@ public final class Config {
         if (!Double.isFinite(y)) y = -1;
 
         DuplicateBehaviorPolicy duplicatePolicy = duplicateBehaviorPolicy();
+        ExcludedApplicationPolicy excludedPolicy = excludedApplicationPolicy();
 
         return new Config(
                 v,
@@ -222,7 +230,8 @@ public final class Config {
                 duplicatePolicy.whitespaceMode().name(),
                 duplicatePolicy.caseSensitivity().name(),
                 duplicatePolicy.duplicateWindowMillis(),
-                duplicatePolicy.exactContentMode()
+                duplicatePolicy.exactContentMode(),
+                excludedPolicy.executableNames()
         );
     }
 
@@ -278,6 +287,15 @@ public final class Config {
     String duplicateCaseSensitivityValue() { return duplicateCaseSensitivity; }
     long duplicateWindowMillisValue() { return duplicateWindowMillis; }
     boolean duplicateExactContentModeValue() { return duplicateExactContentMode; }
+    List<String> excludedApplicationsValue() { return excludedApplications; }
+
+    public ExcludedApplicationPolicy excludedApplicationPolicy() {
+        return ExcludedApplicationPolicy.sanitized(excludedApplications);
+    }
+
+    public List<String> excludedApplications() {
+        return excludedApplicationPolicy().executableNames();
+    }
 
     public boolean hasWindowPos() {
         return Double.isFinite(windowX)
@@ -344,6 +362,26 @@ public final class Config {
                 windowMaximized, normalizedPolicy).normalized();
     }
 
+    public Config withExcludedApplications(List<String> applications) {
+        ExcludedApplicationPolicy excludedPolicy = new ExcludedApplicationPolicy(applications);
+        return copy(
+                maxHistory,
+                minClipLength,
+                maxClipChars,
+                uiClipLimit,
+                startOnBoot,
+                startMinimized,
+                watcherEnabled,
+                windowX,
+                windowY,
+                windowW,
+                windowH,
+                windowMaximized,
+                duplicateBehaviorPolicy(),
+                excludedPolicy
+        ).normalized();
+    }
+
     private Config copy(
             int maxHistory,
             int minClipLength,
@@ -378,7 +416,48 @@ public final class Config {
                 duplicatePolicy.whitespaceMode().name(),
                 duplicatePolicy.caseSensitivity().name(),
                 duplicatePolicy.duplicateWindowMillis(),
-                duplicatePolicy.exactContentMode()
+                duplicatePolicy.exactContentMode(),
+                excludedApplicationPolicy().executableNames()
+        );
+    }
+
+    private Config copy(
+            int maxHistory,
+            int minClipLength,
+            int maxClipChars,
+            int uiClipLimit,
+            boolean startOnBoot,
+            boolean startMinimized,
+            boolean watcherEnabled,
+            double windowX,
+            double windowY,
+            double windowW,
+            double windowH,
+            boolean windowMaximized,
+            DuplicateBehaviorPolicy duplicatePolicy,
+            ExcludedApplicationPolicy excludedPolicy
+    ) {
+        return new Config(
+                version,
+                maxHistory,
+                minClipLength,
+                maxClipChars,
+                uiClipLimit,
+                startOnBoot,
+                startMinimized,
+                watcherEnabled,
+                windowX,
+                windowY,
+                windowW,
+                windowH,
+                windowMaximized,
+                duplicatePolicy.recentDuplicatePosition().name(),
+                duplicatePolicy.pinnedDuplicatePosition().name(),
+                duplicatePolicy.whitespaceMode().name(),
+                duplicatePolicy.caseSensitivity().name(),
+                duplicatePolicy.duplicateWindowMillis(),
+                duplicatePolicy.exactContentMode(),
+                excludedPolicy.executableNames()
         );
     }
 

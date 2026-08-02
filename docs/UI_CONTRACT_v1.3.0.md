@@ -1,7 +1,7 @@
 # XClip UI Contract v1.3.0
 
-**Status:** Frozen R11 baseline, deliberately extended by Milestones 2.2–2.4, 3.2–3.3, and 4.3
-**Scope:** Popup, custom window chrome, modal surfaces, Settings styling, keyboard workflow, responsive behavior, and packaged UI resources.
+**Status:** Frozen R11 baseline, deliberately extended by Milestones 2.2–2.4, 3.2–3.3, 4.3, and 5.1
+**Scope:** Popup, custom window chrome, modal surfaces, Settings styling, privacy controls, keyboard workflow, responsive behavior, and packaged UI resources.
 
 This document is the human-readable counterpart of `/ui/ui-contract-v1.3.0.properties`. Any intentional contract change must update both files and the `UiContractFreezeTest` expectations in the same reviewed milestone.
 
@@ -222,3 +222,32 @@ Settings section without changing config version 2 or database schema version 6.
   in a fixed bottom action bar.
 - Every duplicate control exposes accessible text/help and product-facing labels
   rather than internal enum names.
+
+---
+
+## 15. Excluded applications privacy extension — contract revision 8
+
+Milestone 5.1 adds process-based capture exclusions without changing database
+schema version 6. Config advances from version 2 to version 3.
+
+- Settings exposes a dedicated `Privacy — excluded applications` section.
+- Each entry is normalized to a lower-case executable basename; full paths and
+  names without `.exe` are accepted as input.
+- Matching is case-insensitive and intentionally does not use window-title text.
+- At most `128` executable names are persisted; one normalized basename is at
+  most `260` characters.
+- The default list is empty, preserving pre-M5.1 capture behavior.
+- The foreground resolver records PID, executable basename, and window title at
+  clipboard polling detection time.
+- Only a positive executable-name match blocks ingest. Missing process metadata,
+  unsupported operating systems, permission failures, and resolver exceptions are
+  fail-open.
+- A blocked clipboard value is still stored as the watcher `lastSeen` snapshot,
+  so switching to a non-excluded window without changing the clipboard cannot
+  retroactively ingest sensitive content.
+- Apply updates the runtime privacy gate immediately through the existing Settings
+  callback; restarting XClip is not required.
+- Invalid manually edited persisted entries are discarded individually while valid
+  entries and all unrelated config values are preserved.
+- No existing history is deleted automatically. The exclusion applies only to new
+  clipboard changes detected while the listed process is foreground.

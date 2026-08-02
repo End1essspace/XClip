@@ -18,6 +18,12 @@ Unlike simple clipboard utilities, XClip focuses on engineering quality: layered
 - Protection against clipboard lock issues
 - Safe background execution
 
+🔐 **Foreground Application Exclusions**
+- Skip clipboard capture while a listed executable owns the foreground window
+- Case-insensitive matching by executable basename
+- Local-only persisted exclusion list in Settings
+- Fail-open resolver behavior prevents silent data loss when Windows process metadata is unavailable
+
 🔍 **Instant Search with Highlighting**
 - Live search across full clipboard history
 - Advanced operators: `type:`, `is:`, `tag:`, `-type:`, and `-tag:`
@@ -187,6 +193,12 @@ Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
 - Четыре индексированных equality hash позволяют менять policy без перезаписи истории
 - Защита от проблем с блокировкой буфера обмена
 - Безопасная работа в фоне
+
+🔐 **Исключения приложений по foreground-процессу**
+- Пропуск clipboard capture, пока foreground-окно принадлежит указанному executable
+- Сопоставление имени процесса без учёта регистра
+- Локальный persistent-список исключений в Settings
+- Fail-open resolver не допускает тихой потери данных, если Windows не отдал сведения о процессе
 
 🔍 **Мгновенный поиск с подсветкой**
 - Живой поиск по всей истории буфера обмена
