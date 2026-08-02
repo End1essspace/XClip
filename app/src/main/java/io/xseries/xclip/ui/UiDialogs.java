@@ -1,4 +1,5 @@
 
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -158,6 +159,10 @@ public final class UiDialogs {
         return confirmDanger(owner, clearVisibleCopy(visibleCount));
     }
 
+    public static boolean confirmClearRecent(Stage owner) {
+        return confirmDanger(owner, clearRecentCopy());
+    }
+
     public static boolean confirmClearAllData(Stage owner, Path dataDirectory) {
         Objects.requireNonNull(dataDirectory, "dataDirectory");
         DialogCopy copy = new DialogCopy(
@@ -217,6 +222,17 @@ public final class UiDialogs {
                 "The selected clipboard entries will be permanently deleted."
                         + pinned + " This cannot be undone.",
                 "Delete " + selectedCount + " clips"
+        );
+    }
+
+    static DialogCopy clearRecentCopy() {
+        return new DialogCopy(
+                "Clear RECENT history",
+                "DESTRUCTIVE ACTION",
+                "Delete all RECENT clips?",
+                "Every unpinned clipboard entry will be permanently deleted. "
+                        + "PINNED clips, tags, settings, and retention rules stay intact.",
+                "Clear RECENT"
         );
     }
 

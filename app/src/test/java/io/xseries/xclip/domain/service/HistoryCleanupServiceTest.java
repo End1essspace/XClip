@@ -151,6 +151,28 @@ class HistoryCleanupServiceTest {
     }
 
     @Test
+    void manualClearRecentDeletesOnlyUnpinnedAndPublishesDedicatedTrigger() {
+        try (Fixture fixture = fixture();
+             HistoryCleanupService service = new HistoryCleanupService(fixture.dao)) {
+            fixture.insert("recent one", 10L);
+            fixture.insert("recent two", 20L);
+            long pinned = fixture.insert("pinned", 1L);
+            fixture.dao.setFavorite(pinned, true);
+
+            HistoryCleanupService.CleanupStatus status = service.clearRecentAt(30L);
+
+            assertEquals(
+                    HistoryCleanupService.CleanupTrigger.MANUAL_CLEAR_RECENT,
+                    status.trigger()
+            );
+            assertEquals(HistoryCleanupService.CleanupOutcome.SUCCESS, status.outcome());
+            assertEquals(2, status.deletedCount());
+            assertEquals(1, fixture.dao.countAll());
+            assertEquals("pinned", fixture.dao.listLatest(10).get(0).content());
+        }
+    }
+
+    @Test
     void maintenancePauseBlocksCleanupAndCanResumeAfterFailedDataOperation() {
         try (Fixture fixture = fixture();
              HistoryCleanupService service = new HistoryCleanupService(fixture.dao)) {

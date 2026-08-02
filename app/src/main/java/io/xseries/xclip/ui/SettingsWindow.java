@@ -17,9 +17,12 @@ import io.xseries.xclip.domain.retention.HistoryRetentionPolicy;
 import io.xseries.xclip.domain.service.ClipService;
 import io.xseries.xclip.domain.service.HistoryCleanupService;
 import io.xseries.xclip.system.DataOwnershipService;
+import io.xseries.xclip.system.ExternalOpenService;
 import io.xseries.xclip.system.WindowsAutoStartService;
 import io.xseries.xclip.system.clipboard.WatcherController;
+import io.xseries.xclip.system.tray.TrayController;
 import io.xseries.xclip.system.window.WindowChromeController;
+import io.xseries.xclip.ui.settings.AboutSettingsContent;
 import io.xseries.xclip.ui.settings.AboutSettingsPage;
 import io.xseries.xclip.ui.settings.AppearanceSettingsPage;
 import io.xseries.xclip.ui.settings.CaptureSettingsPage;
@@ -31,7 +34,11 @@ import io.xseries.xclip.ui.settings.GeneralSettingsPage;
 import io.xseries.xclip.ui.settings.HistorySettingsPage;
 import io.xseries.xclip.ui.settings.PrivacySettingsPage;
 import io.xseries.xclip.ui.settings.SettingsDraft;
+import io.xseries.xclip.ui.settings.SettingsDraftSession;
+import io.xseries.xclip.ui.settings.SettingsDraftValidation;
+import io.xseries.xclip.ui.settings.SettingsField;
 import io.xseries.xclip.ui.settings.SettingsPage;
+import io.xseries.xclip.ui.settings.SettingsValidationIssue;
 import io.xseries.xclip.ui.settings.ShortcutsSettingsPage;
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
@@ -42,6 +49,7 @@ import javafx.scene.image.ImageView;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.Control;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Spinner;
@@ -67,6 +75,8 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.EnumMap;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
 /**
@@ -102,10 +112,13 @@ public final class SettingsWindow {
     private final ConfigService configService;
     private final ClipService clipService;
     private final WatcherController watcherController;
+    private final TrayController trayController;
     private final DataOwnershipService dataOwnershipService;
+    private final ExternalOpenService externalOpenService = new ExternalOpenService();
     private final HistoryCleanupService historyCleanupService;
 
     private Config current;
+    private final SettingsDraftSession draftSession;
 
     private final Spinner<Integer> maxHistory;
     private final Spinner<Integer> minClipLength;
@@ -149,10 +162,15 @@ public final class SettingsWindow {
     private final Button resetRetentionDefaultsBtn;
 
     private final Button applyBtn = new Button("Apply");
-    private boolean dirty = false;
+    private final Label validationLabel = new Label();
+    private final EnumMap<SettingsField, Control> validationControls =
+            new EnumMap<>(SettingsField.class);
     private boolean internalSync = false;
 
     private final Label statusLabel = new Label();
+    private final AtomicBoolean dataOperationRunning = new AtomicBoolean(false);
+    private ShortcutsSettingsPage.View shortcutsPageView;
+    private DataSettingsPage.View dataPageView;
     private PauseTransition statusHide;
     private final java.util.function.Consumer<Config> onConfigApplied;
 
@@ -160,6 +178,7 @@ public final class SettingsWindow {
             ConfigService configService,
             ClipService clipService,
             WatcherController watcherController,
+            TrayController trayController,
             DataOwnershipService dataOwnershipService,
             HistoryCleanupService historyCleanupService,
             Config initial,
@@ -168,9 +187,11 @@ public final class SettingsWindow {
         this.configService = Objects.requireNonNull(configService);
         this.clipService = Objects.requireNonNull(clipService);
         this.watcherController = Objects.requireNonNull(watcherController);
+        this.trayController = Objects.requireNonNull(trayController);
         this.dataOwnershipService = Objects.requireNonNull(dataOwnershipService);
         this.historyCleanupService = Objects.requireNonNull(historyCleanupService);
         this.current = (initial == null ? Config.defaults() : initial).normalized();
+        this.draftSession = new SettingsDraftSession(this.current);
         this.onConfigApplied = onConfigApplied != null ? onConfigApplied : cfg -> {};
 
         stage = new Stage(StageStyle.UNDECORATED);
@@ -377,10 +398,21 @@ public final class SettingsWindow {
         );
         resetRetentionDefaultsBtn.getStyleClass().add("btn-subtle");
 
+        validationLabel.getStyleClass().add("settings-validation-status");
+        validationLabel.setAccessibleText("Settings validation status");
+        validationLabel.setAccessibleHelp(
+                "Select the validation message to open and focus the first invalid field."
+        );
+        validationLabel.setOnMouseClicked(event -> focusFirstValidationIssue());
+        validationLabel.setManaged(false);
+        validationLabel.setVisible(false);
+
         statusLabel.getStyleClass().add("status-text");
         statusLabel.setAccessibleText("Settings operation status");
         statusLabel.setManaged(false);
         statusLabel.setVisible(false);
+
+        registerValidationControls();
 
         pageViews.put(
                 SettingsPage.GENERAL,
@@ -446,22 +478,30 @@ public final class SettingsWindow {
                 SettingsPage.APPEARANCE,
                 AppearanceSettingsPage.create()
         );
-        pageViews.put(
-                SettingsPage.SHORTCUTS,
-                ShortcutsSettingsPage.create()
+        shortcutsPageView = ShortcutsSettingsPage.create(
+                trayController.hotkeyStatus()
         );
-        pageViews.put(
-                SettingsPage.DATA,
-                DataSettingsPage.create(
-                        AppPaths.dataDir(),
-                        dataOwnershipService::openDataFolder,
-                        this::clearAllDataFlow,
-                        this::showStatus
-                )
+        pageViews.put(SettingsPage.SHORTCUTS, shortcutsPageView.root());
+
+        dataPageView = DataSettingsPage.create(
+                AppPaths.dataDir(),
+                AppPaths.dbPath(),
+                AppPaths.configPath(),
+                dataOwnershipService::openDataFolder,
+                this::scheduleRetentionCleanup,
+                this::clearRecentFlow,
+                this::clearAllDataFlow,
+                this::showStatus
         );
+        pageViews.put(SettingsPage.DATA, dataPageView.root());
+
         pageViews.put(
                 SettingsPage.ABOUT,
-                AboutSettingsPage.create(AppVersion.VERSION)
+                AboutSettingsPage.create(
+                        AppVersion.VERSION,
+                        this::openProductLink,
+                        this::showThirdPartyNotices
+                )
         );
 
         Button cancelBtn = new Button("Cancel");
@@ -484,6 +524,7 @@ public final class SettingsWindow {
 
         HBox bottomBar = new HBox(
                 10,
+                validationLabel,
                 statusLabel,
                 spacer,
                 applyBtn,
@@ -521,12 +562,13 @@ public final class SettingsWindow {
         selectPage(selectedPage);
 
         stage.setOnHiding(event -> {
-            if (dirty) {
-                resetUiToCurrentSilently();
+            if (draftSession.dirty()) {
+                discardDraftSilently();
             } else {
                 internalSync = true;
-                forceSyncSpinnerEditors();
+                syncUiFromDraft(draftSession.baseline());
                 internalSync = false;
+                renderDraftState();
             }
         });
 
@@ -548,40 +590,40 @@ public final class SettingsWindow {
         wireDirtyForIntSpinner(retentionCommandDays);
 
         watcherEnabled.selectedProperty().addListener(
-                (observable, oldValue, newValue) -> markDirtyUnlessSyncing()
+                (observable, oldValue, newValue) -> refreshDraftStateUnlessSyncing()
         );
         startMinimized.selectedProperty().addListener(
-                (observable, oldValue, newValue) -> markDirtyUnlessSyncing()
+                (observable, oldValue, newValue) -> refreshDraftStateUnlessSyncing()
         );
         startOnBoot.selectedProperty().addListener(
-                (observable, oldValue, newValue) -> markDirtyUnlessSyncing()
+                (observable, oldValue, newValue) -> refreshDraftStateUnlessSyncing()
         );
 
         duplicateRecentPosition.valueProperty().addListener(
-                (observable, oldValue, newValue) -> markDirtyUnlessSyncing()
+                (observable, oldValue, newValue) -> refreshDraftStateUnlessSyncing()
         );
         duplicatePinnedPosition.valueProperty().addListener(
-                (observable, oldValue, newValue) -> markDirtyUnlessSyncing()
+                (observable, oldValue, newValue) -> refreshDraftStateUnlessSyncing()
         );
         duplicateWhitespaceMode.valueProperty().addListener(
-                (observable, oldValue, newValue) -> markDirtyUnlessSyncing()
+                (observable, oldValue, newValue) -> refreshDraftStateUnlessSyncing()
         );
         duplicateCaseSensitivity.valueProperty().addListener(
-                (observable, oldValue, newValue) -> markDirtyUnlessSyncing()
+                (observable, oldValue, newValue) -> refreshDraftStateUnlessSyncing()
         );
         duplicateWindowPreset.valueProperty().addListener(
                 (observable, oldValue, newValue) -> {
                     syncDuplicateWindowEditor();
-                    markDirtyUnlessSyncing();
+                    refreshDraftStateUnlessSyncing();
                 }
         );
         duplicateCustomWindowMillis.textProperty().addListener(
-                (observable, oldValue, newValue) -> markDirtyUnlessSyncing()
+                (observable, oldValue, newValue) -> refreshDraftStateUnlessSyncing()
         );
         duplicateExactContentMode.selectedProperty().addListener(
                 (observable, oldValue, newValue) -> {
                     syncDuplicateMatchingAvailability();
-                    markDirtyUnlessSyncing();
+                    refreshDraftStateUnlessSyncing();
                 }
         );
 
@@ -590,7 +632,7 @@ public final class SettingsWindow {
         );
 
         excludedApplications.textProperty().addListener(
-                (observable, oldValue, newValue) -> markDirtyUnlessSyncing()
+                (observable, oldValue, newValue) -> refreshDraftStateUnlessSyncing()
         );
         clearExcludedApplicationsBtn.setOnAction(event -> {
             excludedApplications.clear();
@@ -598,51 +640,62 @@ public final class SettingsWindow {
         });
 
         paymentCardAction.valueProperty().addListener(
-                (observable, oldValue, newValue) -> markDirtyUnlessSyncing()
+                (observable, oldValue, newValue) -> refreshDraftStateUnlessSyncing()
         );
         oneTimeCodeAction.valueProperty().addListener(
-                (observable, oldValue, newValue) -> markDirtyUnlessSyncing()
+                (observable, oldValue, newValue) -> refreshDraftStateUnlessSyncing()
         );
         resetSensitiveRulesBtn.setOnAction(event -> resetSensitiveControlsToDefaults());
 
         retentionRecentEnabled.selectedProperty().addListener(
                 (observable, oldValue, newValue) -> {
                     syncRetentionAvailability();
-                    markDirtyUnlessSyncing();
+                    refreshDraftStateUnlessSyncing();
                 }
         );
         clearRecentOnExit.selectedProperty().addListener(
-                (observable, oldValue, newValue) -> markDirtyUnlessSyncing()
+                (observable, oldValue, newValue) -> refreshDraftStateUnlessSyncing()
         );
-        runCleanupNowBtn.setOnAction(event -> {
-            historyCleanupService.requestCleanup(
-                    HistoryCleanupService.CleanupTrigger.MANUAL
-            );
-            showStatus("Cleanup scheduled");
-        });
+        runCleanupNowBtn.setOnAction(event -> scheduleRetentionCleanup());
         resetRetentionDefaultsBtn.setOnAction(
                 event -> resetRetentionControlsToDefaults()
         );
-        historyCleanupService.addStatusListener(status -> Platform.runLater(
-                () -> updateCleanupStatus(status)
+        historyCleanupService.addStatusListener(status -> Platform.runLater(() -> {
+            updateCleanupStatus(status);
+            if (status != null
+                    && status.trigger()
+                    == HistoryCleanupService.CleanupTrigger.MANUAL_CLEAR_RECENT) {
+                setDataMaintenanceBusy(false);
+                showStatus(
+                        status.outcome() == HistoryCleanupService.CleanupOutcome.FAILED
+                                ? "Clear RECENT failed"
+                                : status.detail()
+                );
+            }
+        }));
+        trayController.addHotkeyStatusListener(status -> Platform.runLater(
+                () -> shortcutsPageView.updateHotkeyStatus(status)
         ));
 
         internalSync = true;
-        syncUiFromCurrent();
+        syncUiFromDraft(draftSession.current());
         internalSync = false;
-        clearDirty();
+        renderDraftState();
     }
 
     public void show() {
-        internalSync = true;
-        syncAutostartCheckbox();
-        updateCleanupStatus(historyCleanupService.status());
-        forceSyncSpinnerEditors();
-        internalSync = false;
-
         if (!stage.isShowing()) {
+            internalSync = true;
+            syncUiFromDraft(draftSession.current());
+            syncAutostartCheckbox();
+            updateCleanupStatus(historyCleanupService.status());
+            internalSync = false;
+            refreshDraftStateFromUi();
+
             stage.centerOnScreen();
             stage.show();
+        } else {
+            updateCleanupStatus(historyCleanupService.status());
         }
 
         stage.toFront();
@@ -651,51 +704,22 @@ public final class SettingsWindow {
     }
 
     private void apply() {
-        if (!dirty) {
+        refreshDraftStateFromUi();
+        if (!draftSession.dirty()) {
             showStatus("No changes");
             return;
         }
-        if (!validateIntSpinner(maxHistory, 100, 50_000, "Max history")) return;
-        if (!validateIntSpinner(minClipLength, 0, 10_000, "Min clip length")) return;
-        if (!validateIntSpinner(
-                maxClipChars,
-                10_000,
-                5_000_000,
-                "Max clip chars"
-        )) return;
-        if (!validateIntSpinner(uiClipLimit, 50, 5_000, "UI clip limit")) return;
-        if (!validateIntSpinner(retentionRecentDays, 1, HistoryRetentionPolicy.MAX_MAX_AGE_DAYS, "General retention days")) return;
-        if (!validateIntSpinner(retentionTextDays, 0, HistoryRetentionPolicy.MAX_MAX_AGE_DAYS, "TEXT retention days")) return;
-        if (!validateIntSpinner(retentionCodeDays, 0, HistoryRetentionPolicy.MAX_MAX_AGE_DAYS, "CODE retention days")) return;
-        if (!validateIntSpinner(retentionUrlDays, 0, HistoryRetentionPolicy.MAX_MAX_AGE_DAYS, "URL retention days")) return;
-        if (!validateIntSpinner(retentionPathDays, 0, HistoryRetentionPolicy.MAX_MAX_AGE_DAYS, "PATH retention days")) return;
-        if (!validateIntSpinner(retentionJsonDays, 0, HistoryRetentionPolicy.MAX_MAX_AGE_DAYS, "JSON retention days")) return;
-        if (!validateIntSpinner(retentionCommandDays, 0, HistoryRetentionPolicy.MAX_MAX_AGE_DAYS, "COMMAND retention days")) return;
 
-        DuplicateBehaviorPolicy duplicatePolicy = duplicatePolicyFromUi();
-        if (duplicatePolicy == null) return;
+        SettingsDraftValidation validation = draftSession.validation();
+        if (!validation.valid()) {
+            focusFirstValidationIssue();
+            showStatus(validation.firstIssue()
+                    .map(SettingsValidationIssue::displayMessage)
+                    .orElse("Invalid settings"));
+            return;
+        }
 
-        ExcludedApplicationPolicy excludedPolicy = excludedApplicationPolicyFromUi();
-        if (excludedPolicy == null) return;
-
-        SensitiveContentPolicy sensitivePolicy = sensitiveContentPolicyFromUi();
-        HistoryRetentionPolicy retentionPolicy = historyRetentionPolicyFromUi();
-
-        SettingsDraft draft = new SettingsDraft(
-                maxHistory.getValue(),
-                minClipLength.getValue(),
-                maxClipChars.getValue(),
-                uiClipLimit.getValue(),
-                watcherEnabled.isSelected(),
-                startMinimized.isSelected(),
-                startOnBoot.isSelected(),
-                duplicatePolicy,
-                excludedPolicy,
-                sensitivePolicy,
-                retentionPolicy
-        );
-        Config next = draft.toConfig(current);
-
+        Config next = validation.toConfig(current);
         boolean autoStartChanged = current.startOnBoot() != next.startOnBoot();
 
         configService.save(next);
@@ -718,6 +742,12 @@ public final class SettingsWindow {
         } catch (Throwable ignored) {
         }
 
+        draftSession.commit(next);
+        internalSync = true;
+        syncUiFromDraft(draftSession.current());
+        internalSync = false;
+        renderDraftState();
+
         if (autoStartChanged) {
             showStatus(next.startOnBoot()
                     ? "Saved • Autostart enabled"
@@ -725,139 +755,110 @@ public final class SettingsWindow {
         } else {
             showStatus("Saved");
         }
-
-        clearDirty();
     }
 
-    private DuplicateBehaviorPolicy duplicatePolicyFromUi() {
-        duplicateCustomWindowMillis.getStyleClass().remove("input-error");
-
-        try {
-            return DuplicateSettingsModel.toPolicy(
-                    duplicateRecentPosition.getValue(),
-                    duplicatePinnedPosition.getValue(),
-                    duplicateWhitespaceMode.getValue(),
-                    duplicateCaseSensitivity.getValue(),
-                    duplicateWindowPreset.getValue(),
-                    duplicateCustomWindowMillis.getText(),
-                    duplicateExactContentMode.isSelected()
-            );
-        } catch (IllegalArgumentException error) {
-            duplicateCustomWindowMillis.getStyleClass().add("input-error");
-            duplicateCustomWindowMillis.requestFocus();
-            showStatus(error.getMessage() == null
-                    ? "Invalid duplicate window"
-                    : error.getMessage());
-            return null;
-        }
-    }
-
-    private ExcludedApplicationPolicy excludedApplicationPolicyFromUi() {
-        excludedApplications.getStyleClass().remove("input-error");
-
-        try {
-            return ExcludedApplicationPolicy.fromMultilineText(
-                    excludedApplications.getText()
-            );
-        } catch (IllegalArgumentException error) {
-            excludedApplications.getStyleClass().add("input-error");
-            excludedApplications.requestFocus();
-            showStatus(error.getMessage() == null
-                    ? "Invalid excluded application"
-                    : error.getMessage());
-            return null;
-        }
-    }
-
-    private SensitiveContentPolicy sensitiveContentPolicyFromUi() {
-        SensitiveContentPolicy.RuleAction cardAction = paymentCardAction.getValue();
-        SensitiveContentPolicy.RuleAction otpAction = oneTimeCodeAction.getValue();
-        return new SensitiveContentPolicy(
-                cardAction == null ? SensitiveContentPolicy.RuleAction.CAPTURE : cardAction,
-                otpAction == null ? SensitiveContentPolicy.RuleAction.CAPTURE : otpAction
-        );
-    }
-
-    private HistoryRetentionPolicy historyRetentionPolicyFromUi() {
-        EnumMap<io.xseries.xclip.domain.model.ClipContentType, Integer> typeDays =
-                new EnumMap<>(io.xseries.xclip.domain.model.ClipContentType.class);
-        typeDays.put(io.xseries.xclip.domain.model.ClipContentType.TEXT, retentionTextDays.getValue());
-        typeDays.put(io.xseries.xclip.domain.model.ClipContentType.CODE, retentionCodeDays.getValue());
-        typeDays.put(io.xseries.xclip.domain.model.ClipContentType.URL, retentionUrlDays.getValue());
-        typeDays.put(io.xseries.xclip.domain.model.ClipContentType.PATH, retentionPathDays.getValue());
-        typeDays.put(io.xseries.xclip.domain.model.ClipContentType.JSON, retentionJsonDays.getValue());
-        typeDays.put(io.xseries.xclip.domain.model.ClipContentType.COMMAND, retentionCommandDays.getValue());
-        return new HistoryRetentionPolicy(
-                retentionRecentEnabled.isSelected(),
-                retentionRecentDays.getValue(),
-                typeDays,
-                clearRecentOnExit.isSelected()
+    private SettingsDraft captureDraftFromUi() {
+        return new SettingsDraft(
+                new SettingsDraft.General(
+                        watcherEnabled.isSelected(),
+                        startMinimized.isSelected(),
+                        startOnBoot.isSelected()
+                ),
+                new SettingsDraft.Capture(
+                        spinnerText(minClipLength),
+                        spinnerText(maxClipChars),
+                        spinnerText(uiClipLimit)
+                ),
+                new SettingsDraft.History(spinnerText(maxHistory)),
+                new SettingsDraft.Duplicate(
+                        duplicateRecentPosition.getValue(),
+                        duplicatePinnedPosition.getValue(),
+                        duplicateWhitespaceMode.getValue(),
+                        duplicateCaseSensitivity.getValue(),
+                        duplicateWindowPreset.getValue(),
+                        duplicateCustomWindowMillis.getText(),
+                        duplicateExactContentMode.isSelected()
+                ),
+                new SettingsDraft.Privacy(
+                        excludedApplications.getText(),
+                        paymentCardAction.getValue(),
+                        oneTimeCodeAction.getValue()
+                ),
+                new SettingsDraft.Retention(
+                        retentionRecentEnabled.isSelected(),
+                        spinnerText(retentionRecentDays),
+                        spinnerText(retentionTextDays),
+                        spinnerText(retentionCodeDays),
+                        spinnerText(retentionUrlDays),
+                        spinnerText(retentionPathDays),
+                        spinnerText(retentionJsonDays),
+                        spinnerText(retentionCommandDays),
+                        clearRecentOnExit.isSelected()
+                )
         );
     }
 
     private void resetDuplicateControlsToDefaults() {
+        SettingsDraft next = captureDraftFromUi().withDuplicateDefaults();
         internalSync = true;
-        syncDuplicateControls(DuplicateBehaviorPolicy.defaults());
+        syncDuplicateControls(next.duplicate());
         internalSync = false;
-        markDirty();
+        draftSession.replaceCurrent(next);
+        renderDraftState();
         showStatus("Duplicate defaults restored • Apply to save");
     }
 
     private void resetSensitiveControlsToDefaults() {
+        SettingsDraft next = captureDraftFromUi().withSensitiveDefaults();
         internalSync = true;
-        syncSensitiveControls(SensitiveContentPolicy.defaults());
+        syncSensitiveControls(next.privacy());
         internalSync = false;
-        markDirty();
+        draftSession.replaceCurrent(next);
+        renderDraftState();
         showStatus("Sensitive rules reset • Apply to save");
     }
 
     private void resetRetentionControlsToDefaults() {
+        SettingsDraft next = captureDraftFromUi().withRetentionDefaults();
         internalSync = true;
-        syncRetentionControls(HistoryRetentionPolicy.defaults());
+        syncRetentionControls(next.retention());
         internalSync = false;
-        markDirty();
+        draftSession.replaceCurrent(next);
+        renderDraftState();
         showStatus("Retention defaults restored • Apply to save");
     }
 
-    private void syncUiFromCurrent() {
-        maxHistory.getValueFactory().setValue(current.maxHistory());
-        minClipLength.getValueFactory().setValue(current.minClipLength());
-        maxClipChars.getValueFactory().setValue(current.maxClipChars());
-        uiClipLimit.getValueFactory().setValue(current.uiClipLimit());
-        watcherEnabled.setSelected(current.watcherEnabled());
-        startMinimized.setSelected(current.startMinimized());
-        startOnBoot.setSelected(current.startOnBoot());
-        syncDuplicateControls(current.duplicateBehaviorPolicy());
-        excludedApplications.setText(
-                current.excludedApplicationPolicy().toMultilineText()
-        );
-        excludedApplications.getStyleClass().remove("input-error");
-        syncSensitiveControls(current.sensitiveContentPolicy());
-        syncRetentionControls(current.historyRetentionPolicy());
-        syncAutostartCheckbox();
-        forceSyncSpinnerEditors();
+    private void syncUiFromDraft(SettingsDraft draft) {
+        SettingsDraft value = Objects.requireNonNull(draft, "draft");
+        setSpinnerText(maxHistory, value.history().maxHistory());
+        setSpinnerText(minClipLength, value.capture().minClipLength());
+        setSpinnerText(maxClipChars, value.capture().maxClipChars());
+        setSpinnerText(uiClipLimit, value.capture().uiClipLimit());
+        watcherEnabled.setSelected(value.general().watcherEnabled());
+        startMinimized.setSelected(value.general().startMinimized());
+        startOnBoot.setSelected(value.general().startOnBoot());
+        syncDuplicateControls(value.duplicate());
+        excludedApplications.setText(value.privacy().excludedApplications());
+        syncSensitiveControls(value.privacy());
+        syncRetentionControls(value.retention());
     }
 
-    private void syncSensitiveControls(SensitiveContentPolicy policy) {
-        SensitiveContentPolicy value = policy == null
-                ? SensitiveContentPolicy.defaults()
-                : policy;
+    private void syncSensitiveControls(SettingsDraft.Privacy privacy) {
+        SettingsDraft.Privacy value = Objects.requireNonNull(privacy, "privacy");
         paymentCardAction.setValue(value.paymentCardAction());
         oneTimeCodeAction.setValue(value.oneTimeCodeAction());
     }
 
-    private void syncRetentionControls(HistoryRetentionPolicy policy) {
-        HistoryRetentionPolicy value = policy == null
-                ? HistoryRetentionPolicy.defaults()
-                : policy;
-        retentionRecentEnabled.setSelected(value.autoDeleteRecentEnabled());
-        retentionRecentDays.getValueFactory().setValue(value.recentMaxAgeDays());
-        retentionTextDays.getValueFactory().setValue(value.maxAgeDaysFor(io.xseries.xclip.domain.model.ClipContentType.TEXT));
-        retentionCodeDays.getValueFactory().setValue(value.maxAgeDaysFor(io.xseries.xclip.domain.model.ClipContentType.CODE));
-        retentionUrlDays.getValueFactory().setValue(value.maxAgeDaysFor(io.xseries.xclip.domain.model.ClipContentType.URL));
-        retentionPathDays.getValueFactory().setValue(value.maxAgeDaysFor(io.xseries.xclip.domain.model.ClipContentType.PATH));
-        retentionJsonDays.getValueFactory().setValue(value.maxAgeDaysFor(io.xseries.xclip.domain.model.ClipContentType.JSON));
-        retentionCommandDays.getValueFactory().setValue(value.maxAgeDaysFor(io.xseries.xclip.domain.model.ClipContentType.COMMAND));
+    private void syncRetentionControls(SettingsDraft.Retention retention) {
+        SettingsDraft.Retention value = Objects.requireNonNull(retention, "retention");
+        retentionRecentEnabled.setSelected(value.recentEnabled());
+        setSpinnerText(retentionRecentDays, value.recentDays());
+        setSpinnerText(retentionTextDays, value.textDays());
+        setSpinnerText(retentionCodeDays, value.codeDays());
+        setSpinnerText(retentionUrlDays, value.urlDays());
+        setSpinnerText(retentionPathDays, value.pathDays());
+        setSpinnerText(retentionJsonDays, value.jsonDays());
+        setSpinnerText(retentionCommandDays, value.commandDays());
         clearRecentOnExit.setSelected(value.clearRecentOnExit());
         syncRetentionAvailability();
     }
@@ -868,7 +869,9 @@ public final class SettingsWindow {
 
     private void updateCleanupStatus(HistoryCleanupService.CleanupStatus status) {
         if (status == null || status.outcome() == HistoryCleanupService.CleanupOutcome.NOT_RUN) {
-            cleanupStatusLabel.setText("Last cleanup: not run yet");
+            String text = "Last cleanup: not run yet";
+            cleanupStatusLabel.setText(text);
+            if (dataPageView != null) dataPageView.updateCleanupStatus(text);
             return;
         }
         String time = status.completedAt() <= 0
@@ -880,33 +883,24 @@ public final class SettingsWindow {
             case FAILED -> "failed";
             case NOT_RUN -> "not run";
         };
-        cleanupStatusLabel.setText(
-                "Last cleanup: " + result + " • " + status.deletedCount()
-                        + " deleted • " + time + " • " + status.detail()
-        );
+        String text = "Last cleanup: " + result + " • " + status.deletedCount()
+                + " deleted • " + time + " • " + status.detail();
+        cleanupStatusLabel.setText(text);
+        if (dataPageView != null) dataPageView.updateCleanupStatus(text);
     }
 
-    private void syncDuplicateControls(DuplicateBehaviorPolicy policy) {
-        DuplicateBehaviorPolicy value = policy == null
-                ? DuplicateBehaviorPolicy.defaults()
-                : policy;
+    private void syncDuplicateControls(SettingsDraft.Duplicate duplicate) {
+        SettingsDraft.Duplicate value = Objects.requireNonNull(
+                duplicate,
+                "duplicate"
+        );
 
-        duplicateRecentPosition.setValue(value.recentDuplicatePosition());
-        duplicatePinnedPosition.setValue(value.pinnedDuplicatePosition());
+        duplicateRecentPosition.setValue(value.recentPosition());
+        duplicatePinnedPosition.setValue(value.pinnedPosition());
         duplicateWhitespaceMode.setValue(value.whitespaceMode());
         duplicateCaseSensitivity.setValue(value.caseSensitivity());
-
-        WindowPreset preset = DuplicateSettingsModel.presetFor(
-                value.duplicateWindowMillis()
-        );
-        duplicateWindowPreset.setValue(preset);
-        duplicateCustomWindowMillis.setText(
-                DuplicateSettingsModel.customWindowText(
-                        value.duplicateWindowMillis()
-                )
-        );
-        duplicateCustomWindowMillis.getStyleClass().remove("input-error");
-
+        duplicateWindowPreset.setValue(value.windowPreset());
+        duplicateCustomWindowMillis.setText(value.customWindowMillis());
         duplicateExactContentMode.setSelected(value.exactContentMode());
         syncDuplicateWindowEditor();
         syncDuplicateMatchingAvailability();
@@ -927,20 +921,87 @@ public final class SettingsWindow {
         duplicateExactOverrideHint.setVisible(exact);
     }
 
+    private void setDataMaintenanceBusy(boolean busy) {
+        dataOperationRunning.set(busy);
+        if (dataPageView != null) dataPageView.setMaintenanceBusy(busy);
+        if (busy) applyBtn.setDisable(true);
+        else renderDraftState();
+    }
+
+    private void scheduleRetentionCleanup() {
+        if (dataOperationRunning.get()) {
+            showStatus("Data maintenance is already running");
+            return;
+        }
+        historyCleanupService.requestCleanup(
+                HistoryCleanupService.CleanupTrigger.MANUAL
+        );
+        showStatus("Cleanup scheduled");
+    }
+
+    private void clearRecentFlow() {
+        if (dataOperationRunning.get()) {
+            showStatus("Data maintenance is already running");
+            return;
+        }
+        if (!UiDialogs.confirmClearRecent(stage)) return;
+
+        setDataMaintenanceBusy(true);
+        if (!historyCleanupService.requestClearRecent()) {
+            setDataMaintenanceBusy(false);
+            showStatus("Clear RECENT is unavailable");
+            return;
+        }
+        showStatus("Clear RECENT scheduled");
+    }
+
     private void clearAllDataFlow() {
+        if (dataOperationRunning.get()) {
+            showStatus("Data maintenance is already running");
+            return;
+        }
         boolean confirmed = UiDialogs.confirmClearAllData(
                 stage,
                 AppPaths.dataDir()
         );
         if (!confirmed) return;
 
-        try {
-            watcherController.disable();
-        } catch (Throwable ignored) {
-        }
+        setDataMaintenanceBusy(true);
+        showStatus("Clearing local data…");
 
+        CompletableFuture.supplyAsync(this::clearAllDataInBackground)
+                .whenComplete((failure, asyncFailure) -> Platform.runLater(() -> {
+                    Throwable effectiveFailure = failure != null
+                            ? failure
+                            : asyncFailure;
+                    if (effectiveFailure != null) {
+                        setDataMaintenanceBusy(false);
+                        UiDialogs.showError(
+                                stage,
+                                "Failed to clear data",
+                                "XClip couldn't delete its local data",
+                                "Close other XClip instances and try again.\n\nData folder: "
+                                        + AppPaths.dataDir().toAbsolutePath()
+                        );
+                        showStatus("Clear data failed");
+                        return;
+                    }
+
+                    UiDialogs.showInformation(
+                            stage,
+                            "Data cleared",
+                            "All local XClip data was removed",
+                            "XClip will exit now. Restart it to continue."
+                    );
+                    Platform.exit();
+                    System.exit(0);
+                }));
+    }
+
+    private Throwable clearAllDataInBackground() {
         boolean cleanupPaused = false;
         try {
+            watcherController.disable();
             historyCleanupService.pauseForMaintenance();
             cleanupPaused = true;
 
@@ -948,6 +1009,7 @@ public final class SettingsWindow {
 
             historyCleanupService.close();
             cleanupPaused = false;
+            return null;
         } catch (Throwable failure) {
             if (cleanupPaused) {
                 try {
@@ -955,46 +1017,104 @@ public final class SettingsWindow {
                 } catch (Throwable ignored) {
                 }
             }
-
             try {
                 if (current.watcherEnabled()) watcherController.enable();
             } catch (Throwable ignored) {
             }
-
-            UiDialogs.showError(
-                    stage,
-                    "Failed to clear data",
-                    "XClip couldn't delete its local data",
-                    "Close other XClip instances and try again.\n\nData folder: "
-                            + AppPaths.dataDir().toAbsolutePath()
-            );
-            showStatus("Clear data failed");
-            return;
+            return failure;
         }
+    }
 
+    private void openProductLink(String url) {
+        ExternalOpenService.OpenResult result = externalOpenService.openUrl(url);
+        switch (result) {
+            case OPENED -> showStatus("Opened in browser");
+            case INVALID_INPUT -> showStatus("Invalid project link");
+            case UNSUPPORTED -> showStatus("Browser opening is unavailable");
+            case NOT_FOUND, FAILED -> showStatus("Couldn't open project link");
+        }
+    }
+
+    private void showThirdPartyNotices() {
         UiDialogs.showInformation(
                 stage,
-                "Data cleared",
-                "All local XClip data was removed",
-                "XClip will exit now. Restart it to continue."
+                "Third-party notices",
+                "Bundled open-source components",
+                AboutSettingsContent.thirdPartyNotices()
         );
-
-        Platform.exit();
-        System.exit(0);
     }
 
-    private void markDirtyUnlessSyncing() {
-        if (!internalSync) markDirty();
+    private void refreshDraftStateUnlessSyncing() {
+        if (!internalSync) refreshDraftStateFromUi();
     }
 
-    private void markDirty() {
-        dirty = true;
-        applyBtn.setDisable(false);
+    private void refreshDraftStateFromUi() {
+        draftSession.replaceCurrent(captureDraftFromUi());
+        renderDraftState();
     }
 
-    private void clearDirty() {
-        dirty = false;
-        applyBtn.setDisable(true);
+    private void renderDraftState() {
+        SettingsDraftValidation validation = draftSession.validation();
+        applyBtn.setDisable(!draftSession.canApply());
+
+        for (Control control : validationControls.values()) {
+            control.getStyleClass().remove("input-error");
+        }
+        duplicateWindowPreset.getStyleClass().remove("input-error");
+        duplicateCustomWindowMillis.getStyleClass().remove("input-error");
+        for (ToggleButton button : navigationButtons.values()) {
+            button.getStyleClass().remove("validation-error");
+        }
+
+        for (SettingsValidationIssue issue : validation.issues()) {
+            Control control = validationControlFor(issue.field());
+            if (control != null
+                    && !control.getStyleClass().contains("input-error")) {
+                control.getStyleClass().add("input-error");
+            }
+            ToggleButton navigation = navigationButtons.get(issue.page());
+            if (navigation != null
+                    && !navigation.getStyleClass().contains("validation-error")) {
+                navigation.getStyleClass().add("validation-error");
+            }
+        }
+
+        if (validation.valid()) {
+            validationLabel.setText("");
+            validationLabel.setVisible(false);
+            validationLabel.setManaged(false);
+        } else {
+            String message = validation.firstIssue()
+                    .map(issue -> issue.page().title() + " • " + issue.displayMessage())
+                    .orElse("Invalid settings");
+            validationLabel.setText(message);
+            validationLabel.setAccessibleText("Settings validation error: " + message);
+            validationLabel.setVisible(true);
+            validationLabel.setManaged(true);
+        }
+    }
+
+    private Control validationControlFor(SettingsField field) {
+        if (field == SettingsField.DUPLICATE_WINDOW) {
+            WindowPreset preset = duplicateWindowPreset.getValue();
+            return preset != null && preset.custom()
+                    ? duplicateCustomWindowMillis
+                    : duplicateWindowPreset;
+        }
+        return validationControls.get(field);
+    }
+
+    private void focusFirstValidationIssue() {
+        draftSession.validation().firstIssue().ifPresent(issue -> {
+            selectPage(issue.page());
+            Control control = validationControlFor(issue.field());
+            if (control instanceof TextField textField) {
+                textField.requestFocus();
+                textField.selectAll();
+            } else if (control != null) {
+                control.requestFocus();
+            }
+        });
     }
 
     private void showStatus(String text) {
@@ -1021,92 +1141,108 @@ public final class SettingsWindow {
         }
     }
 
-    private void resetUiToCurrentSilently() {
+    private void discardDraftSilently() {
+        draftSession.discard();
         internalSync = true;
-        syncUiFromCurrent();
+        syncUiFromDraft(draftSession.current());
         internalSync = false;
-        clearDirty();
+        renderDraftState();
+    }
+
+    private void registerValidationControls() {
+        validationControls.put(SettingsField.MIN_CLIP_LENGTH, minClipLength.getEditor());
+        validationControls.put(SettingsField.MAX_CLIP_CHARS, maxClipChars.getEditor());
+        validationControls.put(SettingsField.UI_CLIP_LIMIT, uiClipLimit.getEditor());
+        validationControls.put(SettingsField.MAX_HISTORY, maxHistory.getEditor());
+        validationControls.put(
+                SettingsField.RETENTION_RECENT_DAYS,
+                retentionRecentDays.getEditor()
+        );
+        validationControls.put(
+                SettingsField.RETENTION_TEXT_DAYS,
+                retentionTextDays.getEditor()
+        );
+        validationControls.put(
+                SettingsField.RETENTION_CODE_DAYS,
+                retentionCodeDays.getEditor()
+        );
+        validationControls.put(
+                SettingsField.RETENTION_URL_DAYS,
+                retentionUrlDays.getEditor()
+        );
+        validationControls.put(
+                SettingsField.RETENTION_PATH_DAYS,
+                retentionPathDays.getEditor()
+        );
+        validationControls.put(
+                SettingsField.RETENTION_JSON_DAYS,
+                retentionJsonDays.getEditor()
+        );
+        validationControls.put(
+                SettingsField.RETENTION_COMMAND_DAYS,
+                retentionCommandDays.getEditor()
+        );
+        validationControls.put(
+                SettingsField.DUPLICATE_RECENT_POSITION,
+                duplicateRecentPosition
+        );
+        validationControls.put(
+                SettingsField.DUPLICATE_PINNED_POSITION,
+                duplicatePinnedPosition
+        );
+        validationControls.put(
+                SettingsField.DUPLICATE_WHITESPACE_MODE,
+                duplicateWhitespaceMode
+        );
+        validationControls.put(
+                SettingsField.DUPLICATE_CASE_SENSITIVITY,
+                duplicateCaseSensitivity
+        );
+        validationControls.put(
+                SettingsField.DUPLICATE_WINDOW,
+                duplicateCustomWindowMillis
+        );
+        validationControls.put(
+                SettingsField.EXCLUDED_APPLICATIONS,
+                excludedApplications
+        );
+        validationControls.put(
+                SettingsField.PAYMENT_CARD_ACTION,
+                paymentCardAction
+        );
+        validationControls.put(
+                SettingsField.ONE_TIME_CODE_ACTION,
+                oneTimeCodeAction
+        );
     }
 
     private void wireDirtyForIntSpinner(Spinner<Integer> spinner) {
         spinner.valueProperty().addListener(
-                (observable, oldValue, newValue) -> markDirtyUnlessSyncing()
+                (observable, oldValue, newValue) -> refreshDraftStateUnlessSyncing()
         );
 
         TextField editor = spinner.getEditor();
         editor.textProperty().addListener(
-                (observable, oldValue, newValue) -> markDirtyUnlessSyncing()
+                (observable, oldValue, newValue) -> refreshDraftStateUnlessSyncing()
         );
         editor.focusedProperty().addListener((observable, wasFocused, focused) -> {
-            if (wasFocused && !focused) commitSpinnerEditor(spinner);
+            if (wasFocused && !focused) refreshDraftStateUnlessSyncing();
         });
-        editor.setOnAction(event -> commitSpinnerEditor(spinner));
+        editor.setOnAction(event -> refreshDraftStateUnlessSyncing());
     }
 
-    private void commitSpinnerEditor(Spinner<Integer> spinner) {
+    private static String spinnerText(Spinner<Integer> spinner) {
+        return Objects.requireNonNullElse(spinner.getEditor().getText(), "");
+    }
+
+    private static void setSpinnerText(Spinner<Integer> spinner, String text) {
+        String value = Objects.requireNonNullElse(text, "");
         try {
-            String text = spinner.getEditor().getText();
-            if (text == null || text.trim().isEmpty()) return;
-            spinner.getValueFactory().setValue(Integer.parseInt(text.trim()));
-        } catch (Exception ignored) {
+            spinner.getValueFactory().setValue(Integer.parseInt(value.trim()));
+        } catch (RuntimeException ignored) {
+            // Raw invalid values remain representable in the editor draft.
         }
-    }
-
-    private boolean validateIntSpinner(
-            Spinner<Integer> spinner,
-            int min,
-            int max,
-            String name
-    ) {
-        TextField editor = spinner.getEditor();
-        editor.getStyleClass().remove("input-error");
-
-        String text = Objects.requireNonNullElse(editor.getText(), "").trim();
-        if (text.isEmpty()) {
-            editor.getStyleClass().add("input-error");
-            showStatus(name + ": required");
-            return false;
-        }
-
-        int value;
-        try {
-            value = Integer.parseInt(text);
-        } catch (Exception error) {
-            editor.getStyleClass().add("input-error");
-            showStatus(name + ": invalid number");
-            return false;
-        }
-
-        if (value < min) {
-            editor.setText(Integer.toString(min));
-            commitSpinnerEditor(spinner);
-            showStatus(name + ": clamped to " + min);
-        } else if (value > max) {
-            editor.setText(Integer.toString(max));
-            commitSpinnerEditor(spinner);
-            showStatus(name + ": clamped to " + max);
-        }
-
-        return true;
-    }
-
-    private void forceSyncSpinnerEditors() {
-        syncSpinnerEditor(maxHistory);
-        syncSpinnerEditor(minClipLength);
-        syncSpinnerEditor(maxClipChars);
-        syncSpinnerEditor(uiClipLimit);
-        syncSpinnerEditor(retentionRecentDays);
-        syncSpinnerEditor(retentionTextDays);
-        syncSpinnerEditor(retentionCodeDays);
-        syncSpinnerEditor(retentionUrlDays);
-        syncSpinnerEditor(retentionPathDays);
-        syncSpinnerEditor(retentionJsonDays);
-        syncSpinnerEditor(retentionCommandDays);
-    }
-
-    private void syncSpinnerEditor(Spinner<Integer> spinner) {
-        spinner.getEditor().setText(String.valueOf(spinner.getValue()));
-        spinner.getEditor().getStyleClass().remove("input-error");
+        spinner.getEditor().setText(value);
     }
 
     private static String sensitiveRuleActionLabel(
@@ -1407,7 +1543,11 @@ public final class SettingsWindow {
     }
 
     private void closeAndDiscard() {
-        if (dirty) resetUiToCurrentSilently();
+        if (dataOperationRunning.get()) {
+            showStatus("Data maintenance is still running");
+            return;
+        }
+        if (draftSession.dirty()) discardDraftSilently();
         stage.hide();
     }
 

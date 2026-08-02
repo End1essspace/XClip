@@ -1,11 +1,11 @@
 # XClip UI Contract v1.3.0
 
-**Status:** Frozen R11 baseline, deliberately extended by Milestones 2.2–2.4, 3.2–3.3, 4.3, 5.1–5.3, and M6.1
+**Status:** Frozen R11 baseline, deliberately extended by Milestones 2.2–2.4, 3.2–3.3, 4.3, 5.1–5.3, M6.1, and M6.3
 **Scope:** Popup, custom window chrome, modal surfaces, Settings styling, privacy controls, keyboard workflow, responsive behavior, and packaged UI resources.
 
 This document is the human-readable counterpart of `/ui/ui-contract-v1.3.0.properties`. Any intentional contract change must update both files and the `UiContractFreezeTest` expectations in the same reviewed milestone.
 
-**Contract revision:** 12  
+**Contract revision:** 13
 **Registered Lucide UI icons:** 30
 
 ## 1. Product invariants
@@ -365,3 +365,69 @@ ABOUT
 - Popup layout, Direct Paste, tags, advanced search, duplicate behavior,
   privacy, and retention semantics remain unchanged.
 
+---
+
+## 19. Settings draft lifecycle and validation — contract revision 13
+
+Milestone M6.3 adds a single testable editing lifecycle to the multi-page
+Settings shell without changing Config schema 5, SQLite schema 6, or runtime
+feature semantics.
+
+- One `SettingsDraftSession` owns the saved baseline, current raw draft, and
+  current validation result.
+- Dirty state is derived from `current != baseline`; returning every field to
+  its saved value immediately restores a clean state.
+- `Apply` is enabled only when the draft differs from baseline and every field
+  validates successfully.
+- Text-backed numeric fields remain representable while empty or out of range;
+  invalid raw values never cross into `ConfigService` or runtime callbacks.
+- Validation issues use stable field identities mapped to one canonical
+  Settings page and one JavaFX control.
+- Invalid controls receive the existing `input-error` treatment, affected
+  sidebar pages receive a validation state, and the first issue is exposed in
+  the fixed bottom bar.
+- A defensive Apply attempt selects the first invalid page and focuses the
+  exact failing control.
+- Cancel, custom close, native close request, and hide-discard all restore the
+  complete baseline draft through one lifecycle path.
+- Duplicate, sensitive-content, and retention reset actions remain scoped to
+  their own sections. Retention reset does not change maximum history; sensitive
+  reset does not clear executable exclusions.
+- A successful Apply materializes one validated Config snapshot, persists it,
+  updates runtime services, then commits a new canonical draft baseline.
+- Config schema remains `5`, SQLite schema remains `6`, and product version
+  remains `1.3.0`.
+
+
+## 20. Data, Shortcuts, and About completion — contract revision 14
+
+Milestone M6.4 completes the three informational and ownership-oriented Settings
+pages without changing Config schema 5 or SQLite schema 6.
+
+### Shortcuts
+
+- The global shortcut is fixed as `Ctrl+Shift+V` for v1.3.0.
+- Settings displays the live Windows registration state: not started,
+  registering, active, conflict, unavailable, failed, or stopped.
+- Popup shortcut rows are rendered from the same `QuickHelpContent` contract used
+  by popup Quick Help; Settings does not maintain a divergent shortcut list.
+- Shortcut rebinding remains explicitly unavailable rather than exposing a
+  speculative control.
+
+### Data
+
+- Settings exposes the data-directory, SQLite database, and config paths.
+- Every path is selectable and can be copied; the owned data directory can be
+  opened explicitly in Explorer.
+- Saved retention cleanup and Clear RECENT are separate operations.
+- Clear RECENT preserves PINNED clips, tags, configuration, and retention rules.
+- Clear ALL remains confirmed and removes all XClip-owned local data before exit.
+- Destructive data work runs outside the JavaFX Application Thread.
+- Backup and restore are identified as deferred M7.2 capabilities and are not
+  represented by unsafe placeholder actions.
+
+### About
+
+- About exposes version, author, GPL license, UI contract revision, bundled
+  third-party notices, project links, and the local-data/privacy statement.
+- External links open only after an explicit user action.

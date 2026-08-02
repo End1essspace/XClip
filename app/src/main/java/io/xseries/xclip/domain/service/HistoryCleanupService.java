@@ -125,6 +125,49 @@ public final class HistoryCleanupService implements AutoCloseable {
         ));
     }
 
+    /**
+     * Schedules deletion of every unpinned clip on the cleanup executor.
+     * PINNED clips and configuration remain untouched.
+     *
+     * @return true when the operation was accepted by the executor
+     */
+    public boolean requestClearRecent() {
+        if (closed.get() || maintenancePaused.get()) return false;
+        try {
+            executor.execute(() -> clearRecentAt(clock.millis()));
+            return true;
+        } catch (RejectedExecutionException ignored) {
+            return false;
+        }
+    }
+
+    CleanupStatus clearRecentAt(long nowMillis) {
+        synchronized (cleanupLock) {
+            if (maintenancePaused.get()) return status.get();
+            try {
+                int deleted = dao.deleteAllNonFavorites();
+                return publish(new CleanupStatus(
+                        nowMillis,
+                        CleanupTrigger.MANUAL_CLEAR_RECENT,
+                        CleanupOutcome.SUCCESS,
+                        deleted,
+                        deleted == 0
+                                ? "No RECENT clips to clear"
+                                : "Cleared " + deleted + " RECENT clip"
+                                + (deleted == 1 ? "" : "s")
+                ));
+            } catch (Throwable failure) {
+                return publish(failedStatus(
+                        nowMillis,
+                        CleanupTrigger.MANUAL_CLEAR_RECENT,
+                        failure
+                ));
+            } finally {
+                dao.closeForCurrentThread();
+            }
+        }
+    }
+
     CleanupStatus runCleanupAt(long nowMillis, CleanupTrigger trigger) {
         synchronized (cleanupLock) {
             if (maintenancePaused.get()) return status.get();
@@ -384,6 +427,7 @@ public final class HistoryCleanupService implements AutoCloseable {
         STARTUP,
         SETTINGS_APPLY,
         MANUAL,
+        MANUAL_CLEAR_RECENT,
         PERIODIC,
         EXIT
     }

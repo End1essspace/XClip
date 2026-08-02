@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -47,4 +48,13 @@ class UiDialogsTest {
         assertThrows(IllegalArgumentException.class, () -> UiDialogs.batchDeleteCopy(3, 4));
         assertThrows(IllegalArgumentException.class, () -> UiDialogs.clearVisibleCopy(0));
     }
+    @Test
+    void clearRecentConfirmationPreservesPinnedAndSettingsInCopy() {
+        UiDialogs.DialogCopy copy = UiDialogs.clearRecentCopy();
+
+        assertEquals("Clear RECENT", copy.actionLabel());
+        assertTrue(copy.body().contains("PINNED"));
+        assertTrue(copy.body().contains("settings"));
+    }
+
 }

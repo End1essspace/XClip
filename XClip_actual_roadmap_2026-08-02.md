@@ -7,10 +7,10 @@
 **Технологический стек:** Java 17, JavaFX 21, SQLite, Gradle, JNA, Windows 10/11
 **Текущая версия схемы БД:** 6
 **Текущая версия config schema:** 5
-**Текущая ревизия UI contract:** 12
+**Текущая ревизия UI contract:** 14
 **Основная ветка:** `main`
-**Текущая точка:** Repository Cleanup and Hardening C1–C8 завершены; M6.1 завершён; следующий этап — M6.2
-**Следующий основной milestone:** M6.2 — Page extraction and config draft model
+**Текущая точка:** C1–C8 и M6.1–M6.4 завершены; следующий этап — M6.5
+**Следующий основной milestone:** M6.5 — Responsive, accessibility and regression gate
 
 ---
 
@@ -933,22 +933,27 @@ Application version остаётся v1.3.0. Config / SQLite / UI contract:
 
 # 11. M6 — Settings Redesign
 
-**Статус:** 🟡 M6.1 завершён; M6.2 следующий
+**Статус:** 🟡 M6.1–M6.4 завершены; M6.5 следующий
 
 ## 11.1. Цель
 
 Преобразовать Settings в полноценную многостраничную architecture без изменения
 проверенной runtime semantics.
 
-**M6.1 завершён:**
+**M6.1–M6.4 завершены:**
 
-- создан shell с left sidebar;
-- добавлены девять Settings pages;
-- применён custom undecorated window chrome;
-- page scrolling разделён;
-- UI contract повышен до revision 12.
+- создан shell с left sidebar и custom undecorated window chrome;
+- выделены девять независимых page composition classes;
+- введены `SettingsDraft`, baseline/current session и field-level validation;
+- Apply активен только для dirty и valid draft; Cancel восстанавливает baseline;
+- scoped reset не затрагивает соседние секции;
+- Data page показывает data/database/config paths, maintenance и destructive actions;
+- Clear RECENT сохраняет PINNED, tags и config; Clear ALL выполняется вне FX thread;
+- Shortcuts page использует общий `QuickHelpContent` и live hotkey conflict status;
+- About page содержит version, author, GPL, notices, links и local-data statement;
+- UI contract повышен до revision 14.
 
-**Следующая подзадача:** M6.2 — page extraction and config draft model.
+**Следующая подзадача:** M6.5 — responsive, accessibility and regression gate.
 
 ## 11.2. Целевая навигация
 
@@ -1372,10 +1377,10 @@ Cleanup and hardening
 
 M6   Settings Redesign
      M6.1 Settings shell and navigation      ✅
-     M6.2 Page extraction and config draft   ⬜ NEXT
-     M6.3 Validation / Apply / Cancel / Reset
-     M6.4 Data/About/Shortcuts pages
-     M6.5 Responsive/accessibility gate
+     M6.2 Page extraction and config draft   ✅
+     M6.3 Validation / Apply / Cancel / Reset ✅
+     M6.4 Data/About/Shortcuts pages         ✅
+     M6.5 Responsive/accessibility gate      ⬜ NEXT
 
 M7   Remaining Data and Performance Hardening
      M7.2 Database maintenance
@@ -1395,20 +1400,20 @@ M9   Documentation, Packaging and Final Release
 Repository Cleanup and Hardening C1–C8
 
 Также завершено:
-M6.1 — Settings shell and navigation
+M6.1–M6.4 — Settings architecture, draft lifecycle и product pages
 
 Application version:
 v1.3.0
 
 Config / SQLite / UI contract:
-5 / 6 / 12
+5 / 6 / 14
 
 Следующий milestone:
-M6.2 — Page extraction and config draft model
+M6.5 — Responsive, accessibility and regression gate
 ```
 
-Для M6.2 требуется только локальный набор Settings/config файлов; полный проект
-повторно запрашивать не нужно при наличии актуального Full Folder snapshot.
+Для M6.5 требуется Settings UI, CSS, accessibility tests и regression assets;
+полный проект повторно запрашивать не нужно при наличии актуального snapshot.
 
 ---
 
@@ -1424,14 +1429,14 @@ Hot-path optimization C5                   ✅
 SQLite lifecycle hardening C6              ✅
 Test/build stabilization C7                ✅
 Final automated baseline audit C8          ✅
-UI contract revision 12                    ✅
+UI contract revision 14                    ✅
 
-Settings Redesign M6.1                     ✅
-Settings Redesign M6.2–M6.5                ⬜ NEXT
+Settings Redesign M6.1–M6.4                ✅
+Settings Redesign M6.5                     ⬜ NEXT
 Remaining DB maintenance / large data      ⬜
 Windows Lifecycle Hardening                ⬜
 Documentation / Packaging / Release        ⬜
 ```
 
-Очищенный и hardening-проверенный baseline закрыт. Следующая рабочая точка —
-**M6.2: extraction Settings pages and introducing a config draft model**.
+Settings architecture и product pages M6.1–M6.4 закрыты. Следующая рабочая точка —
+**M6.5: responsive, accessibility and full Settings regression gate**.

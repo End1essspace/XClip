@@ -25,6 +25,7 @@ import io.xseries.xclip.ui.popup.TagChipPolicy;
 import io.xseries.xclip.ui.popup.TagEditorModel;
 import io.xseries.xclip.ui.settings.DuplicateSettingsModel;
 import io.xseries.xclip.ui.settings.SettingsPage;
+import io.xseries.xclip.system.tray.HotkeyRegistrationStatus;
 import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;
@@ -44,7 +45,7 @@ class UiContractFreezeTest {
     void frozenContractMatchesRuntimeConstantsAndEnums() throws Exception {
         Properties contract = loadContract();
 
-        assertEquals("12", contract.getProperty("contract.version"));
+        assertEquals("14", contract.getProperty("contract.version"));
         assertEquals("1.3.0", contract.getProperty("product.version"));
         assertEquals(Config.MIN_WINDOW_W, intValue(contract, "window.minWidth"));
         assertEquals(Config.MIN_WINDOW_H, intValue(contract, "window.minHeight"));
@@ -308,6 +309,56 @@ class UiContractFreezeTest {
                 required(contract, "settings.windowChrome")
         );
         assertEquals("INDEPENDENT", required(contract, "settings.pageScroll"));
+        assertEquals(
+                List.of("BASELINE", "CURRENT", "VALIDATION"),
+                values(contract, "settings.draftState")
+        );
+        assertEquals(
+                "DIRTY_AND_VALID_ONLY",
+                required(contract, "settings.applyState")
+        );
+        assertEquals(
+                "RESTORE_BASELINE",
+                required(contract, "settings.cancelBehavior")
+        );
+        assertEquals(
+                List.of("FIELD_ERROR", "PAGE_ERROR", "FIRST_ERROR_FOCUS"),
+                values(contract, "settings.validation")
+        );
+        assertEquals("SECTION_ONLY", required(contract, "settings.resetScope"));
+        assertEquals(
+                "QUICK_HELP_CONTENT",
+                required(contract, "settings.shortcutsSource")
+        );
+        assertEquals("CTRL_SHIFT_V", required(contract, "settings.globalHotkey"));
+        assertEquals(
+                enumNames(HotkeyRegistrationStatus.values()),
+                values(contract, "settings.hotkeyStates")
+        );
+        assertEquals(
+                List.of("DATA_DIRECTORY", "DATABASE", "CONFIGURATION"),
+                values(contract, "settings.dataPaths")
+        );
+        assertEquals(
+                List.of("OPEN_FOLDER", "COPY_PATH", "RUN_RETENTION", "CLEAR_RECENT", "CLEAR_ALL"),
+                values(contract, "settings.dataActions")
+        );
+        assertEquals(
+                "ASYNC_DESTRUCTIVE",
+                required(contract, "settings.dataOperations")
+        );
+        assertEquals("DEFERRED_M7_2", required(contract, "settings.backupRestore"));
+        assertEquals(
+                List.of(
+                        "VERSION",
+                        "AUTHOR",
+                        "LICENSE",
+                        "THIRD_PARTY_NOTICES",
+                        "PROJECT_LINKS",
+                        "LOCAL_DATA_STATEMENT"
+                ),
+                values(contract, "settings.aboutContent")
+        );
         assertEquals(UiIcon.values().length, intValue(contract, "popup.iconCount"));
         assertEquals(shortcuts(), values(contract, "popup.shortcuts"));
     }
@@ -379,3 +430,4 @@ class UiContractFreezeTest {
         return value;
     }
 }
+

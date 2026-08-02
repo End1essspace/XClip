@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -11,7 +12,9 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.net.URL;
 import java.util.Locale;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 import javax.swing.*;
@@ -64,6 +67,7 @@ public final class TrayController {
     private static final int MOD_SHIFT = 0x0004;
     private static final int MOD_NOREPEAT = 0x4000;
     private static final int VK_V = 0x56; // 'V'
+    private static final int ERROR_HOTKEY_ALREADY_REGISTERED = 1409;
 
     private static final int VK_LBUTTON = 0x01;
     private static final int VK_RBUTTON = 0x02;
@@ -78,9 +82,28 @@ public final class TrayController {
     private volatile boolean hotkeyRunning = false;
     private volatile int hotkeyNativeThreadId = 0;
     private Thread hotkeyThread;
+    private final AtomicReference<HotkeyRegistrationStatus> hotkeyStatus =
+            new AtomicReference<>(HotkeyRegistrationStatus.NOT_STARTED);
+    private final CopyOnWriteArrayList<Consumer<HotkeyRegistrationStatus>>
+            hotkeyStatusListeners = new CopyOnWriteArrayList<>();
+
+    public HotkeyRegistrationStatus hotkeyStatus() {
+        return hotkeyStatus.get();
+    }
+
+    public void addHotkeyStatusListener(
+            Consumer<HotkeyRegistrationStatus> listener
+    ) {
+        if (listener == null) return;
+        hotkeyStatusListeners.add(listener);
+        notifyHotkeyStatusListener(listener, hotkeyStatus.get());
+    }
 
     public void install(Runnable onOpen, Runnable onHotkeyOpen, Runnable onExit) {
-        if (!SystemTray.isSupported()) return;
+        if (!SystemTray.isSupported()) {
+            updateHotkeyStatus(HotkeyRegistrationStatus.UNSUPPORTED);
+            return;
+        }
         if (trayIcon != null) return;
 
         EventQueue.invokeLater(() -> {
@@ -109,6 +132,7 @@ public final class TrayController {
                 startGlobalHotkey(onHotkeyOpen);
 
             } catch (Exception ex) {
+                updateHotkeyStatus(HotkeyRegistrationStatus.FAILED);
                 ex.printStackTrace();
             }
         });
@@ -530,29 +554,43 @@ public final class TrayController {
     // Hotkey logic (Windows)
     // -------------------------
     private void startGlobalHotkey(Runnable onOpen) {
-        if (!isWindows()) return;
+        if (!isWindows()) {
+            updateHotkeyStatus(HotkeyRegistrationStatus.UNSUPPORTED);
+            return;
+        }
         if (hotkeyRunning) return;
 
         hotkeyRunning = true;
+        updateHotkeyStatus(HotkeyRegistrationStatus.REGISTERING);
 
         hotkeyThread = new Thread(() -> {
+            boolean registered = false;
             try {
                 User32 user32 = User32.INSTANCE;
 
-                boolean ok = user32.RegisterHotKey(
+                registered = user32.RegisterHotKey(
                         null,
                         HOTKEY_ID,
                         MOD_CTRL | MOD_SHIFT | MOD_NOREPEAT,
                         VK_V
                 );
 
-                if (!ok) {
-                    int err = Kernel32.INSTANCE.GetLastError();
-                    System.err.println("RegisterHotKey failed. LastError=" + err);
+                if (!registered) {
+                    int error = Kernel32.INSTANCE.GetLastError();
+                    hotkeyRunning = false;
+                    updateHotkeyStatus(
+                            error == ERROR_HOTKEY_ALREADY_REGISTERED
+                                    ? HotkeyRegistrationStatus.CONFLICT
+                                    : HotkeyRegistrationStatus.FAILED
+                    );
+                    System.err.println(
+                            "RegisterHotKey failed. LastError=" + error
+                    );
                     return;
                 }
 
                 hotkeyNativeThreadId = Kernel32.INSTANCE.GetCurrentThreadId();
+                updateHotkeyStatus(HotkeyRegistrationStatus.ACTIVE);
 
                 WinUser.MSG msg = new WinUser.MSG();
                 while (hotkeyRunning) {
@@ -566,13 +604,22 @@ public final class TrayController {
                     user32.TranslateMessage(msg);
                     user32.DispatchMessage(msg);
                 }
-
-            } catch (Throwable t) {
-                t.printStackTrace();
+            } catch (Throwable failure) {
+                updateHotkeyStatus(HotkeyRegistrationStatus.FAILED);
+                failure.printStackTrace();
             } finally {
-                try {
-                    User32.INSTANCE.UnregisterHotKey(null, HOTKEY_ID);
-                } catch (Throwable ignored) {
+                if (registered) {
+                    try {
+                        User32.INSTANCE.UnregisterHotKey(null, HOTKEY_ID);
+                    } catch (Throwable ignored) {
+                    }
+                }
+                hotkeyNativeThreadId = 0;
+                hotkeyRunning = false;
+                HotkeyRegistrationStatus current = hotkeyStatus.get();
+                if (current == HotkeyRegistrationStatus.ACTIVE
+                        || current == HotkeyRegistrationStatus.REGISTERING) {
+                    updateHotkeyStatus(HotkeyRegistrationStatus.STOPPED);
                 }
             }
         }, "xclip-hotkey");
@@ -586,20 +633,52 @@ public final class TrayController {
 
         try {
             if (hotkeyNativeThreadId != 0) {
-                User32.INSTANCE.PostThreadMessage(hotkeyNativeThreadId, WinUser.WM_QUIT, null, null);
+                User32.INSTANCE.PostThreadMessage(
+                        hotkeyNativeThreadId,
+                        WinUser.WM_QUIT,
+                        null,
+                        null
+                );
             }
         } catch (Throwable ignored) {
         }
 
-        Thread t = hotkeyThread;
-        if (t != null) {
+        Thread thread = hotkeyThread;
+        if (thread != null) {
             try {
-                t.join(250);
+                thread.join(250);
             } catch (InterruptedException ignored) {
                 Thread.currentThread().interrupt();
             }
-
             hotkeyThread = null;
+        }
+
+        HotkeyRegistrationStatus current = hotkeyStatus.get();
+        if (current == HotkeyRegistrationStatus.ACTIVE
+                || current == HotkeyRegistrationStatus.REGISTERING) {
+            updateHotkeyStatus(HotkeyRegistrationStatus.STOPPED);
+        }
+    }
+
+    private void updateHotkeyStatus(HotkeyRegistrationStatus next) {
+        HotkeyRegistrationStatus value = next == null
+                ? HotkeyRegistrationStatus.FAILED
+                : next;
+        HotkeyRegistrationStatus previous = hotkeyStatus.getAndSet(value);
+        if (previous == value) return;
+
+        for (Consumer<HotkeyRegistrationStatus> listener : hotkeyStatusListeners) {
+            notifyHotkeyStatusListener(listener, value);
+        }
+    }
+
+    private void notifyHotkeyStatusListener(
+            Consumer<HotkeyRegistrationStatus> listener,
+            HotkeyRegistrationStatus value
+    ) {
+        try {
+            listener.accept(value);
+        } catch (Throwable ignored) {
         }
     }
 

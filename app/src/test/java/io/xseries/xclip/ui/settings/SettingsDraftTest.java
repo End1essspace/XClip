@@ -8,11 +8,12 @@ package io.xseries.xclip.ui.settings;
 import io.xseries.xclip.config.Config;
 import io.xseries.xclip.domain.duplicate.DuplicateBehaviorPolicy;
 import io.xseries.xclip.domain.model.ClipContentType;
-import io.xseries.xclip.domain.privacy.ExcludedApplicationPolicy;
 import io.xseries.xclip.domain.privacy.SensitiveContentPolicy;
 import io.xseries.xclip.domain.retention.HistoryRetentionPolicy;
+import io.xseries.xclip.ui.settings.DuplicateSettingsModel.WindowPreset;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -56,13 +57,15 @@ class SettingsDraftTest {
                 .withStartMinimized(true)
                 .withStartOnBoot(true)
                 .withDuplicateBehaviorPolicy(duplicate)
-                .withExcludedApplications(java.util.List.of("KeePass.exe", "1PASSWORD"))
+                .withExcludedApplications(List.of("KeePass.exe", "1PASSWORD"))
                 .withSensitiveContentPolicy(sensitive)
                 .withHistoryRetentionPolicy(retention);
 
         SettingsDraft draft = SettingsDraft.fromConfig(base);
-        Config materialized = draft.toConfig(base);
+        SettingsDraftValidation validation = draft.validate();
+        Config materialized = validation.toConfig(base);
 
+        assertTrue(validation.valid());
         assertEquals(base.maxHistory(), materialized.maxHistory());
         assertEquals(base.minClipLength(), materialized.minClipLength());
         assertEquals(base.maxClipChars(), materialized.maxClipChars());
@@ -74,7 +77,6 @@ class SettingsDraftTest {
         assertEquals(base.excludedApplications(), materialized.excludedApplications());
         assertEquals(base.sensitiveContentPolicy(), materialized.sensitiveContentPolicy());
         assertEquals(base.historyRetentionPolicy(), materialized.historyRetentionPolicy());
-
         assertEquals(123, materialized.windowX());
         assertEquals(234, materialized.windowY());
         assertEquals(1110, materialized.windowW());
@@ -84,56 +86,92 @@ class SettingsDraftTest {
     }
 
     @Test
-    void materializationChangesOnlyFieldsOwnedByTheDraft() {
-        Config base = Config.defaults().withWindowState(44, 55, 880, 660, false);
-        SettingsDraft draft = new SettingsDraft(
-                2_000,
-                8,
-                750_000,
-                450,
-                false,
-                true,
-                true,
-                DuplicateBehaviorPolicy.defaults(),
-                new ExcludedApplicationPolicy(java.util.List.of("secret.exe")),
-                new SensitiveContentPolicy(
-                        SensitiveContentPolicy.RuleAction.SKIP,
-                        SensitiveContentPolicy.RuleAction.SKIP
+    void validationKeepsRawInvalidValuesAndOrdersIssuesByPageAndField() {
+        SettingsDraft base = SettingsDraft.fromConfig(Config.defaults());
+        SettingsDraft invalid = new SettingsDraft(
+                base.general(),
+                new SettingsDraft.Capture("", "9999", "5001"),
+                new SettingsDraft.History("99"),
+                new SettingsDraft.Duplicate(
+                        DuplicateBehaviorPolicy.RecentDuplicatePosition.MOVE_TO_TOP,
+                        DuplicateBehaviorPolicy.PinnedDuplicatePosition.PRESERVE_PIN_POSITION,
+                        DuplicateBehaviorPolicy.WhitespaceMode.NORMALIZE,
+                        DuplicateBehaviorPolicy.CaseSensitivity.SENSITIVE,
+                        WindowPreset.CUSTOM,
+                        "",
+                        false
                 ),
-                new HistoryRetentionPolicy(false, 30, Map.of(), false)
+                new SettingsDraft.Privacy(
+                        "bad*.exe",
+                        SensitiveContentPolicy.RuleAction.CAPTURE,
+                        SensitiveContentPolicy.RuleAction.CAPTURE
+                ),
+                base.retention()
         );
 
-        Config result = draft.toConfig(base);
+        SettingsDraftValidation validation = invalid.validate();
 
-        assertEquals(2_000, result.maxHistory());
-        assertEquals(8, result.minClipLength());
-        assertEquals(750_000, result.maxClipChars());
-        assertEquals(450, result.uiClipLimit());
-        assertFalse(result.watcherEnabled());
-        assertTrue(result.startMinimized());
-        assertTrue(result.startOnBoot());
-        assertEquals(java.util.List.of("secret.exe"), result.excludedApplications());
-        assertEquals(44, result.windowX());
-        assertEquals(55, result.windowY());
-        assertEquals(880, result.windowW());
-        assertEquals(660, result.windowH());
-        assertFalse(result.windowMaximized());
+        assertFalse(validation.valid());
+        assertEquals(SettingsField.MIN_CLIP_LENGTH, validation.issues().get(0).field());
+        assertEquals(SettingsPage.CAPTURE, validation.issues().get(0).page());
+        assertTrue(validation.invalidPages().contains(SettingsPage.CAPTURE));
+        assertTrue(validation.invalidPages().contains(SettingsPage.HISTORY));
+        assertTrue(validation.invalidPages().contains(SettingsPage.DUPLICATE_BEHAVIOR));
+        assertTrue(validation.invalidPages().contains(SettingsPage.PRIVACY));
+        assertThrows(IllegalStateException.class, () -> validation.toConfig(Config.defaults()));
     }
 
     @Test
-    void draftRejectsMissingPolicySnapshots() {
+    void scopedResetsPreserveUnrelatedDraftSections() {
+        SettingsDraft original = SettingsDraft.fromConfig(
+                Config.defaults()
+                        .withMaxHistory(2_000)
+                        .withExcludedApplications(List.of("private.exe"))
+                        .withSensitiveContentPolicy(new SensitiveContentPolicy(
+                                SensitiveContentPolicy.RuleAction.SKIP,
+                                SensitiveContentPolicy.RuleAction.SKIP
+                        ))
+                        .withHistoryRetentionPolicy(new HistoryRetentionPolicy(
+                                true,
+                                14,
+                                Map.of(ClipContentType.CODE, 3),
+                                true
+                        ))
+        );
+
+        SettingsDraft duplicateReset = original.withDuplicateDefaults();
+        assertEquals(original.general(), duplicateReset.general());
+        assertEquals(original.capture(), duplicateReset.capture());
+        assertEquals(original.history(), duplicateReset.history());
+        assertEquals(original.privacy(), duplicateReset.privacy());
+        assertEquals(original.retention(), duplicateReset.retention());
+
+        SettingsDraft sensitiveReset = original.withSensitiveDefaults();
+        assertEquals(original.privacy().excludedApplications(),
+                sensitiveReset.privacy().excludedApplications());
+        assertEquals(SensitiveContentPolicy.RuleAction.CAPTURE,
+                sensitiveReset.privacy().paymentCardAction());
+        assertEquals(SensitiveContentPolicy.RuleAction.CAPTURE,
+                sensitiveReset.privacy().oneTimeCodeAction());
+        assertEquals(original.retention(), sensitiveReset.retention());
+
+        SettingsDraft retentionReset = original.withRetentionDefaults();
+        assertEquals(original.history(), retentionReset.history());
+        assertEquals("30", retentionReset.retention().recentDays());
+        assertFalse(retentionReset.retention().recentEnabled());
+        assertFalse(retentionReset.retention().clearRecentOnExit());
+    }
+
+    @Test
+    void draftRejectsMissingSectionSnapshots() {
+        SettingsDraft valid = SettingsDraft.fromConfig(Config.defaults());
         assertThrows(NullPointerException.class, () -> new SettingsDraft(
-                800,
-                0,
-                Config.DEFAULT_MAX_CLIP_CHARS,
-                Config.DEFAULT_UI_CLIP_LIMIT,
-                true,
-                false,
-                false,
                 null,
-                ExcludedApplicationPolicy.defaults(),
-                SensitiveContentPolicy.defaults(),
-                HistoryRetentionPolicy.defaults()
+                valid.capture(),
+                valid.history(),
+                valid.duplicate(),
+                valid.privacy(),
+                valid.retention()
         ));
     }
 }

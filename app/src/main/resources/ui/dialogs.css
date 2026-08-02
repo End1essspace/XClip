@@ -930,3 +930,91 @@
     -fx-padding: 10 14 10 14;
 }
 
+
+
+/* =========================================================
+   M6.3 — Settings draft lifecycle and validation
+   ========================================================= */
+
+.settings-nav-button.validation-error {
+    -fx-text-fill: #F09A9A;
+    -fx-border-color: rgba(216, 91, 91, 0.58);
+}
+
+.settings-nav-button.validation-error:selected {
+    -fx-background-color: rgba(216, 91, 91, 0.12);
+    -fx-text-fill: #FFC1C1;
+    -fx-border-color: rgba(216, 91, 91, 0.72);
+}
+
+.settings-validation-status {
+    -fx-text-fill: #E88989;
+    -fx-font-size: 10.5px;
+    -fx-font-weight: 700;
+}
+
+.settings-validation-status:hover {
+    -fx-underline: true;
+}
+
+/* M6.4 — Data, Shortcuts, and About pages */
+.settings-action-row {
+    -fx-alignment: center-left;
+}
+
+.settings-status-value {
+    -fx-font-weight: 700;
+    -fx-padding: 4 9 4 9;
+    -fx-background-radius: 999;
+    -fx-border-radius: 999;
+}
+
+.settings-status-value.status-active {
+    -fx-text-fill: #8ee6ad;
+    -fx-background-color: rgba(52, 168, 83, 0.16);
+    -fx-border-color: rgba(86, 211, 126, 0.35);
+}
+
+.settings-status-value.status-problem {
+    -fx-text-fill: #ff9b9b;
+    -fx-background-color: rgba(217, 73, 73, 0.16);
+    -fx-border-color: rgba(255, 109, 109, 0.38);
+}
+
+.settings-status-value.status-neutral {
+    -fx-text-fill: -fx-text-muted;
+    -fx-background-color: rgba(255, 255, 255, 0.05);
+    -fx-border-color: -fx-border-subtle;
+}
+
+.settings-shortcut-keys {
+    -fx-font-family: "Consolas";
+    -fx-font-weight: 700;
+    -fx-text-fill: -fx-accent;
+}
+
+.settings-inline-note,
+.settings-privacy-statement {
+    -fx-text-fill: -fx-text-muted;
+    -fx-line-spacing: 2px;
+}
+
+.settings-path-row {
+    -fx-alignment: center-left;
+}
+
+.settings-path-label {
+    -fx-min-width: 104px;
+    -fx-font-weight: 600;
+    -fx-text-fill: -fx-text-secondary;
+}
+
+.button-danger-subtle {
+    -fx-background-color: rgba(217, 73, 73, 0.10);
+    -fx-border-color: rgba(255, 109, 109, 0.34);
+    -fx-text-fill: #ffb0b0;
+}
+
+.button-danger-subtle:hover {
+    -fx-background-color: rgba(217, 73, 73, 0.18);
+}
