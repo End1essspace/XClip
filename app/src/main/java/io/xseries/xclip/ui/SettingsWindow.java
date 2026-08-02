@@ -1,4 +1,3 @@
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -6,6 +5,7 @@
  */
 package io.xseries.xclip.ui;
 
+import io.xseries.xclip.AppVersion;
 import io.xseries.xclip.config.AppPaths;
 import io.xseries.xclip.config.Config;
 import io.xseries.xclip.config.ConfigService;
@@ -18,25 +18,29 @@ import io.xseries.xclip.domain.service.HistoryCleanupService;
 import io.xseries.xclip.system.DataOwnershipService;
 import io.xseries.xclip.system.WindowsAutoStartService;
 import io.xseries.xclip.system.clipboard.WatcherController;
-import io.xseries.xclip.system.window.WindowsTitleBar;
+import io.xseries.xclip.system.window.WindowChromeController;
 import io.xseries.xclip.ui.settings.DuplicateSettingsModel;
 import io.xseries.xclip.ui.settings.DuplicateSettingsModel.WindowPreset;
+import io.xseries.xclip.ui.settings.SettingsPage;
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Scene;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
-import javafx.scene.control.Separator;
 import javafx.scene.control.Spinner;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextFormatter;
+import javafx.scene.control.ToggleButton;
+import javafx.scene.control.ToggleGroup;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.layout.BorderPane;
@@ -45,6 +49,7 @@ import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
@@ -56,6 +61,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
 
@@ -68,15 +74,26 @@ import java.util.function.Function;
  */
 public final class SettingsWindow {
 
-    private static final double DEFAULT_WIDTH = 700;
-    private static final double DEFAULT_HEIGHT = 720;
-    private static final double MIN_WIDTH = 620;
+    private static final double DEFAULT_WIDTH = 960;
+    private static final double DEFAULT_HEIGHT = 640;
+    private static final double MIN_WIDTH = 840;
     private static final double MIN_HEIGHT = 520;
+    private static final double RESIZE_EDGE = 6;
     private static final DateTimeFormatter CLEANUP_TIME_FORMAT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
                     .withZone(ZoneId.systemDefault());
 
     private final Stage stage;
+    private final WindowChromeController chromeController;
+    private final Label pageTitleLabel = new Label();
+    private final Label pageDescriptionLabel = new Label();
+    private final StackPane pageHost = new StackPane();
+    private final EnumMap<SettingsPage, ScrollPane> pageViews =
+            new EnumMap<>(SettingsPage.class);
+    private final EnumMap<SettingsPage, ToggleButton> navigationButtons =
+            new EnumMap<>(SettingsPage.class);
+    private SettingsPage selectedPage = SettingsPage.GENERAL;
+    private Button maximizeWindowBtn;
 
     private final ConfigService configService;
     private final ClipService clipService;
@@ -155,7 +172,7 @@ public final class SettingsWindow {
         this.current = (initial == null ? Config.defaults() : initial).normalized();
         this.onConfigApplied = onConfigApplied != null ? onConfigApplied : cfg -> {};
 
-        stage = new Stage(StageStyle.DECORATED);
+        stage = new Stage(StageStyle.UNDECORATED);
         stage.setTitle("XClip Settings");
         stage.getIcons().add(new javafx.scene.image.Image(
                 SettingsWindow.class.getResourceAsStream("/icons/icon.png")
@@ -164,6 +181,10 @@ public final class SettingsWindow {
         stage.setResizable(true);
         stage.setMinWidth(MIN_WIDTH);
         stage.setMinHeight(MIN_HEIGHT);
+        chromeController = WindowChromeController.forStage(
+                stage,
+                this::closeAndDiscard
+        );
 
         maxHistory = intSpinner(
                 100,
@@ -355,15 +376,38 @@ public final class SettingsWindow {
         );
         resetRetentionDefaultsBtn.getStyleClass().add("btn-subtle");
 
+        GridPane generalGrid = settingsGrid();
+        int generalRow = 0;
+        generalRow = addSettingRow(
+                generalGrid,
+                generalRow,
+                "Clipboard capture",
+                "Enable or pause background clipboard monitoring.",
+                watcherEnabled
+        );
+        generalRow = addSettingRow(
+                generalGrid,
+                generalRow,
+                "Start minimized",
+                "Open XClip in the system tray without showing the popup.",
+                startMinimized
+        );
+        addSettingRow(
+                generalGrid,
+                generalRow,
+                "Start on Windows boot",
+                "Launch XClip automatically after signing in.",
+                startOnBoot
+        );
+
+        VBox generalSection = section(
+                "Application behavior",
+                "Core runtime and startup preferences.",
+                generalGrid
+        );
+
         GridPane captureGrid = settingsGrid();
         int captureRow = 0;
-        captureRow = addSettingRow(
-                captureGrid,
-                captureRow,
-                "Max history",
-                "Maximum number of unpinned clipboard entries retained locally.",
-                maxHistory
-        );
         captureRow = addSettingRow(
                 captureGrid,
                 captureRow,
@@ -378,21 +422,33 @@ public final class SettingsWindow {
                 "Longer clipboard text is truncated before storage.",
                 maxClipChars
         );
-        captureRow = addSettingRow(
+        addSettingRow(
                 captureGrid,
                 captureRow,
                 "UI clip limit",
                 "Maximum number of prepared rows shown in the popup.",
                 uiClipLimit
         );
-        captureGrid.add(watcherEnabled, 1, captureRow++);
-        captureGrid.add(startMinimized, 1, captureRow++);
-        captureGrid.add(startOnBoot, 1, captureRow);
 
         VBox captureSection = section(
-                "Capture & history",
-                "Clipboard limits, background capture, and startup behavior.",
+                "Capture limits",
+                "Bounds applied before clipboard entries reach persistent history.",
                 captureGrid
+        );
+
+        GridPane historyCapacityGrid = settingsGrid();
+        addSettingRow(
+                historyCapacityGrid,
+                0,
+                "Max history",
+                "Maximum number of unpinned clipboard entries retained locally.",
+                maxHistory
+        );
+
+        VBox historyCapacitySection = section(
+                "History capacity",
+                "The normal size limit for RECENT clipboard history.",
+                historyCapacityGrid
         );
 
         GridPane duplicateGrid = settingsGrid();
@@ -476,7 +532,7 @@ public final class SettingsWindow {
         privacyActions.setAlignment(Pos.CENTER_RIGHT);
 
         VBox privacySection = section(
-                "Privacy — excluded applications",
+                "Excluded applications",
                 "Process-based capture exclusions are stored locally in config.json.",
                 privacyGrid,
                 privacyFallbackHint,
@@ -511,7 +567,7 @@ public final class SettingsWindow {
         sensitiveActions.setAlignment(Pos.CENTER_RIGHT);
 
         VBox sensitiveSection = section(
-                "Privacy — sensitive content",
+                "Sensitive content",
                 "Explicit opt-in rules can skip selected sensitive text before it reaches clipboard history.",
                 sensitiveGrid,
                 sensitiveDetectionHint,
@@ -630,12 +686,6 @@ public final class SettingsWindow {
         pathRow.setAlignment(Pos.CENTER_LEFT);
         HBox.setHgrow(dataPath, Priority.ALWAYS);
 
-        VBox dataSection = section(
-                "Local data",
-                "All history and preferences stay in this user-owned folder.",
-                pathRow
-        );
-
         openDataFolderBtn = new Button("Open data folder");
         openDataFolderBtn.setAccessibleHelp(
                 "Open the XClip data folder in File Explorer."
@@ -643,6 +693,16 @@ public final class SettingsWindow {
         openDataFolderBtn.getStyleClass().add("btn-subtle");
         openDataFolderBtn.setOnAction(
                 event -> dataOwnershipService.openDataFolder()
+        );
+
+        HBox dataActions = new HBox(openDataFolderBtn);
+        dataActions.setAlignment(Pos.CENTER_RIGHT);
+
+        VBox dataSection = section(
+                "Local data",
+                "All history and preferences stay in this user-owned folder.",
+                pathRow,
+                dataActions
         );
 
         clearAllDataBtn = new Button("Clear ALL data");
@@ -663,12 +723,84 @@ public final class SettingsWindow {
         VBox dangerBox = new VBox(8, dangerTitle, dangerHint, clearAllDataBtn);
         dangerBox.getStyleClass().addAll("settings-section", "danger-box");
 
-        Button closeBtn = new Button("Close");
-        closeBtn.setAccessibleHelp(
+        VBox appearanceSection = informationSection(
+                "Current appearance",
+                "The v1.3.0 interface uses the frozen XClip dark theme.",
+                List.of(
+                        infoRow("Theme", "Dark"),
+                        infoRow("Interface stack", "Programmatic JavaFX 21"),
+                        infoRow("Theme controls", "No speculative controls in M6.1")
+                )
+        );
+
+        VBox shortcutsSection = informationSection(
+                "Keyboard workflow",
+                "The popup shortcut contract remains unchanged by the Settings redesign.",
+                List.of(
+                        infoRow("Open XClip", "Ctrl+Shift+V"),
+                        infoRow("Open Settings", "Ctrl+,"),
+                        infoRow("Search", "Ctrl+F / Ctrl+K"),
+                        infoRow("Direct Paste", "Enter"),
+                        infoRow("Actions", "Shift+F10 / Menu"),
+                        infoRow("Focus zones", "F6 / Shift+F6")
+                )
+        );
+
+        VBox aboutSection = informationSection(
+                "About XClip",
+                "Local-first Windows clipboard management.",
+                List.of(
+                        infoRow("Version", AppVersion.VERSION),
+                        infoRow("Author", "XCON | RX"),
+                        infoRow("License", "GNU GPL v3.0"),
+                        infoRow("Data model", "Local SQLite + config.json"),
+                        infoRow("UI contract", "v1.3.0 revision 12")
+                )
+        );
+
+        pageViews.put(
+                SettingsPage.GENERAL,
+                pageScroll(generalSection)
+        );
+        pageViews.put(
+                SettingsPage.CAPTURE,
+                pageScroll(captureSection)
+        );
+        pageViews.put(
+                SettingsPage.HISTORY,
+                pageScroll(historyCapacitySection, retentionSection)
+        );
+        pageViews.put(
+                SettingsPage.DUPLICATE_BEHAVIOR,
+                pageScroll(duplicateSection)
+        );
+        pageViews.put(
+                SettingsPage.PRIVACY,
+                pageScroll(privacySection, sensitiveSection)
+        );
+        pageViews.put(
+                SettingsPage.APPEARANCE,
+                pageScroll(appearanceSection)
+        );
+        pageViews.put(
+                SettingsPage.SHORTCUTS,
+                pageScroll(shortcutsSection)
+        );
+        pageViews.put(
+                SettingsPage.DATA,
+                pageScroll(dataSection, dangerBox)
+        );
+        pageViews.put(
+                SettingsPage.ABOUT,
+                pageScroll(aboutSection)
+        );
+
+        Button cancelBtn = new Button("Cancel");
+        cancelBtn.setAccessibleHelp(
                 "Close Settings and discard unapplied changes."
         );
-        closeBtn.getStyleClass().add("btn-subtle");
-        closeBtn.setCancelButton(true);
+        cancelBtn.getStyleClass().add("btn-subtle");
+        cancelBtn.setCancelButton(true);
 
         applyBtn.setDefaultButton(true);
         applyBtn.setAccessibleHelp("Save and apply the current settings.");
@@ -676,10 +808,7 @@ public final class SettingsWindow {
         applyBtn.setDisable(true);
 
         applyBtn.setOnAction(event -> apply());
-        closeBtn.setOnAction(event -> {
-            if (dirty) resetUiToCurrentSilently();
-            stage.hide();
-        });
+        cancelBtn.setOnAction(event -> closeAndDiscard());
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
@@ -688,40 +817,39 @@ public final class SettingsWindow {
                 10,
                 statusLabel,
                 spacer,
-                openDataFolderBtn,
                 applyBtn,
-                closeBtn
+                cancelBtn
         );
         bottomBar.setAlignment(Pos.CENTER_RIGHT);
         bottomBar.getStyleClass().add("settings-bottom-bar");
 
-        VBox content = new VBox(
-                12,
-                captureSection,
-                duplicateSection,
-                privacySection,
-                sensitiveSection,
-                retentionSection,
-                dataSection,
-                new Separator(),
-                dangerBox
-        );
-        content.setPadding(new Insets(14));
-        content.getStyleClass().add("settings-content");
-
-        ScrollPane scroll = new ScrollPane(content);
-        scroll.setFitToWidth(true);
-        scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-        scroll.getStyleClass().add("settings-scroll");
+        VBox sidebar = buildNavigation();
+        VBox pagePane = buildPagePane();
+        HBox body = new HBox(sidebar, pagePane);
+        HBox.setHgrow(pagePane, Priority.ALWAYS);
+        body.getStyleClass().add("settings-body");
 
         BorderPane root = new BorderPane();
-        root.setCenter(scroll);
+        root.setTop(buildTitleBar());
+        root.setCenter(body);
         root.setBottom(bottomBar);
         root.getStyleClass().add("settings-root");
 
         Scene scene = new Scene(root, DEFAULT_WIDTH, DEFAULT_HEIGHT);
         UiStyles.applySettings(scene);
         stage.setScene(scene);
+
+        chromeController.installResizeSupport(
+                scene,
+                RESIZE_EDGE,
+                MIN_WIDTH,
+                MIN_HEIGHT
+        );
+        stage.maximizedProperty().addListener(
+                (observable, oldValue, newValue) -> syncMaximizeButton()
+        );
+
+        selectPage(selectedPage);
 
         stage.setOnHiding(event -> {
             if (dirty) {
@@ -734,8 +862,7 @@ public final class SettingsWindow {
         });
 
         stage.setOnCloseRequest(event -> {
-            if (dirty) resetUiToCurrentSilently();
-            stage.hide();
+            closeAndDiscard();
             event.consume();
         });
 
@@ -847,12 +974,11 @@ public final class SettingsWindow {
         if (!stage.isShowing()) {
             stage.centerOnScreen();
             stage.show();
-            WindowsTitleBar.applyDarkTitleBar(stage);
         }
 
         stage.toFront();
         stage.requestFocus();
-        WindowsTitleBar.applyDarkTitleBar(stage);
+        selectPage(selectedPage);
     }
 
     private void apply() {
@@ -1406,6 +1532,241 @@ public final class SettingsWindow {
                 return null;
             }
         };
+    }
+
+    private HBox buildTitleBar() {
+        ImageView icon = new ImageView(new Image(
+                SettingsWindow.class.getResourceAsStream("/icons/icon.png")
+        ));
+        icon.setFitWidth(18);
+        icon.setFitHeight(18);
+        icon.setPreserveRatio(true);
+
+        Label product = new Label("XClip");
+        product.getStyleClass().add("settings-title-product");
+
+        Label context = new Label("Settings");
+        context.getStyleClass().add("settings-title-context");
+
+        HBox dragRegion = new HBox(9, icon, product, context);
+        dragRegion.setAlignment(Pos.CENTER_LEFT);
+        dragRegion.getStyleClass().add("settings-title-drag-region");
+        HBox.setHgrow(dragRegion, Priority.ALWAYS);
+
+        dragRegion.setOnMousePressed(event -> {
+            if (event.getButton() == javafx.scene.input.MouseButton.PRIMARY
+                    && event.getClickCount() == 1) {
+                chromeController.beginDrag(
+                        event.getScreenX(),
+                        event.getScreenY()
+                );
+            }
+        });
+        dragRegion.setOnMouseDragged(event -> chromeController.dragTo(
+                event.getScreenX(),
+                event.getScreenY()
+        ));
+        dragRegion.setOnMouseReleased(event -> chromeController.endDrag());
+        dragRegion.setOnMouseClicked(event -> {
+            if (event.getButton() == javafx.scene.input.MouseButton.PRIMARY
+                    && event.getClickCount() == 2) {
+                chromeController.handleTitleBarDoubleClick();
+                syncMaximizeButton();
+            }
+        });
+
+        Button minimize = windowButton("—", "Minimize Settings");
+        minimize.setOnAction(event -> chromeController.minimize());
+
+        maximizeWindowBtn = windowButton("□", "Maximize Settings");
+        maximizeWindowBtn.setOnAction(event -> {
+            chromeController.toggleMaximized();
+            syncMaximizeButton();
+        });
+
+        Button close = windowButton("×", "Close Settings");
+        close.getStyleClass().add("close");
+        close.setOnAction(event -> chromeController.closeToBackground());
+
+        HBox windowControls = new HBox(minimize, maximizeWindowBtn, close);
+        windowControls.getStyleClass().add("settings-window-controls");
+
+        HBox titleBar = new HBox(dragRegion, windowControls);
+        titleBar.setAlignment(Pos.CENTER_LEFT);
+        titleBar.getStyleClass().add("settings-title-bar");
+        return titleBar;
+    }
+
+    private Button windowButton(String text, String accessibleText) {
+        Button button = new Button(text);
+        button.setAccessibleText(accessibleText);
+        button.getStyleClass().addAll(
+                "settings-window-control",
+                "window-control-hit-target"
+        );
+        return button;
+    }
+
+    private void syncMaximizeButton() {
+        if (maximizeWindowBtn == null) return;
+        boolean maximized = chromeController.isMaximized();
+        maximizeWindowBtn.setText(maximized ? "❐" : "□");
+        maximizeWindowBtn.setAccessibleText(
+                maximized ? "Restore Settings" : "Maximize Settings"
+        );
+    }
+
+    private VBox buildNavigation() {
+        Label title = new Label("SETTINGS");
+        title.getStyleClass().add("settings-navigation-eyebrow");
+
+        ToggleGroup group = new ToggleGroup();
+        VBox buttons = new VBox(4);
+        SettingsPage[] pages = SettingsPage.values();
+
+        for (int index = 0; index < pages.length; index++) {
+            SettingsPage page = pages[index];
+            ToggleButton button = new ToggleButton(page.title());
+            button.setMaxWidth(Double.MAX_VALUE);
+            button.setAlignment(Pos.CENTER_LEFT);
+            button.setToggleGroup(group);
+            button.setAccessibleText(page.title() + " settings page");
+            button.getStyleClass().add("settings-nav-button");
+            button.setOnAction(event -> selectPage(page));
+
+            int buttonIndex = index;
+            button.setOnKeyPressed(event -> {
+                switch (event.getCode()) {
+                    case UP -> {
+                        focusNavigationButton(pages, buttonIndex - 1);
+                        event.consume();
+                    }
+                    case DOWN -> {
+                        focusNavigationButton(pages, buttonIndex + 1);
+                        event.consume();
+                    }
+                    case HOME -> {
+                        focusNavigationButton(pages, 0);
+                        event.consume();
+                    }
+                    case END -> {
+                        focusNavigationButton(pages, pages.length - 1);
+                        event.consume();
+                    }
+                    default -> {
+                    }
+                }
+            });
+
+            navigationButtons.put(page, button);
+            buttons.getChildren().add(button);
+        }
+
+        Region spacer = new Region();
+        VBox.setVgrow(spacer, Priority.ALWAYS);
+
+        Label localOnly = new Label("LOCAL DATA ONLY");
+        localOnly.setWrapText(true);
+        localOnly.getStyleClass().add("settings-navigation-footnote");
+
+        VBox sidebar = new VBox(14, title, buttons, spacer, localOnly);
+        sidebar.getStyleClass().add("settings-navigation");
+        return sidebar;
+    }
+
+    private void focusNavigationButton(
+            SettingsPage[] pages,
+            int requestedIndex
+    ) {
+        int index = Math.max(0, Math.min(pages.length - 1, requestedIndex));
+        ToggleButton button = navigationButtons.get(pages[index]);
+        if (button != null) {
+            button.requestFocus();
+            button.fire();
+        }
+    }
+
+    private VBox buildPagePane() {
+        pageTitleLabel.getStyleClass().add("settings-page-title");
+        pageDescriptionLabel.setWrapText(true);
+        pageDescriptionLabel.getStyleClass().add("settings-page-description");
+
+        VBox pageHeader = new VBox(4, pageTitleLabel, pageDescriptionLabel);
+        pageHeader.getStyleClass().add("settings-page-header");
+
+        pageHost.getStyleClass().add("settings-page-host");
+        VBox.setVgrow(pageHost, Priority.ALWAYS);
+
+        VBox pane = new VBox(pageHeader, pageHost);
+        pane.getStyleClass().add("settings-page-pane");
+        HBox.setHgrow(pane, Priority.ALWAYS);
+        return pane;
+    }
+
+    private void selectPage(SettingsPage page) {
+        SettingsPage next = page == null ? SettingsPage.GENERAL : page;
+        ScrollPane view = pageViews.get(next);
+        if (view == null) {
+            throw new IllegalStateException(
+                    "Missing Settings page view: " + next
+            );
+        }
+
+        selectedPage = next;
+        pageTitleLabel.setText(next.title());
+        pageDescriptionLabel.setText(next.description());
+        pageHost.getChildren().setAll(view);
+
+        ToggleButton navigation = navigationButtons.get(next);
+        if (navigation != null && !navigation.isSelected()) {
+            navigation.setSelected(true);
+        }
+    }
+
+    private void closeAndDiscard() {
+        if (dirty) resetUiToCurrentSilently();
+        stage.hide();
+    }
+
+    private static ScrollPane pageScroll(Node... cards) {
+        VBox content = new VBox(14);
+        content.setPadding(new Insets(20, 22, 24, 22));
+        content.getChildren().addAll(cards);
+        content.getStyleClass().add("settings-page-content");
+
+        ScrollPane scroll = new ScrollPane(content);
+        scroll.setFitToWidth(true);
+        scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        scroll.getStyleClass().add("settings-page-scroll");
+        return scroll;
+    }
+
+    private static VBox informationSection(
+            String title,
+            String description,
+            List<? extends Node> rows
+    ) {
+        VBox list = new VBox(0);
+        list.getStyleClass().add("settings-info-list");
+        list.getChildren().addAll(rows);
+        return section(title, description, list);
+    }
+
+    private static HBox infoRow(String label, String value) {
+        Label name = new Label(label);
+        name.getStyleClass().add("settings-info-name");
+
+        Label detail = new Label(value == null || value.isBlank() ? "DEV" : value);
+        detail.setWrapText(true);
+        detail.getStyleClass().add("settings-info-value");
+
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        HBox row = new HBox(14, name, spacer, detail);
+        row.setAlignment(Pos.CENTER_LEFT);
+        row.getStyleClass().add("settings-info-row");
+        return row;
     }
 
     private static GridPane settingsGrid() {

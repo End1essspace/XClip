@@ -728,3 +728,205 @@
     -fx-line-spacing: 1px;
     -fx-max-width: 250px;
 }
+
+/* =========================================================
+   M6.1 — multi-page Settings shell and custom window chrome
+   ========================================================= */
+
+.settings-root {
+    -fx-background-color: -x-bg;
+}
+
+.settings-title-bar {
+    -fx-min-height: 42px;
+    -fx-pref-height: 42px;
+    -fx-max-height: 42px;
+    -fx-background-color: #111720;
+    -fx-border-color: transparent transparent #293343 transparent;
+    -fx-border-width: 0 0 1 0;
+}
+
+.settings-title-drag-region {
+    -fx-min-height: 42px;
+    -fx-padding: 0 0 0 14;
+}
+
+.settings-title-product {
+    -fx-text-fill: #F2F5F9;
+    -fx-font-size: 12px;
+    -fx-font-weight: 800;
+}
+
+.settings-title-context {
+    -fx-text-fill: #77869A;
+    -fx-font-size: 11px;
+}
+
+.settings-window-controls {
+    -fx-alignment: center-right;
+}
+
+.settings-window-control {
+    -fx-min-width: 46px;
+    -fx-pref-width: 46px;
+    -fx-max-width: 46px;
+    -fx-min-height: 42px;
+    -fx-pref-height: 42px;
+    -fx-max-height: 42px;
+    -fx-padding: 0;
+    -fx-background-color: transparent;
+    -fx-text-fill: #B9C4D2;
+    -fx-border-color: transparent;
+    -fx-border-radius: 0;
+    -fx-background-radius: 0;
+    -fx-font-size: 14px;
+}
+
+.settings-window-control:hover {
+    -fx-background-color: #27303D;
+    -fx-text-fill: #F4F7FA;
+}
+
+.settings-window-control.close {
+    -fx-min-width: 50px;
+    -fx-pref-width: 50px;
+    -fx-max-width: 50px;
+    -fx-font-size: 19px;
+}
+
+.settings-window-control.close:hover {
+    -fx-background-color: #C42B1C;
+    -fx-text-fill: #FFFFFF;
+}
+
+.settings-body {
+    -fx-background-color: -x-bg;
+}
+
+.settings-navigation {
+    -fx-min-width: 208px;
+    -fx-pref-width: 208px;
+    -fx-max-width: 208px;
+    -fx-padding: 20 12 18 12;
+    -fx-background-color: #10151D;
+    -fx-border-color: transparent #293343 transparent transparent;
+    -fx-border-width: 0 1 0 0;
+}
+
+.settings-navigation-eyebrow {
+    -fx-padding: 0 10 2 10;
+    -fx-text-fill: #68798E;
+    -fx-font-size: 9.5px;
+    -fx-font-weight: 800;
+}
+
+.settings-nav-button {
+    -fx-min-height: 36px;
+    -fx-pref-height: 36px;
+    -fx-max-width: 10000px;
+    -fx-padding: 0 11 0 11;
+    -fx-background-color: transparent;
+    -fx-text-fill: #9EABBC;
+    -fx-border-color: transparent;
+    -fx-border-width: 1;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-font-size: 11.5px;
+    -fx-font-weight: 700;
+}
+
+.settings-nav-button:hover {
+    -fx-background-color: #19212C;
+    -fx-text-fill: #E5EBF2;
+}
+
+.settings-nav-button:selected {
+    -fx-background-color: rgba(245, 197, 66, 0.12);
+    -fx-text-fill: #F5D56E;
+    -fx-border-color: rgba(245, 197, 66, 0.28);
+}
+
+.settings-nav-button:focused {
+    -fx-border-color: -x-accent;
+    -fx-effect: dropshadow(gaussian, rgba(245, 197, 66, 0.42), 6, 0.22, 0, 0);
+}
+
+.settings-navigation-footnote {
+    -fx-padding: 0 10 0 10;
+    -fx-text-fill: #526175;
+    -fx-font-size: 8.5px;
+    -fx-font-weight: 800;
+}
+
+.settings-page-pane {
+    -fx-background-color: -x-bg;
+}
+
+.settings-page-header {
+    -fx-padding: 20 22 16 22;
+    -fx-background-color: #0F131A;
+    -fx-border-color: transparent transparent #252E3B transparent;
+    -fx-border-width: 0 0 1 0;
+}
+
+.settings-page-title {
+    -fx-text-fill: #F2F5F9;
+    -fx-font-size: 20px;
+    -fx-font-weight: 800;
+}
+
+.settings-page-description {
+    -fx-text-fill: #8291A4;
+    -fx-font-size: 11px;
+}
+
+.settings-page-host {
+    -fx-background-color: -x-bg;
+}
+
+.settings-page-scroll {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-padding: 0;
+}
+
+.settings-page-scroll > .viewport {
+    -fx-background-color: -x-bg;
+}
+
+.settings-page-content {
+    -fx-background-color: -x-bg;
+}
+
+.settings-info-list {
+    -fx-border-color: #2A3340;
+    -fx-border-width: 1 0 0 0;
+}
+
+.settings-info-row {
+    -fx-min-height: 42px;
+    -fx-padding: 9 2 9 2;
+    -fx-border-color: transparent transparent #252E3A transparent;
+    -fx-border-width: 0 0 1 0;
+}
+
+.settings-info-name {
+    -fx-text-fill: #AEBAC9;
+    -fx-font-size: 11px;
+    -fx-font-weight: 700;
+}
+
+.settings-info-value {
+    -fx-max-width: 360px;
+    -fx-alignment: center-right;
+    -fx-text-alignment: right;
+    -fx-text-fill: #E0E6ED;
+    -fx-font-size: 11px;
+}
+
+.settings-bottom-bar {
+    -fx-min-height: 54px;
+    -fx-pref-height: 54px;
+    -fx-padding: 10 14 10 14;
+}
+

@@ -124,6 +124,21 @@ class UiStylesResourceTest {
         }
     }
 
+    @Test
+    void settingsShellSelectorsArePackaged() throws Exception {
+        try (InputStream stream = UiStyles.class.getResourceAsStream("/ui/dialogs.css")) {
+            assertNotNull(stream);
+            String css = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+
+            assertTrue(css.contains(".settings-title-bar"));
+            assertTrue(css.contains(".settings-navigation"));
+            assertTrue(css.contains(".settings-nav-button:selected"));
+            assertTrue(css.contains(".settings-page-host"));
+            assertTrue(css.contains(".settings-page-scroll"));
+            assertTrue(css.contains(".settings-window-control.close"));
+        }
+    }
+
     private static int count(String value, char needle) {
         int count = 0;
         for (int index = 0; index < value.length(); index++) {

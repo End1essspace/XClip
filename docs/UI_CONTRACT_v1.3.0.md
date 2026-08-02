@@ -1,12 +1,11 @@
-
 # XClip UI Contract v1.3.0
 
-**Status:** Frozen R11 baseline, deliberately extended by Milestones 2.2–2.4, 3.2–3.3, 4.3, 5.1, and 5.2
+**Status:** Frozen R11 baseline, deliberately extended by Milestones 2.2–2.4, 3.2–3.3, 4.3, 5.1–5.3, and M6.1
 **Scope:** Popup, custom window chrome, modal surfaces, Settings styling, privacy controls, keyboard workflow, responsive behavior, and packaged UI resources.
 
 This document is the human-readable counterpart of `/ui/ui-contract-v1.3.0.properties`. Any intentional contract change must update both files and the `UiContractFreezeTest` expectations in the same reviewed milestone.
 
-**Contract revision:** 11  
+**Contract revision:** 12  
 **Registered Lucide UI icons:** 30
 
 ## 1. Product invariants
@@ -319,3 +318,50 @@ advances from version 4 to version 5; database schema remains version 6.
 - Cleanup does not rewrite clipboard content, mutate PINNED order, or scan
   sensitive rules. Tag relations for deleted RECENT clips follow the existing
   foreign-key cascade.
+
+---
+
+## 18. Multi-page Settings shell extension — contract revision 12
+
+Milestone M6.1 replaces the single continuous Settings document with a stable
+multi-page shell while preserving all existing configuration and runtime
+semantics.
+
+Canonical page order:
+
+```text
+GENERAL
+CAPTURE
+HISTORY
+DUPLICATE_BEHAVIOR
+PRIVACY
+APPEARANCE
+SHORTCUTS
+DATA
+ABOUT
+```
+
+- Settings uses a persistent left sidebar with exactly one selected page.
+- `GENERAL` is the default page for a newly created Settings window.
+- The selected page is preserved when Settings is hidden and shown again during
+  the same application session.
+- Every page owns an independent vertical scroll surface; the navigation and
+  bottom action bar remain fixed.
+- Existing controls are moved, not duplicated. One JavaFX control instance maps
+  to one configuration field and one page.
+- `Apply` keeps the existing immediate runtime update behavior.
+- `Cancel`, the custom close button, and the native close request all discard
+  unapplied edits through the same close path.
+- Settings uses `StageStyle.UNDECORATED` and the shared
+  `WindowChromeController` for minimize, maximize/restore, title dragging, and
+  manual edge resizing.
+- The top-right close button occupies the complete corner target.
+- Arrow keys, Home, and End navigate the sidebar; selected page buttons expose
+  accessible names and visible focus.
+- `APPEARANCE`, `SHORTCUTS`, and `ABOUT` are informational in M6.1. No
+  speculative preference is persisted before runtime support exists.
+- Config schema remains `5`, SQLite schema remains `6`, and product version
+  remains `1.3.0`.
+- Popup layout, Direct Paste, tags, advanced search, duplicate behavior,
+  privacy, and retention semantics remain unchanged.
+

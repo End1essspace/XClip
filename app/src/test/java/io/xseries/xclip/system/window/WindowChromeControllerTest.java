@@ -1,4 +1,3 @@
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -6,6 +5,8 @@
  */
 package io.xseries.xclip.system.window;
 
+import javafx.scene.layout.Pane;
+import javafx.scene.layout.Region;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -244,6 +245,17 @@ class WindowChromeControllerTest {
         host.visualBounds = visual;
 
         assertEquals(visual, controller.currentVisualBounds());
+    }
+
+    @Test
+    void windowControlsSuppressEdgeResizeHitTesting() {
+        Pane parent = new Pane();
+        Region child = new Region();
+        parent.getStyleClass().add("window-control-hit-target");
+        parent.getChildren().add(child);
+
+        assertTrue(WindowChromeController.resizeSuppressedFor(child));
+        assertFalse(WindowChromeController.resizeSuppressedFor(new Region()));
     }
 
     @Test

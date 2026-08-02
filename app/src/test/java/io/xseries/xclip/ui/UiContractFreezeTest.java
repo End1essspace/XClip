@@ -1,4 +1,3 @@
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -25,6 +24,7 @@ import io.xseries.xclip.ui.popup.SearchUiModel;
 import io.xseries.xclip.ui.popup.TagChipPolicy;
 import io.xseries.xclip.ui.popup.TagEditorModel;
 import io.xseries.xclip.ui.settings.DuplicateSettingsModel;
+import io.xseries.xclip.ui.settings.SettingsPage;
 import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;
@@ -44,7 +44,7 @@ class UiContractFreezeTest {
     void frozenContractMatchesRuntimeConstantsAndEnums() throws Exception {
         Properties contract = loadContract();
 
-        assertEquals("11", contract.getProperty("contract.version"));
+        assertEquals("12", contract.getProperty("contract.version"));
         assertEquals("1.3.0", contract.getProperty("product.version"));
         assertEquals(Config.MIN_WINDOW_W, intValue(contract, "window.minWidth"));
         assertEquals(Config.MIN_WINDOW_H, intValue(contract, "window.minHeight"));
@@ -297,6 +297,17 @@ class UiContractFreezeTest {
         assertEquals("NONE", required(contract, "history.schemaMutation"));
         assertEquals(UiStyles.popupResourcePaths(), values(contract, "popup.stylesheets"));
         assertEquals(UiStyles.settingsResourcePaths(), values(contract, "settings.stylesheets"));
+        assertEquals(
+                enumNames(SettingsPage.values()),
+                values(contract, "settings.pages")
+        );
+        assertEquals("GENERAL", required(contract, "settings.defaultPage"));
+        assertEquals("LEFT_SIDEBAR", required(contract, "settings.navigation"));
+        assertEquals(
+                "CUSTOM_UNDECORATED",
+                required(contract, "settings.windowChrome")
+        );
+        assertEquals("INDEPENDENT", required(contract, "settings.pageScroll"));
         assertEquals(UiIcon.values().length, intValue(contract, "popup.iconCount"));
         assertEquals(shortcuts(), values(contract, "popup.shortcuts"));
     }

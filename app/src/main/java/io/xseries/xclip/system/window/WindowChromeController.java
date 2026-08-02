@@ -1,4 +1,3 @@
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -8,6 +7,7 @@ package io.xseries.xclip.system.window;
 
 import javafx.geometry.Rectangle2D;
 import javafx.scene.Cursor;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
@@ -21,7 +21,7 @@ import java.util.Optional;
 /**
  * Central controller for both native and custom JavaFX window chrome.
  *
- * R2.3 hardens the undecorated popup shell for persisted geometry,
+ * R2.3 hardens undecorated XClip window shells for persisted geometry,
  * multi-monitor topologies, maximized drag restore, and manual edge resizing
  * while keeping the geometry rules independently testable.
  */
@@ -30,6 +30,7 @@ public final class WindowChromeController {
     private static final double MIN_VISIBLE_WIDTH = 96.0;
     private static final double MIN_VISIBLE_HEIGHT = 48.0;
     private static final double MAX_RESTORE_DRAG_TOP_OFFSET = 40.0;
+    private static final String RESIZE_SUPPRESSION_STYLE = "window-control-hit-target";
 
     /**
      * Logical JavaFX screen bounds. Negative x/y values are valid on multi-monitor setups.
@@ -432,6 +433,10 @@ public final class WindowChromeController {
         double safeMinHeight = normalizeMinimum(minHeight);
 
         scene.addEventFilter(MouseEvent.MOUSE_MOVED, event -> {
+            if (resizeSuppressedFor(event.getTarget())) {
+                if (!isResizing()) scene.setCursor(Cursor.DEFAULT);
+                return;
+            }
             if (isMaximized() || isDragging() || isResizing()) {
                 if (!isResizing()) scene.setCursor(Cursor.DEFAULT);
                 return;
@@ -448,7 +453,11 @@ public final class WindowChromeController {
         });
 
         scene.addEventFilter(MouseEvent.MOUSE_PRESSED, event -> {
-            if (event.getButton() != MouseButton.PRIMARY || isMaximized()) return;
+            if (event.getButton() != MouseButton.PRIMARY
+                    || isMaximized()
+                    || resizeSuppressedFor(event.getTarget())) {
+                return;
+            }
 
             ResizeEdge edge = resizeEdgeFor(
                     event.getSceneX(),
@@ -712,6 +721,19 @@ public final class WindowChromeController {
     private static double clamp(double value, double minimum, double maximum) {
         if (maximum < minimum) return minimum;
         return Math.max(minimum, Math.min(maximum, value));
+    }
+
+    static boolean resizeSuppressedFor(Object eventTarget) {
+        if (!(eventTarget instanceof Node node)) return false;
+
+        Node current = node;
+        while (current != null) {
+            if (current.getStyleClass().contains(RESIZE_SUPPRESSION_STYLE)) {
+                return true;
+            }
+            current = current.getParent();
+        }
+        return false;
     }
 
     static ResizeEdge resizeEdgeFor(
