@@ -6,11 +6,13 @@
 package io.xseries.xclip.system.clipboard;
 
 import java.util.Objects;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -35,6 +37,8 @@ public final class ClipboardWatcher implements AutoCloseable {
 
     private final AtomicBoolean closed = new AtomicBoolean(false);
     private final AtomicBoolean workerCleanupCompleted = new AtomicBoolean(false);
+    private final CountDownLatch workerCleanupDone = new CountDownLatch(1);
+    private final AtomicReference<Thread> workerThread = new AtomicReference<>();
     private volatile boolean started = false;
 
     /** Exact snapshot state after the clipboard safety cap. */
@@ -96,14 +100,12 @@ public final class ClipboardWatcher implements AutoCloseable {
         ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(
                 1,
                 runnable -> {
-                    Thread thread = new Thread(() -> {
-                        try {
-                            runnable.run();
-                        } finally {
-                            releaseWorkerResources();
-                        }
-                    }, "xclip-clipboard-watcher");
+                    Thread thread = new Thread(
+                            runnable,
+                            "xclip-clipboard-watcher"
+                    );
                     thread.setDaemon(true);
+                    workerThread.set(thread);
                     return thread;
                 }
         );
@@ -258,6 +260,8 @@ public final class ClipboardWatcher implements AutoCloseable {
         try {
             onWorkerStopped.run();
         } catch (Throwable ignored) {
+        } finally {
+            workerCleanupDone.countDown();
         }
     }
 
@@ -265,14 +269,59 @@ public final class ClipboardWatcher implements AutoCloseable {
     public void close() {
         if (!closed.compareAndSet(false, true)) return;
 
-        exec.shutdownNow();
-        try {
-            exec.awaitTermination(
-                    WORKER_STOP_TIMEOUT_SECONDS,
-                    TimeUnit.SECONDS
-            );
-        } catch (InterruptedException interrupted) {
-            Thread.currentThread().interrupt();
+        // When close is requested from the worker itself, the current thread is
+        // already the correct owner for ThreadLocal cleanup and must not wait for
+        // a task queued behind itself.
+        if (Thread.currentThread() == workerThread.get()) {
+            releaseWorkerResources();
+            exec.shutdownNow();
+            return;
         }
+
+        boolean interrupted = false;
+        try {
+            try {
+                // Queue an explicit zero-delay barrier before stopping the executor.
+                // This is deterministic even when no polling task has run yet.
+                exec.execute(this::releaseWorkerResources);
+            } catch (RejectedExecutionException ignored) {
+                // The executor can only reject after an abnormal prior shutdown.
+            }
+
+            long deadline = System.nanoTime()
+                    + TimeUnit.SECONDS.toNanos(WORKER_STOP_TIMEOUT_SECONDS);
+            while (workerCleanupDone.getCount() > 0) {
+                long remaining = deadline - System.nanoTime();
+                if (remaining <= 0) break;
+
+                try {
+                    workerCleanupDone.await(remaining, TimeUnit.NANOSECONDS);
+                } catch (InterruptedException interruption) {
+                    interrupted = true;
+                }
+            }
+        } finally {
+            exec.shutdownNow();
+            interrupted |= awaitTerminationPreservingInterrupt();
+            if (interrupted) Thread.currentThread().interrupt();
+        }
+    }
+
+    private boolean awaitTerminationPreservingInterrupt() {
+        boolean interrupted = false;
+        long deadline = System.nanoTime()
+                + TimeUnit.SECONDS.toNanos(WORKER_STOP_TIMEOUT_SECONDS);
+
+        while (!exec.isTerminated()) {
+            long remaining = deadline - System.nanoTime();
+            if (remaining <= 0) break;
+
+            try {
+                exec.awaitTermination(remaining, TimeUnit.NANOSECONDS);
+            } catch (InterruptedException interruption) {
+                interrupted = true;
+            }
+        }
+        return interrupted;
     }
 }

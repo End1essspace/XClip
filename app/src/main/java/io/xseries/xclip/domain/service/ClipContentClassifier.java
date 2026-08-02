@@ -1,4 +1,5 @@
 
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -77,6 +78,13 @@ public final class ClipContentClassifier {
                     Pattern.CASE_INSENSITIVE | Pattern.DOTALL
             );
 
+    private static final Pattern CODE_KEYWORD =
+            Pattern.compile("\\b(?:if|else|for|while|switch|return|try|catch|throw|new)\\b");
+    private static final Pattern FUNCTION_BLOCK =
+            Pattern.compile("\\b[A-Za-z_$][\\w$]*\\s*\\([^\\r\\n)]*\\)\\s*\\{");
+    private static final Pattern INDENTED_LINE =
+            Pattern.compile("(?m)^\\s{2,}\\S");
+
     private static final Set<String> SIMPLE_COMMANDS = Set.of(
             "cd", "dir", "ls", "pwd", "cat", "type", "echo", "mkdir", "md", "rmdir", "rd",
             "del", "erase", "copy", "xcopy", "robocopy", "move", "ren", "rename",
@@ -103,23 +111,28 @@ public final class ClipContentClassifier {
     private ClipContentClassifier() {}
 
     public static ClipContentType classify(String content) {
-        if (content == null || content.isBlank()) {
+        if (content == null) {
             return ClipContentType.TEXT;
         }
 
         String value = content.trim();
+        if (value.isEmpty()) {
+            return ClipContentType.TEXT;
+        }
 
-        if (isUrl(value)) return ClipContentType.URL;
-        if (isPath(value)) return ClipContentType.PATH;
+        boolean hasLineBreak = TextValues.containsLineBreak(value);
+
+        if (isUrl(value, hasLineBreak)) return ClipContentType.URL;
+        if (isPath(value, hasLineBreak)) return ClipContentType.PATH;
         if (isJson(value)) return ClipContentType.JSON;
         if (isCommand(value)) return ClipContentType.COMMAND;
-        if (isCode(value)) return ClipContentType.CODE;
+        if (isCode(value, hasLineBreak)) return ClipContentType.CODE;
 
         return ClipContentType.TEXT;
     }
 
-    private static boolean isUrl(String value) {
-        if (value.length() > 4_096 || TextValues.containsLineBreak(value) || value.indexOf(' ') >= 0) {
+    private static boolean isUrl(String value, boolean hasLineBreak) {
+        if (value.length() > 4_096 || hasLineBreak || value.indexOf(' ') >= 0) {
             return false;
         }
 
@@ -137,8 +150,8 @@ public final class ClipContentClassifier {
         }
     }
 
-    private static boolean isPath(String value) {
-        if (value.length() > 32_767 || TextValues.containsLineBreak(value)) return false;
+    private static boolean isPath(String value, boolean hasLineBreak) {
+        if (value.length() > 32_767 || hasLineBreak) return false;
 
         return WINDOWS_DRIVE_PATH.matcher(value).matches()
                 || WINDOWS_UNC_PATH.matcher(value).matches()
@@ -183,26 +196,31 @@ public final class ClipContentClassifier {
             return true;
         }
 
-        String[] tokens = lower.split("\\s+", 3);
-        if (tokens.length == 0) return false;
-
-        String command = stripExecutableSuffix(tokens[0]);
+        CommandTokens tokens = commandTokens(lower);
+        String command = stripExecutableSuffix(tokens.command());
         if (SIMPLE_COMMANDS.contains(command)) {
-            return tokens.length > 1 || command.equals("pwd") || command.equals("dir") || command.equals("ls");
+            return tokens.hasArgument()
+                    || command.equals("pwd")
+                    || command.equals("dir")
+                    || command.equals("ls");
         }
 
         if (command.equals("git")) {
-            return tokens.length > 1 && GIT_SUBCOMMANDS.contains(stripPunctuation(tokens[1]));
+            return tokens.hasArgument()
+                    && GIT_SUBCOMMANDS.contains(stripPunctuation(tokens.firstArgument()));
         }
 
         if (command.equals("npm") || command.equals("pnpm") || command.equals("yarn")) {
-            return tokens.length > 1 && PACKAGE_MANAGER_SUBCOMMANDS.contains(stripPunctuation(tokens[1]));
+            return tokens.hasArgument()
+                    && PACKAGE_MANAGER_SUBCOMMANDS.contains(
+                            stripPunctuation(tokens.firstArgument())
+                    );
         }
 
         return false;
     }
 
-    private static boolean isCode(String value) {
+    private static boolean isCode(String value, boolean hasLineBreak) {
         if (CODE_FENCE.matcher(value).find()
                 || HTML_OR_XML.matcher(value).find()
                 || SQL.matcher(value).find()
@@ -211,17 +229,14 @@ public final class ClipContentClassifier {
         }
 
         int score = 0;
-        boolean multiline = TextValues.containsLineBreak(value);
 
         if (value.contains("{") && value.contains("}")) score += 2;
         if (value.contains(";")) score++;
         if (value.contains("=>") || value.contains("->") || value.contains("::")) score++;
         if (value.contains("==") || value.contains("!=") || value.contains("&&") || value.contains("||")) score++;
-        if (Pattern.compile("\\b(?:if|else|for|while|switch|return|try|catch|throw|new)\\b")
-                .matcher(value).find()) score++;
-        if (Pattern.compile("\\b[A-Za-z_$][\\w$]*\\s*\\([^\\r\\n)]*\\)\\s*\\{")
-                .matcher(value).find()) score += 2;
-        if (multiline && Pattern.compile("(?m)^\\s{2,}\\S").matcher(value).find()) score++;
+        if (CODE_KEYWORD.matcher(value).find()) score++;
+        if (FUNCTION_BLOCK.matcher(value).find()) score += 2;
+        if (hasLineBreak && INDENTED_LINE.matcher(value).find()) score++;
 
         return score >= 3;
     }
@@ -232,12 +247,73 @@ public final class ClipContentClassifier {
             int end = value.indexOf('\n', start);
             if (end < 0) end = value.length();
 
-            String line = value.substring(start, end).replace("\r", "").trim();
-            if (!line.isEmpty()) return line;
+            int contentStart = start;
+            int contentEnd = end;
+            while (contentStart < contentEnd && value.charAt(contentStart) <= ' ') {
+                contentStart++;
+            }
+            while (contentEnd > contentStart && value.charAt(contentEnd - 1) <= ' ') {
+                contentEnd--;
+            }
+
+            if (contentStart < contentEnd) {
+                int carriageReturn = value.indexOf('\r', contentStart);
+                if (carriageReturn < 0 || carriageReturn >= contentEnd) {
+                    return value.substring(contentStart, contentEnd);
+                }
+
+                StringBuilder line = new StringBuilder(contentEnd - contentStart);
+                for (int index = contentStart; index < contentEnd; index++) {
+                    char ch = value.charAt(index);
+                    if (ch != '\r') line.append(ch);
+                }
+                if (!line.isEmpty()) return line.toString();
+            }
 
             start = end + 1;
         }
         return "";
+    }
+
+    private static CommandTokens commandTokens(String value) {
+        int firstSeparator = indexOfCommandWhitespace(value, 0);
+        if (firstSeparator < 0) {
+            return new CommandTokens(value, "", false);
+        }
+
+        int argumentStart = firstSeparator;
+        while (argumentStart < value.length()
+                && isCommandWhitespace(value.charAt(argumentStart))) {
+            argumentStart++;
+        }
+        if (argumentStart >= value.length()) {
+            return new CommandTokens(value.substring(0, firstSeparator), "", false);
+        }
+
+        int argumentEnd = indexOfCommandWhitespace(value, argumentStart);
+        if (argumentEnd < 0) argumentEnd = value.length();
+
+        return new CommandTokens(
+                value.substring(0, firstSeparator),
+                value.substring(argumentStart, argumentEnd),
+                true
+        );
+    }
+
+    private static int indexOfCommandWhitespace(String value, int start) {
+        for (int index = start; index < value.length(); index++) {
+            if (isCommandWhitespace(value.charAt(index))) return index;
+        }
+        return -1;
+    }
+
+    private static boolean isCommandWhitespace(char ch) {
+        return ch == ' '
+                || ch == '\t'
+                || ch == '\n'
+                || ch == '\u000B'
+                || ch == '\f'
+                || ch == '\r';
     }
 
     private static String stripExecutableSuffix(String token) {
@@ -257,6 +333,12 @@ public final class ClipContentClassifier {
         }
         return token.substring(0, end);
     }
+
+    private record CommandTokens(
+            String command,
+            String firstArgument,
+            boolean hasArgument
+    ) {}
 
     /**
      * Small validating JSON parser used only for classification. It accepts the

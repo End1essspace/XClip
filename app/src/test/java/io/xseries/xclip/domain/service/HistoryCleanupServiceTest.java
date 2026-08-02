@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -85,6 +86,47 @@ class HistoryCleanupServiceTest {
     }
 
     @Test
+    void cleanupPagesLargeCandidateSetsAndDeletesAcrossSqlBatches() {
+        Fixture fixture = fixture();
+        long day = HistoryRetentionPolicy.MILLIS_PER_DAY;
+        long now = 100L * day;
+        long old = now - 8L * day;
+
+        int oldUrlCount = 530;
+        int oldTextCount = 25;
+        for (int index = 0; index < oldUrlCount; index++) {
+            fixture.insertDirect("https://example.com/archive/" + index, old);
+        }
+        for (int index = 0; index < oldTextCount; index++) {
+            fixture.insertDirect("ordinary archive note " + index, old);
+        }
+
+        HistoryCleanupService service = new HistoryCleanupService(fixture.dao);
+        service.applyPolicy(new HistoryRetentionPolicy(
+                true,
+                30,
+                Map.of(ClipContentType.URL, 7),
+                false
+        ));
+
+        HistoryCleanupService.CleanupStatus status = service.runCleanupAt(
+                now,
+                HistoryCleanupService.CleanupTrigger.MANUAL
+        );
+
+        assertEquals(HistoryCleanupService.CleanupOutcome.SUCCESS, status.outcome());
+        assertEquals(oldUrlCount, status.deletedCount());
+        assertEquals(oldTextCount, fixture.dao.countAll());
+        assertTrue(
+                fixture.dao.listLatest(100).stream()
+                        .allMatch(entry -> entry.content().startsWith("ordinary archive note "))
+        );
+
+        service.close();
+        fixture.close();
+    }
+
+    @Test
     void clearOnExitDeletesOnlyRecentHistory() {
         Fixture fixture = fixture();
         fixture.insert("recent one", 10L);
@@ -138,6 +180,16 @@ class HistoryCleanupServiceTest {
                     .findFirst()
                     .orElseThrow()
                     .id();
+        }
+
+        private void insertDirect(String content, long createdAt) {
+            DuplicateContentKeys keys = DuplicateContentKeys.from(content);
+            dao.insertNew(
+                    content,
+                    content.trim(),
+                    keys,
+                    createdAt
+            );
         }
 
         private void close() {

@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -33,6 +34,9 @@ import java.util.function.Consumer;
 public final class HistoryCleanupService implements AutoCloseable {
 
     public static final long PERIODIC_INTERVAL_HOURS = 6L;
+    static final int RETENTION_SCAN_BATCH_SIZE = 512;
+
+    private static final long DISABLED_CUTOFF = -1L;
 
     private final ClipEntryDao dao;
     private final Clock clock;
@@ -136,15 +140,28 @@ public final class HistoryCleanupService implements AutoCloseable {
                 long candidateCutoff = snapshot
                         .candidateCutoffExclusive(nowMillis)
                         .orElseThrow();
-                List<ClipEntryDao.RetentionCandidate> candidates =
-                        dao.listRetentionCandidates(candidateCutoff);
+                RetentionEvaluationPlan evaluation =
+                        RetentionEvaluationPlan.from(snapshot, nowMillis);
                 List<Long> deleteIds = new ArrayList<>();
 
-                for (ClipEntryDao.RetentionCandidate candidate : candidates) {
-                    ClipContentType type = ClipContentClassifier.classify(candidate.content());
-                    if (snapshot.shouldDelete(type, candidate.lastCopiedAt(), nowMillis)) {
-                        deleteIds.add(candidate.id());
+                long afterId = 0L;
+                while (true) {
+                    List<ClipEntryDao.RetentionCandidate> candidates =
+                            dao.listRetentionCandidatesAfter(
+                                    candidateCutoff,
+                                    afterId,
+                                    RETENTION_SCAN_BATCH_SIZE
+                            );
+                    if (candidates.isEmpty()) break;
+
+                    for (ClipEntryDao.RetentionCandidate candidate : candidates) {
+                        if (evaluation.shouldDelete(candidate)) {
+                            deleteIds.add(candidate.id());
+                        }
                     }
+
+                    afterId = candidates.get(candidates.size() - 1).id();
+                    if (candidates.size() < RETENTION_SCAN_BATCH_SIZE) break;
                 }
 
                 int deleted = dao.deleteByIds(deleteIds);
@@ -259,6 +276,82 @@ public final class HistoryCleanupService implements AutoCloseable {
             thread.setDaemon(true);
             return thread;
         });
+    }
+
+    /**
+     * Precomputed cutoffs for one cleanup run.
+     *
+     * Rows older than the general RECENT cutoff can be deleted without content
+     * classification. Classification is performed only for candidates that may
+     * match a stricter per-type override.
+     */
+    private static final class RetentionEvaluationPlan {
+
+        private final long nowMillis;
+        private final long generalCutoffExclusive;
+        private final long[] typeCutoffsExclusive;
+        private final boolean hasTypeRules;
+
+        private RetentionEvaluationPlan(
+                long nowMillis,
+                long generalCutoffExclusive,
+                long[] typeCutoffsExclusive,
+                boolean hasTypeRules
+        ) {
+            this.nowMillis = nowMillis;
+            this.generalCutoffExclusive = generalCutoffExclusive;
+            this.typeCutoffsExclusive = typeCutoffsExclusive;
+            this.hasTypeRules = hasTypeRules;
+        }
+
+        private static RetentionEvaluationPlan from(
+                HistoryRetentionPolicy policy,
+                long nowMillis
+        ) {
+            long generalCutoff = policy.autoDeleteRecentEnabled()
+                    ? cutoff(nowMillis, policy.recentMaxAgeDays())
+                    : DISABLED_CUTOFF;
+
+            ClipContentType[] types = ClipContentType.values();
+            long[] typeCutoffs = new long[types.length];
+            java.util.Arrays.fill(typeCutoffs, DISABLED_CUTOFF);
+
+            boolean hasTypeRules = false;
+            for (ClipContentType type : types) {
+                int days = policy.maxAgeDaysFor(type);
+                if (days > HistoryRetentionPolicy.TYPE_RULE_DISABLED) {
+                    typeCutoffs[type.ordinal()] = cutoff(nowMillis, days);
+                    hasTypeRules = true;
+                }
+            }
+
+            return new RetentionEvaluationPlan(
+                    nowMillis,
+                    generalCutoff,
+                    typeCutoffs,
+                    hasTypeRules
+            );
+        }
+
+        private boolean shouldDelete(ClipEntryDao.RetentionCandidate candidate) {
+            long lastCopiedAt = candidate.lastCopiedAt();
+            if (lastCopiedAt < 0 || lastCopiedAt > nowMillis) return false;
+
+            if (generalCutoffExclusive != DISABLED_CUTOFF
+                    && lastCopiedAt < generalCutoffExclusive) {
+                return true;
+            }
+            if (!hasTypeRules) return false;
+
+            ClipContentType type = ClipContentClassifier.classify(candidate.content());
+            long typeCutoff = typeCutoffsExclusive[type.ordinal()];
+            return typeCutoff != DISABLED_CUTOFF && lastCopiedAt < typeCutoff;
+        }
+
+        private static long cutoff(long nowMillis, int days) {
+            long ageMillis = days * HistoryRetentionPolicy.MILLIS_PER_DAY;
+            return Math.max(0L, nowMillis - ageMillis);
+        }
     }
 
     public enum CleanupTrigger {

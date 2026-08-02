@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -112,6 +113,34 @@ class ClipContentClassifierTest {
         assertEquals(
                 ClipContentType.CODE,
                 ClipContentClassifier.classify("SELECT id, content FROM clip_entries WHERE is_favorite = 1;")
+        );
+    }
+
+    @Test
+    void keepsCommandAndCodeHeuristicsStableWithoutPerCallRegexCompilation() {
+        assertEquals(
+                ClipContentType.COMMAND,
+                ClipContentClassifier.classify("git\tstatus\t--short")
+        );
+        assertEquals(
+                ClipContentType.COMMAND,
+                ClipContentClassifier.classify("npm\tinstall\txclip")
+        );
+        assertEquals(
+                ClipContentType.TEXT,
+                ClipContentClassifier.classify("git explain")
+        );
+        assertEquals(
+                ClipContentType.CODE,
+                ClipContentClassifier.classify("""
+                        if (ready) {
+                          run();
+                        }
+                        """)
+        );
+        assertEquals(
+                ClipContentType.TEXT,
+                ClipContentClassifier.classify("https://example.com\nnext line")
         );
     }
 

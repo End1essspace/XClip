@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -17,6 +18,11 @@ import java.util.Locale;
 import java.util.Set;
 
 public final class ClipEntryDao {
+
+    private static final int ID_DELETE_BATCH_SIZE = 500;
+    private static final int RETENTION_COMPATIBILITY_PAGE_SIZE = 1_000;
+    private static final String FULL_ID_DELETE_SQL = deleteByIdsSql(ID_DELETE_BATCH_SIZE);
+
     private final DaoConnectionContext connections;
 
     public ClipEntryDao(String jdbcUrl) {
@@ -704,8 +710,45 @@ public final class ClipEntryDao {
      * type is derived metadata and is intentionally not stored in SQLite.
      */
     public List<RetentionCandidate> listRetentionCandidates(long cutoffExclusive) {
+        List<RetentionCandidate> all = new ArrayList<>();
+        long afterId = 0L;
+
+        while (true) {
+            List<RetentionCandidate> page = listRetentionCandidatesAfter(
+                    cutoffExclusive,
+                    afterId,
+                    RETENTION_COMPATIBILITY_PAGE_SIZE
+            );
+            if (page.isEmpty()) return List.copyOf(all);
+
+            all.addAll(page);
+            afterId = page.get(page.size() - 1).id();
+            if (page.size() < RETENTION_COMPATIBILITY_PAGE_SIZE) {
+                return List.copyOf(all);
+            }
+        }
+    }
+
+    /**
+     * Loads one deterministic keyset page of unpinned retention candidates.
+     *
+     * The id cursor prevents OFFSET rescans and keeps content allocation bounded
+     * during cleanup of large histories. Callers continue until an empty or
+     * short page is returned.
+     */
+    public List<RetentionCandidate> listRetentionCandidatesAfter(
+            long cutoffExclusive,
+            long afterIdExclusive,
+            int limit
+    ) {
         if (cutoffExclusive < 0) {
             throw new IllegalArgumentException("cutoffExclusive cannot be negative");
+        }
+        if (afterIdExclusive < 0) {
+            throw new IllegalArgumentException("afterIdExclusive cannot be negative");
+        }
+        if (limit <= 0) {
+            throw new IllegalArgumentException("limit must be positive");
         }
 
         String sql = """
@@ -713,12 +756,16 @@ public final class ClipEntryDao {
                 FROM clip_entries
                 WHERE is_favorite = 0
                   AND last_copied_at < ?
+                  AND id > ?
                 ORDER BY id ASC
+                LIMIT ?
                 """;
 
-        List<RetentionCandidate> candidates = new ArrayList<>();
+        List<RetentionCandidate> candidates = new ArrayList<>(limit);
         try (PreparedStatement ps = connections.connection().prepareStatement(sql)) {
             ps.setLong(1, cutoffExclusive);
+            ps.setLong(2, afterIdExclusive);
+            ps.setInt(3, limit);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     candidates.add(new RetentionCandidate(
@@ -730,7 +777,7 @@ public final class ClipEntryDao {
             }
             return List.copyOf(candidates);
         } catch (Exception e) {
-            throw new RuntimeException("listRetentionCandidates failed", e);
+            throw new RuntimeException("listRetentionCandidatesAfter failed", e);
         }
     }
 
@@ -790,14 +837,13 @@ public final class ClipEntryDao {
     public int deleteByIds(List<Long> ids) {
         if (ids == null || ids.isEmpty()) return 0;
 
-        List<Long> validIds = ids.stream()
-                .filter(java.util.Objects::nonNull)
-                .filter(id -> id > 0)
-                .distinct()
-                .toList();
-        if (validIds.isEmpty()) return 0;
+        LinkedHashSet<Long> uniqueIds = new LinkedHashSet<>(ids.size());
+        for (Long id : ids) {
+            if (id != null && id > 0) uniqueIds.add(id);
+        }
+        if (uniqueIds.isEmpty()) return 0;
 
-        final int batchSize = 500;
+        List<Long> validIds = new ArrayList<>(uniqueIds);
         Connection c = connections.connection();
         boolean previousAutoCommit = connections.beginTransaction(
                 c,
@@ -806,22 +852,16 @@ public final class ClipEntryDao {
 
         try {
             int deleted = 0;
-            for (int offset = 0; offset < validIds.size(); offset += batchSize) {
-                int end = Math.min(validIds.size(), offset + batchSize);
-                List<Long> batch = validIds.subList(offset, end);
+            for (int offset = 0; offset < validIds.size(); offset += ID_DELETE_BATCH_SIZE) {
+                int end = Math.min(validIds.size(), offset + ID_DELETE_BATCH_SIZE);
+                int batchSize = end - offset;
+                String sql = batchSize == ID_DELETE_BATCH_SIZE
+                        ? FULL_ID_DELETE_SQL
+                        : deleteByIdsSql(batchSize);
 
-                StringBuilder sql = new StringBuilder(
-                        "DELETE FROM clip_entries WHERE id IN ("
-                );
-                for (int i = 0; i < batch.size(); i++) {
-                    if (i > 0) sql.append(", ");
-                    sql.append("?");
-                }
-                sql.append(")");
-
-                try (PreparedStatement ps = c.prepareStatement(sql.toString())) {
-                    for (int i = 0; i < batch.size(); i++) {
-                        ps.setLong(i + 1, batch.get(i));
+                try (PreparedStatement ps = c.prepareStatement(sql)) {
+                    for (int index = 0; index < batchSize; index++) {
+                        ps.setLong(index + 1, validIds.get(offset + index));
                     }
                     deleted += ps.executeUpdate();
                 }
@@ -834,6 +874,17 @@ public final class ClipEntryDao {
         } finally {
             connections.restoreAutoCommit(c, previousAutoCommit);
         }
+    }
+
+    private static String deleteByIdsSql(int count) {
+        StringBuilder sql = new StringBuilder(
+                "DELETE FROM clip_entries WHERE id IN ("
+        );
+        for (int index = 0; index < count; index++) {
+            if (index > 0) sql.append(", ");
+            sql.append("?");
+        }
+        return sql.append(")").toString();
     }
 
 

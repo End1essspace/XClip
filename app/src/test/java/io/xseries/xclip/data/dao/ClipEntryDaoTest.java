@@ -1,4 +1,5 @@
 
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -8,6 +9,7 @@ package io.xseries.xclip.data.dao;
 
 import io.xseries.xclip.data.db.Database;
 import io.xseries.xclip.data.model.ClipEntry;
+import io.xseries.xclip.domain.duplicate.DuplicateContentKeys;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -366,6 +368,65 @@ class ClipEntryDaoTest {
         } finally {
             tags.closeForCurrentThread();
             clips.closeForCurrentThread();
+            db.close();
+        }
+    }
+
+    @Test
+    void retentionCandidatesUseDeterministicKeysetPages() {
+        Path dbPath = tempDir.resolve("retention-pages.db");
+        Database db = new Database(dbPath);
+        db.init();
+
+        ClipEntryDao dao = new ClipEntryDao(db.jdbcUrl());
+        try {
+            for (int index = 0; index < 7; index++) {
+                String content = "retention-" + index;
+                dao.insertNew(
+                        content,
+                        content,
+                        DuplicateContentKeys.from(content),
+                        100L
+                );
+            }
+
+            dao.setFavorite(idFor(dao, "retention-3"), true);
+
+            List<ClipEntryDao.RetentionCandidate> first =
+                    dao.listRetentionCandidatesAfter(200L, 0L, 3);
+            assertEquals(
+                    List.of("retention-0", "retention-1", "retention-2"),
+                    first.stream().map(ClipEntryDao.RetentionCandidate::content).toList()
+            );
+
+            List<ClipEntryDao.RetentionCandidate> second =
+                    dao.listRetentionCandidatesAfter(
+                            200L,
+                            first.get(first.size() - 1).id(),
+                            3
+                    );
+            assertEquals(
+                    List.of("retention-4", "retention-5", "retention-6"),
+                    second.stream().map(ClipEntryDao.RetentionCandidate::content).toList()
+            );
+
+            assertTrue(
+                    dao.listRetentionCandidatesAfter(
+                            200L,
+                            second.get(second.size() - 1).id(),
+                            3
+                    ).isEmpty()
+            );
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () -> dao.listRetentionCandidatesAfter(200L, -1L, 3)
+            );
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () -> dao.listRetentionCandidatesAfter(200L, 0L, 0)
+            );
+        } finally {
+            dao.closeForCurrentThread();
             db.close();
         }
     }
