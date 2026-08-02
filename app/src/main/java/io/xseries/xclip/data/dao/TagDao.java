@@ -11,11 +11,9 @@ import io.xseries.xclip.domain.service.TagNamePolicy;
 import io.xseries.xclip.domain.service.TagNamePolicy.NormalizedTagName;
 
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -38,37 +36,10 @@ public final class TagDao {
 
     public static final int MAX_TAG_NAME_LENGTH = TagNamePolicy.MAX_NAME_LENGTH;
 
-    private final String jdbcUrl;
-    private final ThreadLocal<Connection> tlConn = ThreadLocal.withInitial(this::openConnection);
+    private final DaoConnectionContext connections;
 
     public TagDao(String jdbcUrl) {
-        this.jdbcUrl = jdbcUrl;
-    }
-
-    private Connection openConnection() {
-        try {
-            Connection c = DriverManager.getConnection(jdbcUrl);
-            try (Statement st = c.createStatement()) {
-                st.execute("PRAGMA foreign_keys=ON;");
-                st.execute("PRAGMA busy_timeout=3000;");
-            }
-            return c;
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to open SQLite connection: " + jdbcUrl, e);
-        }
-    }
-
-    private Connection conn() {
-        try {
-            Connection c = tlConn.get();
-            if (c == null || c.isClosed()) {
-                c = openConnection();
-                tlConn.set(c);
-            }
-            return c;
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to obtain SQLite connection", e);
-        }
+        this.connections = new DaoConnectionContext(jdbcUrl);
     }
 
     /**
@@ -78,18 +49,21 @@ public final class TagDao {
      */
     public ClipTag createOrGet(String rawName) {
         NormalizedTagName normalized = TagNamePolicy.normalize(rawName);
-        Connection c = conn();
-        boolean previousAutoCommit = beginTransaction(c, "tag create transaction setup failed");
+        Connection c = connections.connection();
+        boolean previousAutoCommit = connections.beginTransaction(
+                c,
+                "tag create transaction setup failed"
+        );
 
         try {
             ClipTag tag = createOrGet(c, normalized);
             c.commit();
             return tag;
         } catch (Exception e) {
-            rollbackQuietly(c);
+            connections.rollbackQuietly(c);
             throw new RuntimeException("createOrGet tag failed", e);
         } finally {
-            restoreAutoCommit(c, previousAutoCommit);
+            connections.restoreAutoCommit(c, previousAutoCommit);
         }
     }
 
@@ -119,7 +93,7 @@ public final class TagDao {
                 ORDER BY name COLLATE NOCASE ASC, id ASC
                 """;
 
-        try (PreparedStatement ps = conn().prepareStatement(sql);
+        try (PreparedStatement ps = connections.connection().prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             return mapTags(rs);
         } catch (Exception e) {
@@ -142,7 +116,7 @@ public final class TagDao {
                 """;
 
         List<TagSummary> tags = new ArrayList<>();
-        try (PreparedStatement ps = conn().prepareStatement(sql);
+        try (PreparedStatement ps = connections.connection().prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
                 tags.add(new TagSummary(
@@ -169,7 +143,7 @@ public final class TagDao {
                 ORDER BY t.name COLLATE NOCASE ASC, t.id ASC
                 """;
 
-        try (PreparedStatement ps = conn().prepareStatement(sql)) {
+        try (PreparedStatement ps = connections.connection().prepareStatement(sql)) {
             ps.setLong(1, clipId);
             try (ResultSet rs = ps.executeQuery()) {
                 return mapTags(rs);
@@ -194,7 +168,7 @@ public final class TagDao {
         }
 
         final int batchSize = 500;
-        Connection c = conn();
+        Connection c = connections.connection();
 
         for (int offset = 0; offset < uniqueClipIds.size(); offset += batchSize) {
             int end = Math.min(uniqueClipIds.size(), offset + batchSize);
@@ -249,8 +223,11 @@ public final class TagDao {
         requirePositiveId(clipId, "clipId");
         requirePositiveId(tagId, "tagId");
 
-        Connection c = conn();
-        boolean previousAutoCommit = beginTransaction(c, "tag assignment transaction setup failed");
+        Connection c = connections.connection();
+        boolean previousAutoCommit = connections.beginTransaction(
+                c,
+                "tag assignment transaction setup failed"
+        );
 
         try {
             requireClipExists(c, clipId);
@@ -271,10 +248,10 @@ public final class TagDao {
             c.commit();
             return inserted;
         } catch (RuntimeException | SQLException e) {
-            rollbackQuietly(c);
+            connections.rollbackQuietly(c);
             throw propagate("addTagToClip failed", e);
         } finally {
-            restoreAutoCommit(c, previousAutoCommit);
+            connections.restoreAutoCommit(c, previousAutoCommit);
         }
     }
 
@@ -282,7 +259,7 @@ public final class TagDao {
         requirePositiveId(clipId, "clipId");
         requirePositiveId(tagId, "tagId");
 
-        try (PreparedStatement ps = conn().prepareStatement(
+        try (PreparedStatement ps = connections.connection().prepareStatement(
                 "DELETE FROM clip_tags WHERE clip_id = ? AND tag_id = ?")) {
             ps.setLong(1, clipId);
             ps.setLong(2, tagId);
@@ -303,8 +280,11 @@ public final class TagDao {
         requirePositiveId(clipId, "clipId");
         List<Long> uniqueTagIds = uniquePositiveIds(tagIds, "tagIds");
 
-        Connection c = conn();
-        boolean previousAutoCommit = beginTransaction(c, "replace tags transaction setup failed");
+        Connection c = connections.connection();
+        boolean previousAutoCommit = connections.beginTransaction(
+                c,
+                "replace tags transaction setup failed"
+        );
 
         try {
             requireClipExists(c, clipId);
@@ -336,10 +316,10 @@ public final class TagDao {
 
             c.commit();
         } catch (RuntimeException | SQLException e) {
-            rollbackQuietly(c);
+            connections.rollbackQuietly(c);
             throw propagate("replaceTagsForClip failed", e);
         } finally {
-            restoreAutoCommit(c, previousAutoCommit);
+            connections.restoreAutoCommit(c, previousAutoCommit);
         }
     }
 
@@ -367,8 +347,11 @@ public final class TagDao {
         List<Long> uniqueRemoveIds = uniquePositiveIds(removeTagIds, "removeTagIds");
         List<NormalizedTagName> normalizedNewNames = normalizeUniqueNames(createAndAssignNames);
 
-        Connection c = conn();
-        boolean previousAutoCommit = beginTransaction(c, "tag edit transaction setup failed");
+        Connection c = connections.connection();
+        boolean previousAutoCommit = connections.beginTransaction(
+                c,
+                "tag edit transaction setup failed"
+        );
 
         try {
             for (Long clipId : uniqueClipIds) {
@@ -425,10 +408,10 @@ public final class TagDao {
             c.commit();
             return List.copyOf(resolvedNewTags);
         } catch (RuntimeException | SQLException e) {
-            rollbackQuietly(c);
+            connections.rollbackQuietly(c);
             throw propagate("apply tag edit failed", e);
         } finally {
-            restoreAutoCommit(c, previousAutoCommit);
+            connections.restoreAutoCommit(c, previousAutoCommit);
         }
     }
 
@@ -440,7 +423,7 @@ public final class TagDao {
         requirePositiveId(tagId, "tagId");
         NormalizedTagName normalized = TagNamePolicy.normalize(rawName);
 
-        try (PreparedStatement ps = conn().prepareStatement("""
+        try (PreparedStatement ps = connections.connection().prepareStatement("""
                 UPDATE tags
                 SET name = ?, name_norm = ?
                 WHERE id = ?
@@ -460,7 +443,7 @@ public final class TagDao {
     public boolean deleteTag(long tagId) {
         requirePositiveId(tagId, "tagId");
 
-        try (PreparedStatement ps = conn().prepareStatement(
+        try (PreparedStatement ps = connections.connection().prepareStatement(
                 "DELETE FROM tags WHERE id = ?")) {
             ps.setLong(1, tagId);
             return ps.executeUpdate() > 0;
@@ -485,7 +468,7 @@ public final class TagDao {
                 )
                 """;
 
-        try (PreparedStatement ps = conn().prepareStatement(sql)) {
+        try (PreparedStatement ps = connections.connection().prepareStatement(sql)) {
             return ps.executeUpdate();
         } catch (Exception e) {
             throw new RuntimeException("cleanupUnusedTags failed", e);
@@ -515,7 +498,7 @@ public final class TagDao {
                 """;
 
         List<Long> ids = new ArrayList<>();
-        try (PreparedStatement ps = conn().prepareStatement(sql)) {
+        try (PreparedStatement ps = connections.connection().prepareStatement(sql)) {
             ps.setLong(1, tagId);
             ps.setInt(2, safeLimit);
             try (ResultSet rs = ps.executeQuery()) {
@@ -528,13 +511,7 @@ public final class TagDao {
     }
 
     public void closeForCurrentThread() {
-        try {
-            Connection c = tlConn.get();
-            if (c != null) c.close();
-        } catch (Exception ignored) {
-        } finally {
-            tlConn.remove();
-        }
+        connections.closeForCurrentThread();
     }
 
     private ClipTag findByNormalizedName(Connection c, String normalizedName) throws SQLException {
@@ -614,16 +591,6 @@ public final class TagDao {
         if (id <= 0) throw new IllegalArgumentException(field + " must be positive");
     }
 
-    private boolean beginTransaction(Connection c, String message) {
-        try {
-            boolean previousAutoCommit = c.getAutoCommit();
-            c.setAutoCommit(false);
-            return previousAutoCommit;
-        } catch (SQLException e) {
-            throw new RuntimeException(message, e);
-        }
-    }
-
     private RuntimeException propagate(String message, Exception e) {
         if (e instanceof RuntimeException runtime) return runtime;
         return new RuntimeException(message, e);
@@ -633,20 +600,6 @@ public final class TagDao {
         return e.getErrorCode() == 19
                 || (e.getMessage() != null
                 && e.getMessage().toLowerCase(Locale.ROOT).contains("constraint"));
-    }
-
-    private void rollbackQuietly(Connection c) {
-        try {
-            c.rollback();
-        } catch (Exception ignored) {
-        }
-    }
-
-    private void restoreAutoCommit(Connection c, boolean autoCommit) {
-        try {
-            c.setAutoCommit(autoCommit);
-        } catch (Exception ignored) {
-        }
     }
 
 }

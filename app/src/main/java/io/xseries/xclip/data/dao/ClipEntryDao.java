@@ -17,38 +17,10 @@ import java.util.Locale;
 import java.util.Set;
 
 public final class ClipEntryDao {
-    private final String jdbcUrl;
-    private final ThreadLocal<Connection> tlConn = ThreadLocal.withInitial(this::openConnection);
+    private final DaoConnectionContext connections;
 
     public ClipEntryDao(String jdbcUrl) {
-        this.jdbcUrl = jdbcUrl;
-    }
-
-    private Connection openConnection() {
-        try {
-            Connection c = DriverManager.getConnection(jdbcUrl);
-            try (Statement st = c.createStatement()) {
-                // Per-connection pragmas (safe even if already set elsewhere)
-                st.execute("PRAGMA foreign_keys=ON;");
-                st.execute("PRAGMA busy_timeout=3000;");
-            }
-            return c;
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to open SQLite connection: " + jdbcUrl, e);
-        }
-    }
-
-    private Connection conn() {
-        try {
-            Connection c = tlConn.get();
-            if (c == null || c.isClosed()) {
-                c = openConnection();
-                tlConn.set(c);
-            }
-            return c;
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to obtain SQLite connection", e);
-        }
+        this.connections = new DaoConnectionContext(jdbcUrl);
     }
 
     /**
@@ -111,7 +83,7 @@ public final class ClipEntryDao {
                 """.formatted(column);
 
         List<DuplicateCandidate> candidates = new ArrayList<>();
-        try (PreparedStatement ps = conn().prepareStatement(sql)) {
+        try (PreparedStatement ps = connections.connection().prepareStatement(sql)) {
             ps.setString(1, hash);
             ps.setLong(2, cutoffInclusive);
             ps.setLong(3, cutoffInclusive);
@@ -152,7 +124,7 @@ public final class ClipEntryDao {
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
                 """;
 
-        try (PreparedStatement ps = conn().prepareStatement(sql)) {
+        try (PreparedStatement ps = connections.connection().prepareStatement(sql)) {
             ps.setString(1, content);
             ps.setString(2, contentNorm);
             ps.setString(3, keys.normalizedHash());
@@ -180,14 +152,11 @@ public final class ClipEntryDao {
             throw new IllegalArgumentException("duplicate decision is required");
         }
 
-        Connection c = conn();
-        boolean previousAutoCommit;
-        try {
-            previousAutoCommit = c.getAutoCommit();
-            c.setAutoCommit(false);
-        } catch (SQLException e) {
-            throw new RuntimeException("duplicate transaction setup failed", e);
-        }
+        Connection c = connections.connection();
+        boolean previousAutoCommit = connections.beginTransaction(
+                c,
+                "duplicate transaction setup failed"
+        );
 
         try {
             int updated;
@@ -231,10 +200,10 @@ public final class ClipEntryDao {
             c.commit();
             return true;
         } catch (Exception e) {
-            rollbackQuietly(c);
+            connections.rollbackQuietly(c);
             throw new RuntimeException("applyDuplicate failed", e);
         } finally {
-            restoreAutoCommit(c, previousAutoCommit);
+            connections.restoreAutoCommit(c, previousAutoCommit);
         }
     }
 
@@ -272,7 +241,7 @@ public final class ClipEntryDao {
                      id DESC
             LIMIT ?
             """;
-        Connection c = conn();
+        Connection c = connections.connection();
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             bindOptionalFavorite(ps, 1, favoriteFilter);
             ps.setInt(3, Math.max(1, limit));
@@ -406,7 +375,7 @@ public final class ClipEntryDao {
             LIMIT ?
             """);
 
-        Connection c = conn();
+        Connection c = connections.connection();
         try (PreparedStatement ps = c.prepareStatement(sql.toString())) {
             int parameter = 1;
             bindOptionalFavorite(ps, parameter, favoriteFilter);
@@ -466,7 +435,7 @@ public final class ClipEntryDao {
             LIMIT ?
             """;
         String like = "%" + escapeLike(q == null ? "" : q) + "%";
-        Connection c = conn();
+        Connection c = connections.connection();
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, like);
             ps.setString(2, like);
@@ -485,7 +454,7 @@ public final class ClipEntryDao {
      * and scope/type filters.
      */
     public int countAll() {
-        try (PreparedStatement ps = conn().prepareStatement(
+        try (PreparedStatement ps = connections.connection().prepareStatement(
                 "SELECT COUNT(*) FROM clip_entries");
              ResultSet rs = ps.executeQuery()) {
             return rs.next() ? rs.getInt(1) : 0;
@@ -495,15 +464,11 @@ public final class ClipEntryDao {
     }
 
     public void deleteById(long id) {
-        Connection c = conn();
-        boolean previousAutoCommit;
-
-        try {
-            previousAutoCommit = c.getAutoCommit();
-            c.setAutoCommit(false);
-        } catch (SQLException e) {
-            throw new RuntimeException("delete transaction setup failed", e);
-        }
+        Connection c = connections.connection();
+        boolean previousAutoCommit = connections.beginTransaction(
+                c,
+                "delete transaction setup failed"
+        );
 
         try {
             boolean wasFavorite = isFavorite(c, id);
@@ -519,10 +484,10 @@ public final class ClipEntryDao {
 
             c.commit();
         } catch (Exception e) {
-            rollbackQuietly(c);
+            connections.rollbackQuietly(c);
             throw new RuntimeException("delete failed", e);
         } finally {
-            restoreAutoCommit(c, previousAutoCommit);
+            connections.restoreAutoCommit(c, previousAutoCommit);
         }
     }
 
@@ -532,7 +497,7 @@ public final class ClipEntryDao {
      */
     public int deleteAllNonFavorites() {
         String sql = "DELETE FROM clip_entries WHERE is_favorite = 0";
-        Connection c = conn();
+        Connection c = connections.connection();
         try (Statement st = c.createStatement()) {
             return st.executeUpdate(sql);
         } catch (Exception e) {
@@ -547,15 +512,11 @@ public final class ClipEntryDao {
      * intentionally keeps optional metadata such as the custom title.
      */
     public void setFavorite(long id, boolean favorite) {
-        Connection c = conn();
-        boolean previousAutoCommit;
-
-        try {
-            previousAutoCommit = c.getAutoCommit();
-            c.setAutoCommit(false);
-        } catch (SQLException e) {
-            throw new RuntimeException("favorite transaction setup failed", e);
-        }
+        Connection c = connections.connection();
+        boolean previousAutoCommit = connections.beginTransaction(
+                c,
+                "favorite transaction setup failed"
+        );
 
         try {
             boolean currentlyFavorite = isFavorite(c, id);
@@ -585,10 +546,10 @@ public final class ClipEntryDao {
 
             c.commit();
         } catch (Exception e) {
-            rollbackQuietly(c);
+            connections.rollbackQuietly(c);
             throw new RuntimeException("favorite update failed", e);
         } finally {
-            restoreAutoCommit(c, previousAutoCommit);
+            connections.restoreAutoCommit(c, previousAutoCommit);
         }
     }
 
@@ -604,7 +565,7 @@ public final class ClipEntryDao {
         }
 
         String sql = "UPDATE clip_entries SET title = ? WHERE id = ? AND is_favorite = 1";
-        Connection c = conn();
+        Connection c = connections.connection();
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             if (normalized == null) {
                 ps.setNull(1, Types.VARCHAR);
@@ -635,15 +596,11 @@ public final class ClipEntryDao {
     }
 
     private boolean movePinned(long id, PinMove move) {
-        Connection c = conn();
-        boolean previousAutoCommit;
-
-        try {
-            previousAutoCommit = c.getAutoCommit();
-            c.setAutoCommit(false);
-        } catch (SQLException e) {
-            throw new RuntimeException("pin reorder transaction setup failed", e);
-        }
+        Connection c = connections.connection();
+        boolean previousAutoCommit = connections.beginTransaction(
+                c,
+                "pin reorder transaction setup failed"
+        );
 
         try {
             List<Long> pinnedIds = loadPinnedIds(c);
@@ -671,10 +628,10 @@ public final class ClipEntryDao {
             c.commit();
             return true;
         } catch (Exception e) {
-            rollbackQuietly(c);
+            connections.rollbackQuietly(c);
             throw new RuntimeException("pin reorder failed", e);
         } finally {
-            restoreAutoCommit(c, previousAutoCommit);
+            connections.restoreAutoCommit(c, previousAutoCommit);
         }
     }
 
@@ -732,7 +689,7 @@ public final class ClipEntryDao {
                 LIMIT ?
               )
             """;
-        Connection c = conn();
+        Connection c = connections.connection();
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, limit);
             ps.executeUpdate();
@@ -760,7 +717,7 @@ public final class ClipEntryDao {
                 """;
 
         List<RetentionCandidate> candidates = new ArrayList<>();
-        try (PreparedStatement ps = conn().prepareStatement(sql)) {
+        try (PreparedStatement ps = connections.connection().prepareStatement(sql)) {
             ps.setLong(1, cutoffExclusive);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
@@ -827,13 +784,7 @@ public final class ClipEntryDao {
     }
 
     public void closeForCurrentThread() {
-        try {
-            Connection c = tlConn.get();
-            if (c != null) c.close();
-        } catch (Exception ignored) {
-        } finally {
-            tlConn.remove();
-        }
+        connections.closeForCurrentThread();
     }
 
     public int deleteByIds(List<Long> ids) {
@@ -847,14 +798,11 @@ public final class ClipEntryDao {
         if (validIds.isEmpty()) return 0;
 
         final int batchSize = 500;
-        Connection c = conn();
-        boolean previousAutoCommit;
-        try {
-            previousAutoCommit = c.getAutoCommit();
-            c.setAutoCommit(false);
-        } catch (SQLException e) {
-            throw new RuntimeException("deleteByIds transaction setup failed", e);
-        }
+        Connection c = connections.connection();
+        boolean previousAutoCommit = connections.beginTransaction(
+                c,
+                "deleteByIds transaction setup failed"
+        );
 
         try {
             int deleted = 0;
@@ -881,26 +829,13 @@ public final class ClipEntryDao {
             c.commit();
             return deleted;
         } catch (Exception e) {
-            rollbackQuietly(c);
+            connections.rollbackQuietly(c);
             throw new RuntimeException("deleteByIds failed", e);
         } finally {
-            restoreAutoCommit(c, previousAutoCommit);
+            connections.restoreAutoCommit(c, previousAutoCommit);
         }
     }
 
-    private void rollbackQuietly(Connection c) {
-        try {
-            c.rollback();
-        } catch (Exception ignored) {
-        }
-    }
-
-    private void restoreAutoCommit(Connection c, boolean autoCommit) {
-        try {
-            c.setAutoCommit(autoCommit);
-        } catch (Exception ignored) {
-        }
-    }
 
     private enum PinMove {
         UP,
