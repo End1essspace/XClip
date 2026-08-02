@@ -1,4 +1,3 @@
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -12,8 +11,7 @@ import java.util.Objects;
 /**
  * Immutable duplicate-detection and duplicate-position policy.
  *
- * Milestone 4.1 deliberately keeps this model independent from Config, SQLite,
- * and JavaFX. Milestone 4.2 persists and applies the selected values.
+ * The model remains independent from configuration persistence, SQLite, and JavaFX.
  */
 public record DuplicateBehaviorPolicy(
         RecentDuplicatePosition recentDuplicatePosition,

@@ -11,7 +11,7 @@ import java.util.Objects;
  * Non-fatal parser diagnostic.
  *
  * Invalid operator fragments fall back to ordinary text instead of making
- * search unusable. The diagnostic remains available for the future Search UI.
+ * search unusable. The diagnostic is exposed to the search UI.
  */
 public record SearchQueryIssue(
         Code code,

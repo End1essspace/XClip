@@ -15,9 +15,8 @@ import java.util.Objects;
 /**
  * Immutable result of parsing one advanced-search expression.
  *
- * Milestone 3.1 intentionally stops at parsing. Query execution and popup UI
- * integration are introduced by later milestones, so this model has no DAO or
- * JavaFX dependencies.
+ * The model has no DAO or JavaFX dependencies and can be consumed by both
+ * execution and presentation layers.
  */
 public record SearchQuery(
         String rawQuery,

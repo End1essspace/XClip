@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -14,7 +15,6 @@ package io.xseries.xclip.ui.components;
  */
 public enum UiIcon {
     BRACES("braces"),
-    CHECK_CHECK("check-check"),
     CHECK("check"),
     CHEVRON_DOWN("chevron-down"),
     CIRCLE_QUESTION_MARK("circle-question-mark"),
@@ -22,7 +22,6 @@ public enum UiIcon {
     CODE_XML("code-xml"),
     COPY("copy"),
     ELLIPSIS_VERTICAL("ellipsis-vertical"),
-    ELLIPSIS("ellipsis"),
     EXTERNAL_LINK("external-link"),
     FOLDER_OPEN("folder-open"),
     FUNNEL("funnel"),

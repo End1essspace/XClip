@@ -8,10 +8,9 @@ package io.xseries.xclip.config;
 import java.nio.file.Path;
 
 /**
- * Single source of truth for XClip filesystem layout.
+ * Single source of truth for the XClip filesystem layout.
  *
- * v1.0 contract:
- * - All user data lives in one folder and can be removed safely.
+ * All user-owned application data lives under one removable directory.
  */
 public final class AppPaths {
 

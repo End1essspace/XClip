@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-// ConfigService.java
 package io.xseries.xclip.config;
 
 import com.google.gson.Gson;
@@ -84,10 +83,12 @@ public final class ConfigService {
             return cfg;
         }
     }
+
     public void persist(Config cfg) {
         if (cfg == null) return;
         safeWrite(cfg.normalized());
     }
+
     public void save(Config cfg) {
         if (cfg == null) return;
 
@@ -139,7 +140,7 @@ public final class ConfigService {
                 WindowsAutoStartService.disable();
             }
         } catch (Exception ignored) {
-            // Silent fail in v1.0 (can log later)
+            // Autostart integration is non-fatal; persisted configuration remains valid.
         }
     }
 
@@ -175,7 +176,7 @@ public final class ConfigService {
             // Forward version: keep known values and preserve the newer marker.
             return cfg;
         }
-        // Config.normalized() upgrades legacy versions and fills duplicate/privacy defaults.
+        // Normalization upgrades supported legacy values and fills current defaults.
         return cfg.normalized();
     }
 

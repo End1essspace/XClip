@@ -1,9 +1,13 @@
+
 # XClip UI Contract v1.3.0
 
 **Status:** Frozen R11 baseline, deliberately extended by Milestones 2.2–2.4, 3.2–3.3, 4.3, 5.1, and 5.2
 **Scope:** Popup, custom window chrome, modal surfaces, Settings styling, privacy controls, keyboard workflow, responsive behavior, and packaged UI resources.
 
 This document is the human-readable counterpart of `/ui/ui-contract-v1.3.0.properties`. Any intentional contract change must update both files and the `UiContractFreezeTest` expectations in the same reviewed milestone.
+
+**Contract revision:** 11  
+**Registered Lucide UI icons:** 30
 
 ## 1. Product invariants
 
@@ -80,6 +84,7 @@ Native text editing shortcuts must not be hijacked while Search owns focus.
 - Popup stylesheets: `theme.css`, `controls.css`, `popup.css`.
 - Settings/dialog stylesheets: `theme.css`, `controls.css`, `dialogs.css`.
 - Lucide SVG resources remain vector-only, packaged, and licensed.
+- The registry contains only icons referenced by current runtime UI code; unused `check-check` and horizontal `ellipsis` assets were removed during C1.1 cleanup.
 - Focus rings remain visible at 100%, 125%, and 150% Windows scaling.
 - Interactive controls expose accessible text/help.
 - Section headings are skipped by clip navigation.

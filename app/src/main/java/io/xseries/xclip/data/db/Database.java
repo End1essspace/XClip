@@ -1,4 +1,3 @@
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -352,16 +351,13 @@ public final class Database {
     }
 
     /**
-     * Safe to call multiple times.
-     * Currently no persistent connections are held,
-     * but this is kept for symmetry and future pooling.
+     * Marks this database facade as closed. Safe to call multiple times.
+     *
+     * Initialization connections are operation-scoped. DAO-managed connections
+     * are closed separately by their owning services.
      */
     public void close() {
-        if (!closed.compareAndSet(false, true)) {
-            return;
-        }
-        // No-op for now (connections are per-operation)
-        // Reserved for future connection pool or migration locks
+        closed.compareAndSet(false, true);
     }
 
     /**

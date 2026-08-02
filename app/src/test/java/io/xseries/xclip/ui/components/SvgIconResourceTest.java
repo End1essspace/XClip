@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -40,7 +41,7 @@ final class SvgIconResourceTest {
             );
         }
 
-        assertTrue(UiIcon.values().length >= 32, "Unexpectedly small Lucide registry");
+        assertTrue(UiIcon.values().length >= 30, "Unexpectedly small Lucide registry");
     }
 
     @Test

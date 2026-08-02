@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -43,7 +44,7 @@ class UiContractFreezeTest {
     void frozenContractMatchesRuntimeConstantsAndEnums() throws Exception {
         Properties contract = loadContract();
 
-        assertEquals("10", contract.getProperty("contract.version"));
+        assertEquals("11", contract.getProperty("contract.version"));
         assertEquals("1.3.0", contract.getProperty("product.version"));
         assertEquals(Config.MIN_WINDOW_W, intValue(contract, "window.minWidth"));
         assertEquals(Config.MIN_WINDOW_H, intValue(contract, "window.minHeight"));

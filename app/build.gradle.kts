@@ -1,5 +1,6 @@
 
 
+
 import java.io.File
 import java.util.Locale
 import java.util.Properties
@@ -96,9 +97,18 @@ fun verifyUiResourcesInJar(jarFile: File) {
         candidate.isFile && candidate.extension.equals("svg", ignoreCase = true)
     }?.sortedBy { it.name } ?: emptyList()
 
-    if (iconFiles.size < 32) {
+    val contractFile = file("src/main/resources/ui/ui-contract-v1.3.0.properties")
+    val expectedIconCount = Properties().apply {
+        contractFile.inputStream().use { stream -> load(stream) }
+    }.getProperty("popup.iconCount")?.toIntOrNull()
+        ?: throw GradleException(
+            "Missing or invalid popup.iconCount in ${contractFile.path}"
+        )
+
+    if (iconFiles.size != expectedIconCount) {
         throw GradleException(
-            "Expected at least 32 Lucide SVG resources, found ${iconFiles.size} in ${iconSourceDir.path}"
+            "UI contract expects $expectedIconCount Lucide SVG resources, " +
+                "found ${iconFiles.size} in ${iconSourceDir.path}"
         )
     }
 
