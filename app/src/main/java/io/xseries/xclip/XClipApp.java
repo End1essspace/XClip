@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -85,7 +86,8 @@ public final class XClipApp extends Application {
                 clipboard,
                 clipService::ingestText,
                 tray::isPaused,
-                privacyGate::isCaptureAllowed
+                privacyGate::isCaptureAllowed,
+                clipService::closeForCurrentThread
         );
 
         // data ownership service (needs instance Database)

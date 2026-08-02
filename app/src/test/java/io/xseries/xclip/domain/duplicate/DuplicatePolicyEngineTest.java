@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -164,4 +165,52 @@ class DuplicatePolicyEngineTest {
                 DuplicatePolicyEngine.evaluate(exact, existing, "alpha value", 2_000)
         );
     }
+
+    @Test
+    void canonicalEvaluationMatchesPublicEvaluationWithoutIncomingReprocessing() {
+        DuplicateBehaviorPolicy policy = new DuplicateBehaviorPolicy(
+                RecentDuplicatePosition.MOVE_TO_TOP,
+                PinnedDuplicatePosition.PRESERVE_PIN_POSITION,
+                WhitespaceMode.NORMALIZE,
+                CaseSensitivity.INSENSITIVE,
+                0,
+                false
+        );
+        String incoming = " alpha\tvalue ";
+        String canonical = policy.canonicalKey(incoming);
+
+        assertEquals(
+                DuplicatePolicyEngine.evaluate(
+                        policy,
+                        new DuplicatePolicyEngine.ExistingClip(
+                                "Alpha Value",
+                                false,
+                                1_000
+                        ),
+                        incoming,
+                        2_000
+                ),
+                DuplicatePolicyEngine.evaluateCanonical(
+                        policy,
+                        "Alpha Value",
+                        false,
+                        1_000,
+                        canonical,
+                        2_000
+                )
+        );
+
+        assertEquals(
+                Decision.CREATE_NEW_ENTRY,
+                DuplicatePolicyEngine.evaluateCanonical(
+                        policy,
+                        "different",
+                        false,
+                        1_000,
+                        canonical,
+                        2_000
+                )
+        );
+    }
+
 }

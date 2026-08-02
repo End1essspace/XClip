@@ -1,4 +1,3 @@
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -26,22 +25,61 @@ public final class DuplicatePolicyEngine {
     ) {
         DuplicateBehaviorPolicy effectivePolicy =
                 Objects.requireNonNull(policy, "policy");
-        String incoming = Objects.requireNonNull(incomingContent, "incomingContent");
-        if (now < 0) throw new IllegalArgumentException("now cannot be negative");
-
         if (existing == null) {
+            if (now < 0) throw new IllegalArgumentException("now cannot be negative");
+            Objects.requireNonNull(incomingContent, "incomingContent");
             return Decision.CREATE_NEW_ENTRY;
         }
 
-        if (!effectivePolicy.matches(existing.content(), incoming)) {
+        return evaluateCanonical(
+                effectivePolicy,
+                existing.content(),
+                existing.pinned(),
+                existing.lastCopiedAt(),
+                effectivePolicy.canonicalKey(
+                        Objects.requireNonNull(incomingContent, "incomingContent")
+                ),
+                now
+        );
+    }
+
+    /**
+     * Evaluates a candidate against an incoming canonical key prepared once for
+     * the complete lookup result.
+     *
+     * The public evaluate(...) contract remains unchanged. The ingest hot path
+     * uses this overload to avoid allocating an ExistingClip record and
+     * re-normalizing the same incoming text for every candidate.
+     */
+    public static Decision evaluateCanonical(
+            DuplicateBehaviorPolicy policy,
+            String existingContent,
+            boolean existingPinned,
+            long existingLastCopiedAt,
+            String incomingCanonicalKey,
+            long now
+    ) {
+        DuplicateBehaviorPolicy effectivePolicy =
+                Objects.requireNonNull(policy, "policy");
+        String existing = Objects.requireNonNull(existingContent, "existingContent");
+        String incomingKey = Objects.requireNonNull(
+                incomingCanonicalKey,
+                "incomingCanonicalKey"
+        );
+
+        if (existingLastCopiedAt < 0 || now < 0) {
+            throw new IllegalArgumentException("timestamps cannot be negative");
+        }
+
+        if (!effectivePolicy.canonicalKey(existing).equals(incomingKey)) {
             return Decision.CREATE_NEW_ENTRY;
         }
 
-        if (!effectivePolicy.withinDuplicateWindow(existing.lastCopiedAt(), now)) {
+        if (!effectivePolicy.withinDuplicateWindow(existingLastCopiedAt, now)) {
             return Decision.CREATE_NEW_ENTRY;
         }
 
-        if (existing.pinned()) {
+        if (existingPinned) {
             return switch (effectivePolicy.pinnedDuplicatePosition()) {
                 case PRESERVE_PIN_POSITION ->
                         Decision.UPDATE_EXISTING_PRESERVE_PIN_POSITION;

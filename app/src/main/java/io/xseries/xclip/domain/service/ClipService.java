@@ -29,7 +29,11 @@ public final class ClipService {
     private final AtomicReference<String> lastPushedDuplicateHash = new AtomicReference<>("");
     private final AtomicLong lastPushedAtMs = new AtomicLong(0);
 
-    private final AtomicLong insertCounter = new AtomicLong(0);
+    /**
+     * Pruning cadence counts only row-creating ingests. Duplicate updates cannot
+     * increase history size and therefore do not need to advance this counter.
+     */
+    private final AtomicLong createdEntryCounter = new AtomicLong(0);
 
     public ClipService(ClipEntryDao dao) {
         this.dao = dao;
@@ -46,7 +50,10 @@ public final class ClipService {
         DuplicateBehaviorPolicy nextPolicy = cfg.duplicateBehaviorPolicy();
         boolean policyChanged = !nextPolicy.equals(this.duplicatePolicy);
 
-        this.retentionLimit = clampRetention(cfg.maxHistory());
+        int previousRetentionLimit = this.retentionLimit;
+        int nextRetentionLimit = clampRetention(cfg.maxHistory());
+
+        this.retentionLimit = nextRetentionLimit;
         this.minClipLength = clampMinLen(cfg.minClipLength());
         this.maxClipChars = clampMaxClipChars(cfg.maxClipChars());
         this.duplicatePolicy = nextPolicy;
@@ -54,6 +61,14 @@ public final class ClipService {
         if (policyChanged) {
             lastPushedDuplicateHash.set("");
             lastPushedAtMs.set(0);
+        }
+
+        // A reduced limit is enforced once at configuration time. This keeps
+        // duplicate-only workloads from retaining rows above the new boundary
+        // while allowing normal duplicate updates to skip periodic prune work.
+        if (nextRetentionLimit < previousRetentionLimit) {
+            dao.pruneToLimit(nextRetentionLimit);
+            createdEntryCounter.set(0);
         }
     }
 
@@ -68,50 +83,51 @@ public final class ClipService {
         String captured = prepareCapturedContent(text, policy);
         if (captured == null) return;
 
-        String contentNorm = normalize(captured);
-        if (contentNorm.isEmpty()) return;
+        DuplicateContentKeys.Prepared prepared =
+                DuplicateContentKeys.prepare(captured, policy);
+        if (prepared.normalizedContent().isEmpty()) return;
 
-        DuplicateContentKeys keys = DuplicateContentKeys.from(captured);
-        String selectedHash = keys.selectedHash(policy);
-
-        if (isSelfCopy(selectedHash, now)) return;
+        if (isSelfCopy(prepared.selectedHash(), now)) return;
 
         long cutoff = duplicateCutoff(policy, now);
         List<ClipEntryDao.DuplicateCandidate> candidates = dao.findDuplicateCandidates(
-                keys.selectedKind(policy),
-                selectedHash,
+                prepared.selectedKind(),
+                prepared.selectedHash(),
                 cutoff
         );
 
         for (ClipEntryDao.DuplicateCandidate candidate : candidates) {
-            DuplicatePolicyEngine.Decision decision = DuplicatePolicyEngine.evaluate(
-                    policy,
-                    new DuplicatePolicyEngine.ExistingClip(
+            DuplicatePolicyEngine.Decision decision =
+                    DuplicatePolicyEngine.evaluateCanonical(
+                            policy,
                             candidate.content(),
                             candidate.pinned(),
-                            candidate.lastCopiedAt()
-                    ),
-                    captured,
-                    now
-            );
+                            candidate.lastCopiedAt(),
+                            prepared.canonicalKey(),
+                            now
+                    );
 
             if (!decision.duplicate()) continue;
 
             if (dao.applyDuplicate(
                     candidate.id(),
                     captured,
-                    contentNorm,
-                    keys,
+                    prepared.normalizedContent(),
+                    prepared.keys(),
                     now,
                     decision
             )) {
-                maintainRetention();
                 return;
             }
         }
 
-        dao.insertNew(captured, contentNorm, keys, now);
-        maintainRetention();
+        dao.insertNew(
+                captured,
+                prepared.normalizedContent(),
+                prepared.keys(),
+                now
+        );
+        maintainRetentionAfterInsert();
     }
 
     /**
@@ -124,9 +140,20 @@ public final class ClipService {
         String captured = prepareCapturedContent(textThatWillBeSetToClipboard, policy);
         if (captured == null) return;
 
-        String hash = DuplicateContentKeys.from(captured).selectedHash(policy);
-        lastPushedDuplicateHash.set(hash);
+        lastPushedDuplicateHash.set(
+                DuplicateContentKeys.selectedHashFor(captured, policy)
+        );
         lastPushedAtMs.set(System.currentTimeMillis());
+    }
+
+    /**
+     * Releases the DAO connection owned by the current worker thread.
+     *
+     * WatcherController invokes this from the clipboard executor before that
+     * thread terminates, so the ThreadLocal connection is not left for process exit.
+     */
+    public void closeForCurrentThread() {
+        dao.closeForCurrentThread();
     }
 
     private String prepareCapturedContent(
@@ -136,6 +163,8 @@ public final class ClipService {
         if (source.isBlank()) return null;
 
         String meaningful = source.trim();
+        if (meaningful.isEmpty()) return null;
+
         int minLen = this.minClipLength;
         if (minLen > 0 && meaningful.length() < minLen) return null;
 
@@ -144,10 +173,16 @@ public final class ClipService {
         String captured = preserveCharacters ? source : meaningful;
 
         int cap = this.maxClipChars;
-        if (cap > 0 && captured.length() > cap) {
+        boolean truncated = cap > 0 && captured.length() > cap;
+        if (truncated) {
             captured = captured.substring(0, cap);
         }
-        return captured.isBlank() ? null : captured;
+
+        // meaningful is already non-empty. Only a preserved, truncated prefix
+        // can become blank after the initial check.
+        return preserveCharacters && truncated && captured.isBlank()
+                ? null
+                : captured;
     }
 
     private boolean isSelfCopy(String hash, long now) {
@@ -164,15 +199,11 @@ public final class ClipService {
         return window >= now ? 0L : now - window;
     }
 
-    private void maintainRetention() {
+    private void maintainRetentionAfterInsert() {
         int limit = this.retentionLimit;
-        if (insertCounter.incrementAndGet() % 10 == 0) {
+        if (createdEntryCounter.incrementAndGet() % 10 == 0) {
             dao.pruneToLimit(limit);
         }
-    }
-
-    private String normalize(String s) {
-        return DuplicateBehaviorPolicy.normalizeWhitespace(s);
     }
 
     private static int clampRetention(int v) {

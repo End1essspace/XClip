@@ -6,7 +6,11 @@
 package io.xseries.xclip.system.clipboard;
 
 import java.util.Objects;
-import java.util.concurrent.*;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -18,22 +22,19 @@ public final class ClipboardWatcher implements AutoCloseable {
     private static final long MAX_POLL_MS  = 3000;
 
     private static final int DEFAULT_MAX_TEXT_LEN = 500_000;
+    private static final long WORKER_STOP_TIMEOUT_SECONDS = 2L;
 
     private final java.util.function.IntSupplier maxTextLen;
-
-    private final ScheduledExecutorService exec =
-            Executors.newSingleThreadScheduledExecutor(r -> {
-                Thread t = new Thread(r, "xclip-clipboard-watcher");
-                t.setDaemon(true);
-                return t;
-            });
+    private final ScheduledExecutorService exec;
 
     private final ClipboardAccess access;
     private final Consumer<String> onText;
     private final BooleanSupplier isPaused;
     private final Predicate<String> isCaptureAllowed;
+    private final Runnable onWorkerStopped;
 
-    private volatile boolean closed  = false;
+    private final AtomicBoolean closed = new AtomicBoolean(false);
+    private final AtomicBoolean workerCleanupCompleted = new AtomicBoolean(false);
     private volatile boolean started = false;
 
     /** Exact snapshot state after the clipboard safety cap. */
@@ -54,15 +55,33 @@ public final class ClipboardWatcher implements AutoCloseable {
             BooleanSupplier isPaused,
             Predicate<String> isCaptureAllowed
     ) {
+        this(
+                access,
+                onText,
+                isPaused,
+                isCaptureAllowed,
+                () -> {}
+        );
+    }
+
+    public ClipboardWatcher(
+            ClipboardAccess access,
+            Consumer<String> onText,
+            BooleanSupplier isPaused,
+            Predicate<String> isCaptureAllowed,
+            Runnable onWorkerStopped
+    ) {
         this.access = Objects.requireNonNull(access);
         this.onText = Objects.requireNonNull(onText);
         this.isPaused = Objects.requireNonNull(isPaused);
         this.maxTextLen = () -> DEFAULT_MAX_TEXT_LEN;
         this.isCaptureAllowed = Objects.requireNonNull(isCaptureAllowed);
+        this.onWorkerStopped = Objects.requireNonNull(onWorkerStopped);
+        this.exec = newWorkerExecutor();
     }
 
     public void start() {
-        if (started) return;
+        if (started || closed.get()) return;
         started = true;
 
         // --- STARTUP BARRIER ---
@@ -73,13 +92,41 @@ public final class ClipboardWatcher implements AutoCloseable {
         scheduleNext(BASE_POLL_MS);
     }
 
+    private ScheduledExecutorService newWorkerExecutor() {
+        ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(
+                1,
+                runnable -> {
+                    Thread thread = new Thread(() -> {
+                        try {
+                            runnable.run();
+                        } finally {
+                            releaseWorkerResources();
+                        }
+                    }, "xclip-clipboard-watcher");
+                    thread.setDaemon(true);
+                    return thread;
+                }
+        );
+        executor.setRemoveOnCancelPolicy(true);
+        executor.prestartCoreThread();
+        return executor;
+    }
+
     private void scheduleNext(long delayMs) {
-        if (closed) return;
-        exec.schedule(this::tickSafely, Math.max(0, delayMs), TimeUnit.MILLISECONDS);
+        if (closed.get()) return;
+        try {
+            exec.schedule(
+                    this::tickSafely,
+                    Math.max(0, delayMs),
+                    TimeUnit.MILLISECONDS
+            );
+        } catch (RejectedExecutionException ignored) {
+            // close() won the race with the next scheduling request.
+        }
     }
 
     private void tickSafely() {
-        if (closed) return;
+        if (closed.get()) return;
 
         try {
             boolean pausedNow = isPaused.getAsBoolean();
@@ -206,9 +253,26 @@ public final class ClipboardWatcher implements AutoCloseable {
         return value;
     }
 
+    private void releaseWorkerResources() {
+        if (!workerCleanupCompleted.compareAndSet(false, true)) return;
+        try {
+            onWorkerStopped.run();
+        } catch (Throwable ignored) {
+        }
+    }
+
     @Override
     public void close() {
-        closed = true;
+        if (!closed.compareAndSet(false, true)) return;
+
         exec.shutdownNow();
+        try {
+            exec.awaitTermination(
+                    WORKER_STOP_TIMEOUT_SECONDS,
+                    TimeUnit.SECONDS
+            );
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+        }
     }
 }

@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -52,4 +53,74 @@ class DuplicateContentKeysTest {
         assertEquals(DuplicateContentKeys.KeyKind.EXACT, keys.selectedKind(exact));
         assertEquals(keys.exactHash(), keys.selectedHash(exact));
     }
+
+    @Test
+    void preparedValueKeepsNormalizedTextLookupHashAndCanonicalKeyAligned() {
+        DuplicateBehaviorPolicy policy = new DuplicateBehaviorPolicy(
+                DuplicateBehaviorPolicy.RecentDuplicatePosition.MOVE_TO_TOP,
+                DuplicateBehaviorPolicy.PinnedDuplicatePosition.PRESERVE_PIN_POSITION,
+                DuplicateBehaviorPolicy.WhitespaceMode.NORMALIZE,
+                DuplicateBehaviorPolicy.CaseSensitivity.INSENSITIVE,
+                0,
+                false
+        );
+
+        DuplicateContentKeys.Prepared prepared =
+                DuplicateContentKeys.prepare(" Alpha\tValue ", policy);
+
+        assertEquals("Alpha Value", prepared.normalizedContent());
+        assertEquals(DuplicateContentKeys.KeyKind.NORMALIZED_CASE_INSENSITIVE,
+                prepared.selectedKind());
+        assertEquals("alpha value", prepared.canonicalKey());
+        assertEquals(prepared.keys().normalizedCaseInsensitiveHash(),
+                prepared.selectedHash());
+    }
+
+    @Test
+    void selectedOnlyHashMatchesPersistedHashForEveryEqualityMode() {
+        String content = " Alpha\tValue ";
+
+        for (DuplicateBehaviorPolicy policy : java.util.List.of(
+                new DuplicateBehaviorPolicy(
+                        DuplicateBehaviorPolicy.RecentDuplicatePosition.MOVE_TO_TOP,
+                        DuplicateBehaviorPolicy.PinnedDuplicatePosition.PRESERVE_PIN_POSITION,
+                        DuplicateBehaviorPolicy.WhitespaceMode.PRESERVE,
+                        DuplicateBehaviorPolicy.CaseSensitivity.SENSITIVE,
+                        0,
+                        false
+                ),
+                new DuplicateBehaviorPolicy(
+                        DuplicateBehaviorPolicy.RecentDuplicatePosition.MOVE_TO_TOP,
+                        DuplicateBehaviorPolicy.PinnedDuplicatePosition.PRESERVE_PIN_POSITION,
+                        DuplicateBehaviorPolicy.WhitespaceMode.PRESERVE,
+                        DuplicateBehaviorPolicy.CaseSensitivity.INSENSITIVE,
+                        0,
+                        false
+                ),
+                DuplicateBehaviorPolicy.defaults(),
+                new DuplicateBehaviorPolicy(
+                        DuplicateBehaviorPolicy.RecentDuplicatePosition.MOVE_TO_TOP,
+                        DuplicateBehaviorPolicy.PinnedDuplicatePosition.PRESERVE_PIN_POSITION,
+                        DuplicateBehaviorPolicy.WhitespaceMode.NORMALIZE,
+                        DuplicateBehaviorPolicy.CaseSensitivity.INSENSITIVE,
+                        0,
+                        false
+                ),
+                new DuplicateBehaviorPolicy(
+                        DuplicateBehaviorPolicy.RecentDuplicatePosition.MOVE_TO_TOP,
+                        DuplicateBehaviorPolicy.PinnedDuplicatePosition.PRESERVE_PIN_POSITION,
+                        DuplicateBehaviorPolicy.WhitespaceMode.NORMALIZE,
+                        DuplicateBehaviorPolicy.CaseSensitivity.INSENSITIVE,
+                        0,
+                        true
+                )
+        )) {
+            DuplicateContentKeys keys = DuplicateContentKeys.from(content);
+            assertEquals(
+                    keys.selectedHash(policy),
+                    DuplicateContentKeys.selectedHashFor(content, policy)
+            );
+        }
+    }
+
 }

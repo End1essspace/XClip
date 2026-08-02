@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -283,4 +284,53 @@ class ClipServiceTest {
             db.close();
         }
     }
+
+    @Test
+    void selectedOnlySelfCopyHashSuppressesEquivalentNormalizedContent() {
+        DuplicateBehaviorPolicy policy = policy(
+                DuplicateBehaviorPolicy.RecentDuplicatePosition.MOVE_TO_TOP,
+                DuplicateBehaviorPolicy.PinnedDuplicatePosition.PRESERVE_PIN_POSITION,
+                DuplicateBehaviorPolicy.WhitespaceMode.NORMALIZE,
+                DuplicateBehaviorPolicy.CaseSensitivity.INSENSITIVE,
+                0,
+                false
+        );
+        Fixture fixture = fixture("self-copy.db", policy);
+        try {
+            fixture.service.markPushedByApp(" Alpha\tValue ");
+            fixture.service.ingestTextAt("alpha value", System.currentTimeMillis());
+
+            assertEquals(0, fixture.dao.countAll());
+        } finally {
+            fixture.close();
+        }
+    }
+
+    @Test
+    void loweringHistoryLimitPrunesImmediatelyBeforeDuplicateOnlyWorkloads() {
+        Database db = new Database(tempDir.resolve("retention-limit.db"));
+        db.init();
+        ClipEntryDao dao = new ClipEntryDao(db.jdbcUrl());
+        try {
+            for (int index = 0; index < 110; index++) {
+                String content = "entry-" + index;
+                dao.insert(
+                        content,
+                        content,
+                        "hash-" + index,
+                        1_000L + index
+                );
+            }
+            assertEquals(110, dao.countAll());
+
+            ClipService service = new ClipService(dao);
+            service.applyConfig(Config.defaults().withMaxHistory(100));
+
+            assertEquals(100, dao.countAll());
+        } finally {
+            dao.closeForCurrentThread();
+            db.close();
+        }
+    }
+
 }

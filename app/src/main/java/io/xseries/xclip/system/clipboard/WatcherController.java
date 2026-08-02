@@ -16,7 +16,8 @@ import java.util.function.Predicate;
  *
  * Guarantees:
  * - enable() snapshots clipboard (via ClipboardWatcher.start()) so current clipboard is NOT ingested
- * - disable() stops background thread immediately (shutdownNow)
+ * - disable() stops background thread immediately
+ * - worker-owned resources are released on the watcher thread before termination
  * - idempotent operations (calling enable/disable multiple times is safe)
  */
 public final class WatcherController implements AutoCloseable {
@@ -25,6 +26,7 @@ public final class WatcherController implements AutoCloseable {
     private final Consumer<String> onText;
     private final BooleanSupplier isPaused;
     private final Predicate<String> isCaptureAllowed;
+    private final Runnable onWorkerStopped;
 
     private final Object lock = new Object();
     private final AtomicBoolean enabled = new AtomicBoolean(false);
@@ -37,10 +39,27 @@ public final class WatcherController implements AutoCloseable {
             BooleanSupplier isPaused,
             Predicate<String> isCaptureAllowed
     ) {
+        this(
+                access,
+                onText,
+                isPaused,
+                isCaptureAllowed,
+                () -> {}
+        );
+    }
+
+    public WatcherController(
+            ClipboardAccess access,
+            Consumer<String> onText,
+            BooleanSupplier isPaused,
+            Predicate<String> isCaptureAllowed,
+            Runnable onWorkerStopped
+    ) {
         this.access = Objects.requireNonNull(access);
         this.onText = Objects.requireNonNull(onText);
         this.isPaused = Objects.requireNonNull(isPaused);
         this.isCaptureAllowed = Objects.requireNonNull(isCaptureAllowed);
+        this.onWorkerStopped = Objects.requireNonNull(onWorkerStopped);
     }
 
     public boolean isEnabled() {
@@ -58,7 +77,8 @@ public final class WatcherController implements AutoCloseable {
                     access,
                     onText,
                     isPaused,
-                    isCaptureAllowed
+                    isCaptureAllowed,
+                    onWorkerStopped
             );
             w.start();
 
