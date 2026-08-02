@@ -1,6 +1,7 @@
 
 
 
+
 import java.io.File
 import java.util.Locale
 import java.util.Properties
@@ -60,6 +61,25 @@ application {
 
 tasks.test {
     useJUnitPlatform()
+
+    // Keep native/SQLite lifecycle tests deterministic and prevent two test
+    // workers from competing for process-wide desktop or file-system state.
+    maxParallelForks = 1
+
+    systemProperty("file.encoding", "UTF-8")
+    reports {
+        html.required.set(true)
+        junitXml.required.set(true)
+    }
+
+    testLogging {
+        events("failed", "skipped")
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+        showCauses = true
+        showExceptions = true
+        showStackTraces = true
+        showStandardStreams = false
+    }
 }
 
 tasks.named<JavaExec>("run") {
@@ -508,3 +528,5 @@ tasks.register("packageMsi") {
         println("MSI_PACKAGE_OK: ${installers.maxBy { it.lastModified() }.absolutePath}")
     }
 }
+
+

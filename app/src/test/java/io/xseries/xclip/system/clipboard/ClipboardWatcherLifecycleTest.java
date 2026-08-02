@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -11,14 +12,16 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ClipboardWatcherLifecycleTest {
 
     @Test
-    void closeReleasesWorkerOwnedResourcesOnWatcherThreadExactlyOnce() {
+    void closeReleasesWorkerOwnedResourcesOnWatcherThreadExactlyOnce() throws InterruptedException {
         AtomicInteger cleanupCount = new AtomicInteger();
-        AtomicReference<String> cleanupThread = new AtomicReference<>();
+        AtomicReference<Thread> cleanupThread = new AtomicReference<>();
 
         ClipboardWatcher watcher = new ClipboardWatcher(
                 new ClipboardAccess(),
@@ -26,7 +29,7 @@ class ClipboardWatcherLifecycleTest {
                 () -> false,
                 ignored -> true,
                 () -> {
-                    cleanupThread.set(Thread.currentThread().getName());
+                    cleanupThread.set(Thread.currentThread());
                     cleanupCount.incrementAndGet();
                 }
         );
@@ -35,6 +38,12 @@ class ClipboardWatcherLifecycleTest {
         watcher.close();
 
         assertEquals(1, cleanupCount.get());
-        assertTrue(cleanupThread.get().startsWith("xclip-clipboard-watcher"));
+        Thread worker = cleanupThread.get();
+        assertNotNull(worker);
+        assertTrue(worker.getName().startsWith("xclip-clipboard-watcher"));
+        worker.join(2_000);
+        assertFalse(worker.isAlive());
     }
 }
+
+

@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -23,10 +24,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class PasteServiceTest {
 
     private PasteService service;
+    private ScheduledExecutorService executor;
+    private final AtomicReference<Thread> executorThread = new AtomicReference<>();
 
     @AfterEach
-    void tearDown() {
+    void tearDown() throws InterruptedException {
         if (service != null) service.close();
+        if (executor != null) {
+            executor.shutdownNow();
+            assertTrue(executor.awaitTermination(2, TimeUnit.SECONDS));
+        }
+        Thread thread = executorThread.get();
+        assertTrue(thread == null || !thread.isAlive());
     }
 
     @Test
@@ -92,7 +101,7 @@ class PasteServiceTest {
         assertEquals(PasteService.StartResult.SCHEDULED, result);
         assertTrue(hidden.get());
         assertTrue(shortcutSent.await(2, TimeUnit.SECONDS));
-        assertTrue(waitUntil(() -> !target.hasTarget(), 2_000));
+        assertTrue(target.awaitCleared(2, TimeUnit.SECONDS));
         assertEquals("beta", clipboard.get());
         assertEquals(1, target.restoreCount.get());
     }
@@ -120,27 +129,20 @@ class PasteServiceTest {
         assertTrue(target.hasTarget());
     }
 
-    private boolean waitUntil(java.util.function.BooleanSupplier condition, long timeoutMs)
-            throws InterruptedException {
-        long deadline = System.currentTimeMillis() + timeoutMs;
-        while (System.currentTimeMillis() < deadline) {
-            if (condition.getAsBoolean()) return true;
-            Thread.sleep(10);
-        }
-        return condition.getAsBoolean();
-    }
-
     private ScheduledExecutorService newExecutor() {
-        return Executors.newSingleThreadScheduledExecutor(r -> {
-            Thread t = new Thread(r, "paste-service-test");
-            t.setDaemon(true);
-            return t;
+        executor = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread thread = new Thread(r, "paste-service-test");
+            thread.setDaemon(true);
+            executorThread.set(thread);
+            return thread;
         });
+        return executor;
     }
 
     private static final class FakeTarget implements PasteService.TargetController {
         private final AtomicBoolean present;
         private final AtomicInteger restoreCount = new AtomicInteger();
+        private final CountDownLatch cleared = new CountDownLatch(1);
 
         private FakeTarget(boolean present) {
             this.present = new AtomicBoolean(present);
@@ -166,6 +168,14 @@ class PasteServiceTest {
         @Override
         public void clear() {
             present.set(false);
+            cleared.countDown();
+        }
+
+        private boolean awaitCleared(long timeout, TimeUnit unit)
+                throws InterruptedException {
+            return cleared.await(timeout, unit);
         }
     }
 }
+
+

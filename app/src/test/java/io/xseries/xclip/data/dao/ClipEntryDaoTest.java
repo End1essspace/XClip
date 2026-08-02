@@ -1,5 +1,6 @@
 
 
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -51,7 +52,7 @@ class ClipEntryDaoTest {
             assertEquals("beta", rows.get(1).content());
             assertEquals(2, usageCount(db.jdbcUrl(), "hash-alpha"));
         } finally {
-            dao.closeForCurrentThread();
+            dao.close();
             db.close();
         }
     }
@@ -76,7 +77,7 @@ class ClipEntryDaoTest {
             assertEquals(2, dao.listLatest(10, false).size());
             assertEquals(3, dao.countAll());
         } finally {
-            dao.closeForCurrentThread();
+            dao.close();
             db.close();
         }
     }
@@ -104,7 +105,7 @@ class ClipEntryDaoTest {
             assertEquals("pinned", rows.get(0).content());
             assertEquals("recent", rows.get(1).content());
         } finally {
-            dao.closeForCurrentThread();
+            dao.close();
             db.close();
         }
     }
@@ -141,7 +142,7 @@ class ClipEntryDaoTest {
             dao.setTitle(entry.id(), "   ");
             assertNull(dao.listLatest(10).get(0).title());
         } finally {
-            dao.closeForCurrentThread();
+            dao.close();
             db.close();
         }
     }
@@ -203,7 +204,7 @@ class ClipEntryDaoTest {
             assertEquals(List.of("second", "third", "first"), pinnedContents(dao));
             assertEquals(List.of(0, 1, 2), pinnedOrders(dao));
         } finally {
-            dao.closeForCurrentThread();
+            dao.close();
             db.close();
         }
     }
@@ -241,7 +242,7 @@ class ClipEntryDaoTest {
             assertEquals(1, dao.search("scope title", 10, true).size());
             assertTrue(dao.search("scope title", 10, false).isEmpty());
         } finally {
-            dao.closeForCurrentThread();
+            dao.close();
             db.close();
         }
     }
@@ -291,8 +292,8 @@ class ClipEntryDaoTest {
             );
             assertTrue(clips.queryLatest("work", 20, false, null).isEmpty());
         } finally {
-            tags.closeForCurrentThread();
-            clips.closeForCurrentThread();
+            tags.close();
+            clips.close();
             db.close();
         }
     }
@@ -366,8 +367,8 @@ class ClipEntryDaoTest {
                     )
             );
         } finally {
-            tags.closeForCurrentThread();
-            clips.closeForCurrentThread();
+            tags.close();
+            clips.close();
             db.close();
         }
     }
@@ -426,7 +427,7 @@ class ClipEntryDaoTest {
                     () -> dao.listRetentionCandidatesAfter(200L, 0L, 0)
             );
         } finally {
-            dao.closeForCurrentThread();
+            dao.close();
             db.close();
         }
     }
@@ -468,7 +469,7 @@ class ClipEntryDaoTest {
             assertEquals(501, dao.deleteByIds(ids));
             assertEquals(0, dao.countAll());
         } finally {
-            dao.closeForCurrentThread();
+            dao.close();
             db.close();
         }
     }
@@ -523,3 +524,5 @@ class ClipEntryDaoTest {
         }
     }
 }
+
+

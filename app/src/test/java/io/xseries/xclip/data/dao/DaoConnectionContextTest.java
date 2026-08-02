@@ -18,6 +18,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -189,7 +190,8 @@ class DaoConnectionContextTest {
         DaoConnectionContext context = new DaoConnectionContext(jdbcUrl);
         ExecutorService worker = Executors.newSingleThreadExecutor();
 
-        Connection workerConnection = worker.submit(context::connection).get();
+        Connection workerConnection = worker.submit(context::connection)
+                .get(5, TimeUnit.SECONDS);
         Connection mainConnection = context.connection();
 
         try {
@@ -202,6 +204,7 @@ class DaoConnectionContextTest {
             assertThrows(IllegalStateException.class, context::connection);
         } finally {
             worker.shutdownNow();
+            assertTrue(worker.awaitTermination(5, TimeUnit.SECONDS));
             context.closeAll();
         }
     }

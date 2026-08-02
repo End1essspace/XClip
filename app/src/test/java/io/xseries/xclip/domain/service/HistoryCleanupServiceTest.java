@@ -1,4 +1,3 @@
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -15,10 +14,15 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
+import java.time.Clock;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class HistoryCleanupServiceTest {
@@ -28,128 +32,149 @@ class HistoryCleanupServiceTest {
 
     @Test
     void ageCleanupUsesTypeOverridesAndAlwaysPreservesPinned() {
-        Fixture fixture = fixture();
-        long day = HistoryRetentionPolicy.MILLIS_PER_DAY;
-        long now = 100L * day;
+        try (Fixture fixture = fixture();
+             HistoryCleanupService service = new HistoryCleanupService(fixture.dao)) {
+            long day = HistoryRetentionPolicy.MILLIS_PER_DAY;
+            long now = 100L * day;
 
-        long oldText = fixture.insert("ordinary old note", now - 40L * day);
-        long oldUrl = fixture.insert("https://example.com/old", now - 8L * day);
-        fixture.insert("https://example.com/recent", now - 2L * day);
-        long pinned = fixture.insert("pinned old note", now - 90L * day);
-        fixture.dao.setFavorite(pinned, true);
+            fixture.insert("ordinary old note", now - 40L * day);
+            fixture.insert("https://example.com/old", now - 8L * day);
+            fixture.insert("https://example.com/recent", now - 2L * day);
+            long pinned = fixture.insert("pinned old note", now - 90L * day);
+            fixture.dao.setFavorite(pinned, true);
 
-        HistoryCleanupService service = new HistoryCleanupService(fixture.dao);
-        service.applyPolicy(new HistoryRetentionPolicy(
-                true,
-                30,
-                Map.of(ClipContentType.URL, 7),
-                false
-        ));
+            service.applyPolicy(new HistoryRetentionPolicy(
+                    true,
+                    30,
+                    Map.of(ClipContentType.URL, 7),
+                    false
+            ));
 
-        HistoryCleanupService.CleanupStatus status = service.runCleanupAt(
-                now,
-                HistoryCleanupService.CleanupTrigger.MANUAL
-        );
+            HistoryCleanupService.CleanupStatus status = service.runCleanupAt(
+                    now,
+                    HistoryCleanupService.CleanupTrigger.MANUAL
+            );
 
-        assertEquals(HistoryCleanupService.CleanupOutcome.SUCCESS, status.outcome());
-        assertEquals(2, status.deletedCount());
-        assertEquals(2, fixture.dao.countAll());
-        List<String> remaining = fixture.dao.listLatest(20).stream()
-                .map(entry -> entry.content())
-                .toList();
-        assertTrue(remaining.contains("https://example.com/recent"));
-        assertTrue(remaining.contains("pinned old note"));
-
-        service.close();
-        fixture.close();
+            assertEquals(HistoryCleanupService.CleanupOutcome.SUCCESS, status.outcome());
+            assertEquals(2, status.deletedCount());
+            assertEquals(2, fixture.dao.countAll());
+            List<String> remaining = fixture.dao.listLatest(20).stream()
+                    .map(entry -> entry.content())
+                    .toList();
+            assertTrue(remaining.contains("https://example.com/recent"));
+            assertTrue(remaining.contains("pinned old note"));
+        }
     }
 
     @Test
     void disabledAgeRulesPublishSkippedWithoutDeletingAnything() {
-        Fixture fixture = fixture();
-        fixture.insert("keep me", 1L);
+        try (Fixture fixture = fixture();
+             HistoryCleanupService service = new HistoryCleanupService(fixture.dao)) {
+            fixture.insert("keep me", 1L);
+            service.applyPolicy(HistoryRetentionPolicy.defaults());
 
-        HistoryCleanupService service = new HistoryCleanupService(fixture.dao);
-        service.applyPolicy(HistoryRetentionPolicy.defaults());
+            HistoryCleanupService.CleanupStatus status = service.runCleanupAt(
+                    100L * HistoryRetentionPolicy.MILLIS_PER_DAY,
+                    HistoryCleanupService.CleanupTrigger.STARTUP
+            );
 
-        HistoryCleanupService.CleanupStatus status = service.runCleanupAt(
-                100L * HistoryRetentionPolicy.MILLIS_PER_DAY,
-                HistoryCleanupService.CleanupTrigger.STARTUP
-        );
-
-        assertEquals(HistoryCleanupService.CleanupOutcome.SKIPPED, status.outcome());
-        assertEquals(0, status.deletedCount());
-        assertEquals(1, fixture.dao.countAll());
-
-        service.close();
-        fixture.close();
+            assertEquals(HistoryCleanupService.CleanupOutcome.SKIPPED, status.outcome());
+            assertEquals(0, status.deletedCount());
+            assertEquals(1, fixture.dao.countAll());
+        }
     }
 
     @Test
     void cleanupPagesLargeCandidateSetsAndDeletesAcrossSqlBatches() {
-        Fixture fixture = fixture();
-        long day = HistoryRetentionPolicy.MILLIS_PER_DAY;
-        long now = 100L * day;
-        long old = now - 8L * day;
+        try (Fixture fixture = fixture();
+             HistoryCleanupService service = new HistoryCleanupService(fixture.dao)) {
+            long day = HistoryRetentionPolicy.MILLIS_PER_DAY;
+            long now = 100L * day;
+            long old = now - 8L * day;
 
-        int oldUrlCount = 530;
-        int oldTextCount = 25;
-        for (int index = 0; index < oldUrlCount; index++) {
-            fixture.insertDirect("https://example.com/archive/" + index, old);
+            int oldUrlCount = 530;
+            int oldTextCount = 25;
+            for (int index = 0; index < oldUrlCount; index++) {
+                fixture.insertDirect("https://example.com/archive/" + index, old);
+            }
+            for (int index = 0; index < oldTextCount; index++) {
+                fixture.insertDirect("ordinary archive note " + index, old);
+            }
+
+            service.applyPolicy(new HistoryRetentionPolicy(
+                    true,
+                    30,
+                    Map.of(ClipContentType.URL, 7),
+                    false
+            ));
+
+            HistoryCleanupService.CleanupStatus status = service.runCleanupAt(
+                    now,
+                    HistoryCleanupService.CleanupTrigger.MANUAL
+            );
+
+            assertEquals(HistoryCleanupService.CleanupOutcome.SUCCESS, status.outcome());
+            assertEquals(oldUrlCount, status.deletedCount());
+            assertEquals(oldTextCount, fixture.dao.countAll());
+            assertTrue(
+                    fixture.dao.listLatest(100).stream()
+                            .allMatch(entry -> entry.content().startsWith("ordinary archive note "))
+            );
         }
-        for (int index = 0; index < oldTextCount; index++) {
-            fixture.insertDirect("ordinary archive note " + index, old);
-        }
-
-        HistoryCleanupService service = new HistoryCleanupService(fixture.dao);
-        service.applyPolicy(new HistoryRetentionPolicy(
-                true,
-                30,
-                Map.of(ClipContentType.URL, 7),
-                false
-        ));
-
-        HistoryCleanupService.CleanupStatus status = service.runCleanupAt(
-                now,
-                HistoryCleanupService.CleanupTrigger.MANUAL
-        );
-
-        assertEquals(HistoryCleanupService.CleanupOutcome.SUCCESS, status.outcome());
-        assertEquals(oldUrlCount, status.deletedCount());
-        assertEquals(oldTextCount, fixture.dao.countAll());
-        assertTrue(
-                fixture.dao.listLatest(100).stream()
-                        .allMatch(entry -> entry.content().startsWith("ordinary archive note "))
-        );
-
-        service.close();
-        fixture.close();
     }
 
     @Test
     void clearOnExitDeletesOnlyRecentHistory() {
-        Fixture fixture = fixture();
-        fixture.insert("recent one", 10L);
-        fixture.insert("recent two", 20L);
-        long pinned = fixture.insert("pinned", 1L);
-        fixture.dao.setFavorite(pinned, true);
+        try (Fixture fixture = fixture();
+             HistoryCleanupService service = new HistoryCleanupService(fixture.dao)) {
+            fixture.insert("recent one", 10L);
+            fixture.insert("recent two", 20L);
+            long pinned = fixture.insert("pinned", 1L);
+            fixture.dao.setFavorite(pinned, true);
 
-        HistoryCleanupService service = new HistoryCleanupService(fixture.dao);
-        service.applyPolicy(new HistoryRetentionPolicy(
-                false,
-                30,
-                Map.of(),
-                true
-        ));
+            service.applyPolicy(new HistoryRetentionPolicy(
+                    false,
+                    30,
+                    Map.of(),
+                    true
+            ));
 
-        HistoryCleanupService.CleanupStatus status = service.shutdownAndClearOnExit();
+            HistoryCleanupService.CleanupStatus status = service.shutdownAndClearOnExit();
 
-        assertEquals(HistoryCleanupService.CleanupOutcome.SUCCESS, status.outcome());
-        assertEquals(2, status.deletedCount());
-        assertEquals(1, fixture.dao.countAll());
-        assertEquals("pinned", fixture.dao.listLatest(10).get(0).content());
+            assertEquals(HistoryCleanupService.CleanupOutcome.SUCCESS, status.outcome());
+            assertEquals(2, status.deletedCount());
+            assertEquals(1, fixture.dao.countAll());
+            assertEquals("pinned", fixture.dao.listLatest(10).get(0).content());
+        }
+    }
 
-        fixture.close();
+    @Test
+    void closeTerminatesInjectedExecutorThread() {
+        try (Fixture fixture = fixture()) {
+            AtomicReference<Thread> workerThread = new AtomicReference<>();
+            ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(
+                    1,
+                    runnable -> {
+                        Thread thread = new Thread(runnable, "history-cleanup-test");
+                        thread.setDaemon(true);
+                        workerThread.set(thread);
+                        return thread;
+                    }
+            );
+            executor.prestartCoreThread();
+
+            HistoryCleanupService service = new HistoryCleanupService(
+                    fixture.dao,
+                    Clock.systemUTC(),
+                    executor
+            );
+            service.close();
+
+            Thread worker = workerThread.get();
+            assertNotNull(worker);
+            assertTrue(executor.isTerminated());
+            assertFalse(worker.isAlive());
+        }
     }
 
     private Fixture fixture() {
@@ -158,7 +183,7 @@ class HistoryCleanupServiceTest {
         return new Fixture(database, new ClipEntryDao(database.jdbcUrl()));
     }
 
-    private static final class Fixture {
+    private static final class Fixture implements AutoCloseable {
         private final Database database;
         private final ClipEntryDao dao;
 
@@ -192,8 +217,9 @@ class HistoryCleanupServiceTest {
             );
         }
 
-        private void close() {
-            dao.closeForCurrentThread();
+        @Override
+        public void close() {
+            dao.close();
             database.close();
         }
     }

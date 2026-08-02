@@ -1,4 +1,5 @@
 
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -374,9 +375,11 @@ class TagDaoTest {
 
     private record TestContext(Database db, ClipEntryDao clips, TagDao tags) {
         void close() {
-            tags.closeForCurrentThread();
-            clips.closeForCurrentThread();
+            tags.close();
+            clips.close();
             db.close();
         }
     }
 }
+
+

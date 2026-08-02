@@ -33,30 +33,32 @@ class DataOwnershipServiceTest {
         Database database = new Database(dbPath);
         database.init();
 
-        ClipEntryDao clipDao = new ClipEntryDao(database.jdbcUrl());
-        TagDao tagDao = new TagDao(database.jdbcUrl());
+        try (ClipEntryDao clipDao = new ClipEntryDao(database.jdbcUrl());
+             TagDao tagDao = new TagDao(database.jdbcUrl())) {
+            DuplicateContentKeys keys = DuplicateContentKeys.from("owned value");
+            clipDao.insertNew("owned value", "owned value", keys, 1_000L);
+            tagDao.listAll();
+            Files.writeString(configPath, "{}");
 
-        DuplicateContentKeys keys = DuplicateContentKeys.from("owned value");
-        clipDao.insertNew("owned value", "owned value", keys, 1_000L);
-        tagDao.listAll();
-        Files.writeString(configPath, "{}");
+            Path wal = Path.of(dbPath.toString() + "-wal");
+            Path shm = Path.of(dbPath.toString() + "-shm");
+            assertTrue(Files.exists(dbPath));
 
-        Path wal = Path.of(dbPath.toString() + "-wal");
-        Path shm = Path.of(dbPath.toString() + "-shm");
-        assertTrue(Files.exists(dbPath));
+            DataOwnershipService service = new DataOwnershipService(
+                    database,
+                    tempDir,
+                    configPath,
+                    List.of(tagDao::releaseConnections, clipDao::releaseConnections)
+            );
 
-        DataOwnershipService service = new DataOwnershipService(
-                database,
-                tempDir,
-                configPath,
-                List.of(tagDao::releaseConnections, clipDao::releaseConnections)
-        );
+            service.clearAllData();
 
-        service.clearAllData();
-
-        assertFalse(Files.exists(dbPath));
-        assertFalse(Files.exists(wal));
-        assertFalse(Files.exists(shm));
-        assertFalse(Files.exists(configPath));
+            assertFalse(Files.exists(dbPath));
+            assertFalse(Files.exists(wal));
+            assertFalse(Files.exists(shm));
+            assertFalse(Files.exists(configPath));
+        } finally {
+            database.close();
+        }
     }
 }
