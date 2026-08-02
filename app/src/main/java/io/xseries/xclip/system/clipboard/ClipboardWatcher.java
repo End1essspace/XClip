@@ -9,6 +9,7 @@ import java.util.Objects;
 import java.util.concurrent.*;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 public final class ClipboardWatcher implements AutoCloseable {
 
@@ -30,7 +31,7 @@ public final class ClipboardWatcher implements AutoCloseable {
     private final ClipboardAccess access;
     private final Consumer<String> onText;
     private final BooleanSupplier isPaused;
-    private final BooleanSupplier isCaptureAllowed;
+    private final Predicate<String> isCaptureAllowed;
 
     private volatile boolean closed  = false;
     private volatile boolean started = false;
@@ -52,7 +53,7 @@ public final class ClipboardWatcher implements AutoCloseable {
             Consumer<String> onText,
             BooleanSupplier isPaused
     ) {
-        this(access, onText, isPaused, () -> DEFAULT_MAX_TEXT_LEN, () -> true);
+        this(access, onText, isPaused, () -> DEFAULT_MAX_TEXT_LEN, content -> true);
     }
 
     public ClipboardWatcher(
@@ -60,6 +61,21 @@ public final class ClipboardWatcher implements AutoCloseable {
             Consumer<String> onText,
             BooleanSupplier isPaused,
             BooleanSupplier isCaptureAllowed
+    ) {
+        this(
+                access,
+                onText,
+                isPaused,
+                () -> DEFAULT_MAX_TEXT_LEN,
+                adapt(isCaptureAllowed)
+        );
+    }
+
+    public ClipboardWatcher(
+            ClipboardAccess access,
+            Consumer<String> onText,
+            BooleanSupplier isPaused,
+            Predicate<String> isCaptureAllowed
     ) {
         this(access, onText, isPaused, () -> DEFAULT_MAX_TEXT_LEN, isCaptureAllowed);
     }
@@ -70,7 +86,7 @@ public final class ClipboardWatcher implements AutoCloseable {
             BooleanSupplier isPaused,
             java.util.function.IntSupplier maxTextLen
     ) {
-        this(access, onText, isPaused, maxTextLen, () -> true);
+        this(access, onText, isPaused, maxTextLen, content -> true);
     }
 
     public ClipboardWatcher(
@@ -79,6 +95,22 @@ public final class ClipboardWatcher implements AutoCloseable {
             BooleanSupplier isPaused,
             java.util.function.IntSupplier maxTextLen,
             BooleanSupplier isCaptureAllowed
+    ) {
+        this(
+                access,
+                onText,
+                isPaused,
+                maxTextLen,
+                adapt(isCaptureAllowed)
+        );
+    }
+
+    public ClipboardWatcher(
+            ClipboardAccess access,
+            Consumer<String> onText,
+            BooleanSupplier isPaused,
+            java.util.function.IntSupplier maxTextLen,
+            Predicate<String> isCaptureAllowed
     ) {
         this.access = Objects.requireNonNull(access);
         this.onText = Objects.requireNonNull(onText);
@@ -168,7 +200,7 @@ public final class ClipboardWatcher implements AutoCloseable {
             }
             consecutiveNoChange = 0;
 
-            if (captureAllowedFailOpen()) {
+            if (captureAllowedFailOpen(isCaptureAllowed, captured)) {
                 onText.accept(captured);
             }
 
@@ -196,9 +228,12 @@ public final class ClipboardWatcher implements AutoCloseable {
         }
     }
 
-    private boolean captureAllowedFailOpen() {
+    static boolean captureAllowedFailOpen(
+            Predicate<String> capturePolicy,
+            String content
+    ) {
         try {
-            return isCaptureAllowed.getAsBoolean();
+            return capturePolicy == null || capturePolicy.test(content);
         } catch (Throwable ignored) {
             return true;
         }
@@ -227,6 +262,14 @@ public final class ClipboardWatcher implements AutoCloseable {
             return value.substring(0, cap);
         }
         return value;
+    }
+
+    private static Predicate<String> adapt(BooleanSupplier captureAllowed) {
+        BooleanSupplier supplier = Objects.requireNonNull(
+                captureAllowed,
+                "isCaptureAllowed"
+        );
+        return content -> supplier.getAsBoolean();
     }
 
     @Override

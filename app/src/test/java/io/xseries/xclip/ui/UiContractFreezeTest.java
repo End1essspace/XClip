@@ -9,6 +9,7 @@ import io.xseries.xclip.config.Config;
 import io.xseries.xclip.domain.duplicate.DuplicateBehaviorPolicy;
 import io.xseries.xclip.domain.model.ClipContentType;
 import io.xseries.xclip.domain.privacy.ExcludedApplicationPolicy;
+import io.xseries.xclip.domain.privacy.SensitiveContentPolicy;
 import io.xseries.xclip.domain.model.ClipViewScope;
 import io.xseries.xclip.domain.service.TagNamePolicy;
 import io.xseries.xclip.ui.components.UiIcon;
@@ -40,7 +41,7 @@ class UiContractFreezeTest {
     void frozenContractMatchesRuntimeConstantsAndEnums() throws Exception {
         Properties contract = loadContract();
 
-        assertEquals("8", contract.getProperty("contract.version"));
+        assertEquals("9", contract.getProperty("contract.version"));
         assertEquals("1.3.0", contract.getProperty("product.version"));
         assertEquals(Config.MIN_WINDOW_W, intValue(contract, "window.minWidth"));
         assertEquals(Config.MIN_WINDOW_H, intValue(contract, "window.minHeight"));
@@ -234,6 +235,29 @@ class UiContractFreezeTest {
                 "EMPTY",
                 required(contract, "privacy.defaultExcludedApplications")
         );
+        assertEquals(
+                "DEDICATED",
+                required(contract, "privacy.sensitiveSettingsSection")
+        );
+        assertEquals(
+                enumNames(SensitiveContentPolicy.RuleAction.values()),
+                values(contract, "privacy.sensitiveActions")
+        );
+        assertEquals(
+                enumNames(SensitiveContentPolicy.SensitiveKind.values()),
+                values(contract, "privacy.sensitiveKinds")
+        );
+        assertEquals(
+                "LUHN_13_19_BOUNDARY",
+                required(contract, "privacy.paymentCardDetection")
+        );
+        assertEquals(
+                "CONTEXTUAL_4_8_DIGITS",
+                required(contract, "privacy.oneTimeCodeDetection")
+        );
+        assertEquals("CAPTURE", required(contract, "privacy.defaultSensitiveActions"));
+        assertEquals("FAIL_OPEN", required(contract, "privacy.sensitiveFailure"));
+        assertEquals("NONE", required(contract, "privacy.sensitiveHistoryMutation"));
         assertEquals(UiStyles.popupResourcePaths(), values(contract, "popup.stylesheets"));
         assertEquals(UiStyles.settingsResourcePaths(), values(contract, "settings.stylesheets"));
         assertEquals(UiIcon.values().length, intValue(contract, "popup.iconCount"));

@@ -6,6 +6,7 @@
 package io.xseries.xclip.config;
 
 import io.xseries.xclip.domain.duplicate.DuplicateBehaviorPolicy;
+import io.xseries.xclip.domain.privacy.SensitiveContentPolicy;
 
 import org.junit.jupiter.api.Test;
 
@@ -114,6 +115,34 @@ class ConfigTest {
                 config.excludedApplications()
         );
         assertEquals(1_400, config.maxHistory());
+        assertTrue(config.startMinimized());
+    }
+
+    @Test
+    void v3ConfigMigratesToCaptureSensitiveContentDefaults() {
+        Config config = new Config(3, 800, 0, false, false, true).normalized();
+
+        assertEquals(Config.CURRENT_VERSION, config.version());
+        assertEquals(SensitiveContentPolicy.defaults(), config.sensitiveContentPolicy());
+    }
+
+    @Test
+    void sensitiveRulesSurviveEveryUnrelatedWither() {
+        SensitiveContentPolicy policy = new SensitiveContentPolicy(
+                SensitiveContentPolicy.RuleAction.SKIP,
+                SensitiveContentPolicy.RuleAction.SKIP
+        );
+
+        Config config = Config.defaults()
+                .withSensitiveContentPolicy(policy)
+                .withExcludedApplications(java.util.List.of("keepassxc.exe"))
+                .withMaxHistory(1_600)
+                .withStartMinimized(true)
+                .withDuplicateBehaviorPolicy(DuplicateBehaviorPolicy.defaults());
+
+        assertEquals(policy, config.sensitiveContentPolicy());
+        assertEquals(java.util.List.of("keepassxc.exe"), config.excludedApplications());
+        assertEquals(1_600, config.maxHistory());
         assertTrue(config.startMinimized());
     }
 

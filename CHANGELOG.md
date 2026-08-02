@@ -7,6 +7,12 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+* Added explicit opt-in sensitive-content rules for payment-card-like values and contextual one-time codes.
+* Added local-only payment-card detection with bounded 13–19 digit candidates, safe token boundaries, common separators, and Luhn verification.
+* Added low-false-positive OTP detection for 4–8 digit values near explicit English, Russian, or Uzbek verification context; standalone numbers remain capturable.
+* Added config v4 persistence, backward-compatible migration from v3, dedicated Settings controls, scoped reset, and immediate runtime application.
+* Extended the clipboard privacy gate to inspect the exact changed content while preserving fail-open behavior and the watcher last-seen barrier.
+* Extended the frozen UI contract to revision 9 and added domain, migration, runtime-gate, CSS, and contract tests for sensitive-content rules.
 * Added process-based foreground application exclusions with a dedicated Privacy section in Settings.
 * Added config v3 persistence for a normalized, case-insensitive executable-basename exclusion list with backward-compatible migration from config v2.
 * Added a best-effort Windows foreground resolver that records process id, executable name, and window title without blocking capture on resolver failure.
@@ -59,7 +65,8 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-* Duplicate behavior values remain persisted in config v3 and continue to apply immediately through `ClipService` and the dedicated Settings controls.
+* Duplicate behavior and application exclusions remain persisted in config v4 together with sensitive-content actions.
+* Clipboard capture gates now receive the exact capped changed text, allowing content-aware privacy rules without moving detection into persistence.
 * Clipboard watcher now evaluates the foreground privacy gate after marking a changed value as observed, preventing excluded content from being captured later after a window switch without another clipboard change.
 * Clipboard watching now forwards exact capped text to the domain layer so case- and whitespace-only changes can be evaluated by the selected duplicate policy.
 * `content_hash` is no longer unique in schema v6 because finite duplicate windows can intentionally retain multiple equal clips.

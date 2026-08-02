@@ -216,6 +216,14 @@ public final class ConfigService {
                 && java.util.Objects.equals(
                         a.excludedApplicationsValue(),
                         b.excludedApplicationsValue()
+                )
+                && java.util.Objects.equals(
+                        a.sensitivePaymentCardActionValue(),
+                        b.sensitivePaymentCardActionValue()
+                )
+                && java.util.Objects.equals(
+                        a.sensitiveOneTimeCodeActionValue(),
+                        b.sensitiveOneTimeCodeActionValue()
                 );
     }
 }

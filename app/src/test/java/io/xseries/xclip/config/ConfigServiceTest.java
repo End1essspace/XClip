@@ -7,6 +7,7 @@
 package io.xseries.xclip.config;
 
 import io.xseries.xclip.domain.duplicate.DuplicateBehaviorPolicy;
+import io.xseries.xclip.domain.privacy.SensitiveContentPolicy;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -51,11 +52,13 @@ class ConfigServiceTest {
         assertEquals(900, loaded.maxHistory());
         assertTrue(loaded.startMinimized());
         assertEquals(DuplicateBehaviorPolicy.defaults(), loaded.duplicateBehaviorPolicy());
-        assertTrue(persisted.contains("\"version\": 3"));
+        assertTrue(persisted.contains("\"version\": 4"));
         assertTrue(persisted.contains("duplicateRecentPosition"));
         assertTrue(persisted.contains("MOVE_TO_TOP"));
         assertTrue(persisted.contains("excludedApplications"));
         assertTrue(loaded.excludedApplications().isEmpty());
+        assertTrue(persisted.contains("sensitivePaymentCardAction"));
+        assertEquals(SensitiveContentPolicy.defaults(), loaded.sensitiveContentPolicy());
     }
 
     @Test
@@ -134,11 +137,53 @@ class ConfigServiceTest {
                 java.util.List.of("chrome.exe", "keepassxc.exe"),
                 loaded.excludedApplications()
         );
-        assertTrue(persisted.contains("\"version\": 3"));
+        assertTrue(persisted.contains("\"version\": 4"));
         assertTrue(persisted.contains("chrome.exe"));
         assertTrue(persisted.contains("keepassxc.exe"));
         assertFalse(persisted.contains("*.exe"));
     }
 
-}
+    @Test
+    void migratesV3SensitiveDefaultsAndNormalizesUnknownActions() throws Exception {
+        Path path = tempDir.resolve("config.json");
+        Files.writeString(path, """
+                {
+                  "version": 3,
+                  "maxHistory": 1350,
+                  "minClipLength": 0,
+                  "maxClipChars": 500000,
+                  "uiClipLimit": 200,
+                  "startOnBoot": false,
+                  "startMinimized": false,
+                  "watcherEnabled": true,
+                  "windowX": -1,
+                  "windowY": -1,
+                  "windowW": 520,
+                  "windowH": 420,
+                  "windowMaximized": false,
+                  "excludedApplications": ["notepad.exe"],
+                  "sensitivePaymentCardAction": "skip",
+                  "sensitiveOneTimeCodeAction": "unknown"
+                }
+                """, StandardCharsets.UTF_8);
 
+        Config loaded = new ConfigService(path).loadOrCreate();
+        String persisted = Files.readString(path, StandardCharsets.UTF_8);
+
+        assertEquals(Config.CURRENT_VERSION, loaded.version());
+        assertEquals(1350, loaded.maxHistory());
+        assertEquals(java.util.List.of("notepad.exe"), loaded.excludedApplications());
+        assertEquals(
+                SensitiveContentPolicy.RuleAction.SKIP,
+                loaded.sensitiveContentPolicy().paymentCardAction()
+        );
+        assertEquals(
+                SensitiveContentPolicy.RuleAction.CAPTURE,
+                loaded.sensitiveContentPolicy().oneTimeCodeAction()
+        );
+        assertTrue(persisted.contains("\"version\": 4"));
+        assertTrue(persisted.contains("\"sensitivePaymentCardAction\": \"SKIP\""));
+        assertTrue(persisted.contains("\"sensitiveOneTimeCodeAction\": \"CAPTURE\""));
+    }
+
+}

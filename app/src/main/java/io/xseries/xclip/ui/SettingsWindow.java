@@ -10,6 +10,7 @@ import io.xseries.xclip.config.Config;
 import io.xseries.xclip.config.ConfigService;
 import io.xseries.xclip.domain.duplicate.DuplicateBehaviorPolicy;
 import io.xseries.xclip.domain.privacy.ExcludedApplicationPolicy;
+import io.xseries.xclip.domain.privacy.SensitiveContentPolicy;
 import io.xseries.xclip.domain.service.ClipService;
 import io.xseries.xclip.system.DataOwnershipService;
 import io.xseries.xclip.system.WindowsAutoStartService;
@@ -98,6 +99,9 @@ public final class SettingsWindow {
 
     private final TextArea excludedApplications;
     private final Button clearExcludedApplicationsBtn;
+    private final ComboBox<SensitiveContentPolicy.RuleAction> paymentCardAction;
+    private final ComboBox<SensitiveContentPolicy.RuleAction> oneTimeCodeAction;
+    private final Button resetSensitiveRulesBtn;
 
     private final Button openDataFolderBtn;
     private final Button clearAllDataBtn;
@@ -268,6 +272,24 @@ public final class SettingsWindow {
         );
         clearExcludedApplicationsBtn.getStyleClass().add("btn-subtle");
 
+        paymentCardAction = enumCombo(
+                SensitiveContentPolicy.RuleAction.values(),
+                SettingsWindow::sensitiveRuleActionLabel,
+                "Payment card capture rule",
+                "Choose whether Luhn-valid payment-card-like values are captured or skipped."
+        );
+        oneTimeCodeAction = enumCombo(
+                SensitiveContentPolicy.RuleAction.values(),
+                SettingsWindow::sensitiveRuleActionLabel,
+                "One-time code capture rule",
+                "Choose whether contextual OTP and verification-code messages are captured or skipped."
+        );
+        resetSensitiveRulesBtn = new Button("Reset sensitive rules");
+        resetSensitiveRulesBtn.setAccessibleHelp(
+                "Restore normal capture for every sensitive-content rule."
+        );
+        resetSensitiveRulesBtn.getStyleClass().add("btn-subtle");
+
         GridPane captureGrid = settingsGrid();
         int captureRow = 0;
         captureRow = addSettingRow(
@@ -397,6 +419,41 @@ public final class SettingsWindow {
         );
         privacySection.getStyleClass().add("privacy-settings-section");
 
+        GridPane sensitiveGrid = settingsGrid();
+        int sensitiveRow = 0;
+        sensitiveRow = addSettingRow(
+                sensitiveGrid,
+                sensitiveRow,
+                "Payment card numbers",
+                "A match requires 13–19 digits, a valid Luhn checksum, and safe token boundaries.",
+                paymentCardAction
+        );
+        addSettingRow(
+                sensitiveGrid,
+                sensitiveRow,
+                "One-time codes",
+                "Only 4–8 digit values near explicit OTP or verification wording are matched.",
+                oneTimeCodeAction
+        );
+
+        Label sensitiveDetectionHint = new Label(
+                "Detection runs locally. Standalone short numbers are not treated as OTP. Rules apply only to new clipboard changes; existing history is never scanned or deleted."
+        );
+        sensitiveDetectionHint.setWrapText(true);
+        sensitiveDetectionHint.getStyleClass().add("settings-sensitive-hint");
+
+        HBox sensitiveActions = new HBox(resetSensitiveRulesBtn);
+        sensitiveActions.setAlignment(Pos.CENTER_RIGHT);
+
+        VBox sensitiveSection = section(
+                "Privacy — sensitive content",
+                "Explicit opt-in rules can skip selected sensitive text before it reaches clipboard history.",
+                sensitiveGrid,
+                sensitiveDetectionHint,
+                sensitiveActions
+        );
+        sensitiveSection.getStyleClass().add("sensitive-settings-section");
+
         statusLabel.getStyleClass().add("status-text");
         statusLabel.setAccessibleText("Settings operation status");
         statusLabel.setManaged(false);
@@ -500,6 +557,7 @@ public final class SettingsWindow {
                 captureSection,
                 duplicateSection,
                 privacySection,
+                sensitiveSection,
                 dataSection,
                 new Separator(),
                 dangerBox
@@ -592,6 +650,14 @@ public final class SettingsWindow {
             showStatus("Application exclusions cleared • Apply to save");
         });
 
+        paymentCardAction.valueProperty().addListener(
+                (observable, oldValue, newValue) -> markDirtyUnlessSyncing()
+        );
+        oneTimeCodeAction.valueProperty().addListener(
+                (observable, oldValue, newValue) -> markDirtyUnlessSyncing()
+        );
+        resetSensitiveRulesBtn.setOnAction(event -> resetSensitiveControlsToDefaults());
+
         internalSync = true;
         syncUiFromCurrent();
         internalSync = false;
@@ -647,6 +713,8 @@ public final class SettingsWindow {
         ExcludedApplicationPolicy excludedPolicy = excludedApplicationPolicyFromUi();
         if (excludedPolicy == null) return;
 
+        SensitiveContentPolicy sensitivePolicy = sensitiveContentPolicyFromUi();
+
         Config next = current
                 .withMaxHistory(maxHistory.getValue())
                 .withMinClipLength(minClipLength.getValue())
@@ -656,7 +724,8 @@ public final class SettingsWindow {
                 .withStartMinimized(startMinimized.isSelected())
                 .withStartOnBoot(startOnBoot.isSelected())
                 .withDuplicateBehaviorPolicy(duplicatePolicy)
-                .withExcludedApplications(excludedPolicy.executableNames());
+                .withExcludedApplications(excludedPolicy.executableNames())
+                .withSensitiveContentPolicy(sensitivePolicy);
 
         boolean autoStartChanged = current.startOnBoot() != next.startOnBoot();
 
@@ -727,12 +796,29 @@ public final class SettingsWindow {
         }
     }
 
+    private SensitiveContentPolicy sensitiveContentPolicyFromUi() {
+        SensitiveContentPolicy.RuleAction cardAction = paymentCardAction.getValue();
+        SensitiveContentPolicy.RuleAction otpAction = oneTimeCodeAction.getValue();
+        return new SensitiveContentPolicy(
+                cardAction == null ? SensitiveContentPolicy.RuleAction.CAPTURE : cardAction,
+                otpAction == null ? SensitiveContentPolicy.RuleAction.CAPTURE : otpAction
+        );
+    }
+
     private void resetDuplicateControlsToDefaults() {
         internalSync = true;
         syncDuplicateControls(DuplicateBehaviorPolicy.defaults());
         internalSync = false;
         markDirty();
         showStatus("Duplicate defaults restored • Apply to save");
+    }
+
+    private void resetSensitiveControlsToDefaults() {
+        internalSync = true;
+        syncSensitiveControls(SensitiveContentPolicy.defaults());
+        internalSync = false;
+        markDirty();
+        showStatus("Sensitive rules reset • Apply to save");
     }
 
     private void syncUiFromCurrent() {
@@ -748,8 +834,17 @@ public final class SettingsWindow {
                 current.excludedApplicationPolicy().toMultilineText()
         );
         excludedApplications.getStyleClass().remove("input-error");
+        syncSensitiveControls(current.sensitiveContentPolicy());
         syncAutostartCheckbox();
         forceSyncSpinnerEditors();
+    }
+
+    private void syncSensitiveControls(SensitiveContentPolicy policy) {
+        SensitiveContentPolicy value = policy == null
+                ? SensitiveContentPolicy.defaults()
+                : policy;
+        paymentCardAction.setValue(value.paymentCardAction());
+        oneTimeCodeAction.setValue(value.oneTimeCodeAction());
     }
 
     private void syncDuplicateControls(DuplicateBehaviorPolicy policy) {
@@ -952,6 +1047,16 @@ public final class SettingsWindow {
     private void syncSpinnerEditor(Spinner<Integer> spinner) {
         spinner.getEditor().setText(String.valueOf(spinner.getValue()));
         spinner.getEditor().getStyleClass().remove("input-error");
+    }
+
+    private static String sensitiveRuleActionLabel(
+            SensitiveContentPolicy.RuleAction action
+    ) {
+        if (action == null) return "";
+        return switch (action) {
+            case CAPTURE -> "Capture normally";
+            case SKIP -> "Skip capture";
+        };
     }
 
     private static Spinner<Integer> intSpinner(

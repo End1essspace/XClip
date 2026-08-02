@@ -7,6 +7,7 @@ package io.xseries.xclip.config;
 
 import io.xseries.xclip.domain.duplicate.DuplicateBehaviorPolicy;
 import io.xseries.xclip.domain.privacy.ExcludedApplicationPolicy;
+import io.xseries.xclip.domain.privacy.SensitiveContentPolicy;
 
 import java.util.List;
 import java.util.Locale;
@@ -17,7 +18,7 @@ import java.util.Objects;
  */
 public final class Config {
 
-    public static final int CURRENT_VERSION = 3;
+    public static final int CURRENT_VERSION = 4;
 
     private final int version;
     private final int maxHistory;
@@ -53,6 +54,8 @@ public final class Config {
     private final boolean duplicateExactContentMode;
 
     private final List<String> excludedApplications;
+    private final String sensitivePaymentCardAction;
+    private final String sensitiveOneTimeCodeAction;
 
     public Config(
             int version,
@@ -114,7 +117,9 @@ public final class Config {
                 null,
                 DuplicateBehaviorPolicy.UNLIMITED_WINDOW,
                 false,
-                List.of()
+                List.of(),
+                null,
+                null
         );
     }
 
@@ -138,7 +143,9 @@ public final class Config {
             String duplicateCaseSensitivity,
             long duplicateWindowMillis,
             boolean duplicateExactContentMode,
-            List<String> excludedApplications
+            List<String> excludedApplications,
+            String sensitivePaymentCardAction,
+            String sensitiveOneTimeCodeAction
     ) {
         this.version = version;
         this.maxHistory = maxHistory;
@@ -160,6 +167,8 @@ public final class Config {
         this.duplicateWindowMillis = duplicateWindowMillis;
         this.duplicateExactContentMode = duplicateExactContentMode;
         this.excludedApplications = excludedApplications;
+        this.sensitivePaymentCardAction = sensitivePaymentCardAction;
+        this.sensitiveOneTimeCodeAction = sensitiveOneTimeCodeAction;
     }
 
     public static Config defaults() {
@@ -210,6 +219,7 @@ public final class Config {
 
         DuplicateBehaviorPolicy duplicatePolicy = duplicateBehaviorPolicy();
         ExcludedApplicationPolicy excludedPolicy = excludedApplicationPolicy();
+        SensitiveContentPolicy sensitivePolicy = sensitiveContentPolicy();
 
         return new Config(
                 v,
@@ -231,7 +241,9 @@ public final class Config {
                 duplicatePolicy.caseSensitivity().name(),
                 duplicatePolicy.duplicateWindowMillis(),
                 duplicatePolicy.exactContentMode(),
-                excludedPolicy.executableNames()
+                excludedPolicy.executableNames(),
+                sensitivePolicy.paymentCardAction().name(),
+                sensitivePolicy.oneTimeCodeAction().name()
         );
     }
 
@@ -288,6 +300,8 @@ public final class Config {
     long duplicateWindowMillisValue() { return duplicateWindowMillis; }
     boolean duplicateExactContentModeValue() { return duplicateExactContentMode; }
     List<String> excludedApplicationsValue() { return excludedApplications; }
+    String sensitivePaymentCardActionValue() { return sensitivePaymentCardAction; }
+    String sensitiveOneTimeCodeActionValue() { return sensitiveOneTimeCodeAction; }
 
     public ExcludedApplicationPolicy excludedApplicationPolicy() {
         return ExcludedApplicationPolicy.sanitized(excludedApplications);
@@ -295,6 +309,22 @@ public final class Config {
 
     public List<String> excludedApplications() {
         return excludedApplicationPolicy().executableNames();
+    }
+
+    public SensitiveContentPolicy sensitiveContentPolicy() {
+        SensitiveContentPolicy defaults = SensitiveContentPolicy.defaults();
+        return new SensitiveContentPolicy(
+                parseEnum(
+                        sensitivePaymentCardAction,
+                        SensitiveContentPolicy.RuleAction.class,
+                        defaults.paymentCardAction()
+                ),
+                parseEnum(
+                        sensitiveOneTimeCodeAction,
+                        SensitiveContentPolicy.RuleAction.class,
+                        defaults.oneTimeCodeAction()
+                )
+        );
     }
 
     public boolean hasWindowPos() {
@@ -382,6 +412,27 @@ public final class Config {
         ).normalized();
     }
 
+    public Config withSensitiveContentPolicy(SensitiveContentPolicy policy) {
+        SensitiveContentPolicy sensitivePolicy = Objects.requireNonNull(policy, "policy");
+        return copy(
+                maxHistory,
+                minClipLength,
+                maxClipChars,
+                uiClipLimit,
+                startOnBoot,
+                startMinimized,
+                watcherEnabled,
+                windowX,
+                windowY,
+                windowW,
+                windowH,
+                windowMaximized,
+                duplicateBehaviorPolicy(),
+                excludedApplicationPolicy(),
+                sensitivePolicy
+        ).normalized();
+    }
+
     private Config copy(
             int maxHistory,
             int minClipLength,
@@ -417,7 +468,9 @@ public final class Config {
                 duplicatePolicy.caseSensitivity().name(),
                 duplicatePolicy.duplicateWindowMillis(),
                 duplicatePolicy.exactContentMode(),
-                excludedApplicationPolicy().executableNames()
+                excludedApplicationPolicy().executableNames(),
+                sensitiveContentPolicy().paymentCardAction().name(),
+                sensitiveContentPolicy().oneTimeCodeAction().name()
         );
     }
 
@@ -457,7 +510,52 @@ public final class Config {
                 duplicatePolicy.caseSensitivity().name(),
                 duplicatePolicy.duplicateWindowMillis(),
                 duplicatePolicy.exactContentMode(),
-                excludedPolicy.executableNames()
+                excludedPolicy.executableNames(),
+                sensitiveContentPolicy().paymentCardAction().name(),
+                sensitiveContentPolicy().oneTimeCodeAction().name()
+        );
+    }
+
+    private Config copy(
+            int maxHistory,
+            int minClipLength,
+            int maxClipChars,
+            int uiClipLimit,
+            boolean startOnBoot,
+            boolean startMinimized,
+            boolean watcherEnabled,
+            double windowX,
+            double windowY,
+            double windowW,
+            double windowH,
+            boolean windowMaximized,
+            DuplicateBehaviorPolicy duplicatePolicy,
+            ExcludedApplicationPolicy excludedPolicy,
+            SensitiveContentPolicy sensitivePolicy
+    ) {
+        return new Config(
+                version,
+                maxHistory,
+                minClipLength,
+                maxClipChars,
+                uiClipLimit,
+                startOnBoot,
+                startMinimized,
+                watcherEnabled,
+                windowX,
+                windowY,
+                windowW,
+                windowH,
+                windowMaximized,
+                duplicatePolicy.recentDuplicatePosition().name(),
+                duplicatePolicy.pinnedDuplicatePosition().name(),
+                duplicatePolicy.whitespaceMode().name(),
+                duplicatePolicy.caseSensitivity().name(),
+                duplicatePolicy.duplicateWindowMillis(),
+                duplicatePolicy.exactContentMode(),
+                excludedPolicy.executableNames(),
+                sensitivePolicy.paymentCardAction().name(),
+                sensitivePolicy.oneTimeCodeAction().name()
         );
     }
 

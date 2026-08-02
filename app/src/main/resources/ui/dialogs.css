@@ -691,3 +691,18 @@
     -fx-border-color: #D85B5B;
     -fx-effect: dropshadow(gaussian, rgba(216, 91, 91, 0.34), 6, 0.2, 0, 0);
 }
+
+/* =========================================================
+   Milestone 5.2 — sensitive content rules
+   ========================================================= */
+
+.sensitive-settings-section {
+    -fx-border-color: #4B4263;
+}
+
+.settings-sensitive-hint {
+    -fx-text-fill: #A99ACB;
+    -fx-font-size: 10px;
+    -fx-line-spacing: 1px;
+    -fx-padding: 0 2 0 2;
+}

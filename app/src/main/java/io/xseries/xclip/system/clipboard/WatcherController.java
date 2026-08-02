@@ -9,6 +9,7 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 /**
  * Owns the ClipboardWatcher lifecycle and allows safe enable/disable without app restart.
@@ -23,7 +24,7 @@ public final class WatcherController implements AutoCloseable {
     private final ClipboardAccess access;
     private final Consumer<String> onText;
     private final BooleanSupplier isPaused;
-    private final BooleanSupplier isCaptureAllowed;
+    private final Predicate<String> isCaptureAllowed;
 
     private final Object lock = new Object();
     private final AtomicBoolean enabled = new AtomicBoolean(false);
@@ -35,7 +36,7 @@ public final class WatcherController implements AutoCloseable {
             Consumer<String> onText,
             BooleanSupplier isPaused
     ) {
-        this(access, onText, isPaused, () -> true);
+        this(access, onText, isPaused, content -> true);
     }
 
     public WatcherController(
@@ -43,6 +44,20 @@ public final class WatcherController implements AutoCloseable {
             Consumer<String> onText,
             BooleanSupplier isPaused,
             BooleanSupplier isCaptureAllowed
+    ) {
+        this(
+                access,
+                onText,
+                isPaused,
+                adapt(isCaptureAllowed)
+        );
+    }
+
+    public WatcherController(
+            ClipboardAccess access,
+            Consumer<String> onText,
+            BooleanSupplier isPaused,
+            Predicate<String> isCaptureAllowed
     ) {
         this.access = Objects.requireNonNull(access);
         this.onText = Objects.requireNonNull(onText);
@@ -103,6 +118,14 @@ public final class WatcherController implements AutoCloseable {
                 enable();
             }
         }
+    }
+
+    private static Predicate<String> adapt(BooleanSupplier captureAllowed) {
+        BooleanSupplier supplier = Objects.requireNonNull(
+                captureAllowed,
+                "isCaptureAllowed"
+        );
+        return content -> supplier.getAsBoolean();
     }
 
     @Override

@@ -100,6 +100,18 @@ class UiStylesResourceTest {
         }
     }
 
+
+    @Test
+    void sensitiveContentSettingsSelectorsArePackaged() throws Exception {
+        try (InputStream stream = UiStyles.class.getResourceAsStream("/ui/dialogs.css")) {
+            assertNotNull(stream);
+            String css = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+
+            assertTrue(css.contains(".sensitive-settings-section"));
+            assertTrue(css.contains(".settings-sensitive-hint"));
+        }
+    }
+
     private static int count(String value, char needle) {
         int count = 0;
         for (int index = 0; index < value.length(); index++) {

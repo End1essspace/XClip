@@ -1,6 +1,6 @@
 # XClip UI Contract v1.3.0
 
-**Status:** Frozen R11 baseline, deliberately extended by Milestones 2.2–2.4, 3.2–3.3, 4.3, and 5.1
+**Status:** Frozen R11 baseline, deliberately extended by Milestones 2.2–2.4, 3.2–3.3, 4.3, 5.1, and 5.2
 **Scope:** Popup, custom window chrome, modal surfaces, Settings styling, privacy controls, keyboard workflow, responsive behavior, and packaged UI resources.
 
 This document is the human-readable counterpart of `/ui/ui-contract-v1.3.0.properties`. Any intentional contract change must update both files and the `UiContractFreezeTest` expectations in the same reviewed milestone.
@@ -251,3 +251,35 @@ schema version 6. Config advances from version 2 to version 3.
   entries and all unrelated config values are preserved.
 - No existing history is deleted automatically. The exclusion applies only to new
   clipboard changes detected while the listed process is foreground.
+
+
+---
+
+## 16. Sensitive content rules extension — contract revision 9
+
+Milestone 5.2 adds explicit opt-in suppression for selected sensitive text.
+Config advances from version 3 to version 4; database schema remains version 6.
+
+- Settings exposes a dedicated `Privacy — sensitive content` section.
+- Every rule uses the stable actions `CAPTURE` and `SKIP`.
+- `CAPTURE` is the default for every rule, preserving pre-M5.2 behavior and
+  preventing heuristic false positives from silently losing clipboard data.
+- Payment-card detection accepts only bounded 13–19 digit candidates, permits
+  spaces or hyphens, restricts the leading digit to common payment-card ranges,
+  rejects repeated-identical digits, and requires a valid Luhn checksum.
+- One-time-code detection accepts only 4–8 digit values near explicit OTP,
+  verification, authentication, login, or equivalent Russian/Uzbek wording.
+- A standalone numeric value is never classified as OTP by this revision.
+- Sensitive inspection happens after the watcher marks the exact capped value as
+  observed. A skipped value therefore cannot be ingested later merely because a
+  rule is disabled or the foreground application changes while the clipboard is
+  unchanged.
+- Detection is local-only and does not log, transmit, rewrite, or persist the
+  rejected content.
+- Detector failures are fail-open independently from foreground-process
+  resolution failures.
+- Apply updates the runtime gate immediately without restarting XClip.
+- Reset affects only sensitive-content controls and restores normal capture.
+- Existing history is never scanned or automatically deleted.
+- Password-manager applications remain governed by the explicit M5.1 executable
+  exclusion list. Retention and cleanup belong to Milestone 5.3.

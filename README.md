@@ -24,6 +24,12 @@ Unlike simple clipboard utilities, XClip focuses on engineering quality: layered
 - Local-only persisted exclusion list in Settings
 - Fail-open resolver behavior prevents silent data loss when Windows process metadata is unavailable
 
+🛡 **Sensitive Content Rules**
+- Optional local-only suppression for Luhn-valid payment-card-like values
+- Optional suppression for contextual 4–8 digit OTP and verification codes
+- Safe defaults capture normally; every blocking rule requires explicit opt-in
+- Existing clipboard history is never scanned or deleted automatically
+
 🔍 **Instant Search with Highlighting**
 - Live search across full clipboard history
 - Advanced operators: `type:`, `is:`, `tag:`, `-type:`, and `-tag:`
@@ -199,6 +205,12 @@ Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
 - Сопоставление имени процесса без учёта регистра
 - Локальный persistent-список исключений в Settings
 - Fail-open resolver не допускает тихой потери данных, если Windows не отдал сведения о процессе
+
+🛡 **Правила чувствительного содержимого**
+- Опциональный локальный пропуск значений, похожих на номер платёжной карты и прошедших Luhn-проверку
+- Опциональный пропуск 4–8-значных OTP-кодов только при явном контексте подтверждения
+- Безопасные defaults сохраняют обычный capture; блокировка включается только явно
+- Существующая clipboard history автоматически не сканируется и не удаляется
 
 🔍 **Мгновенный поиск с подсветкой**
 - Живой поиск по всей истории буфера обмена
