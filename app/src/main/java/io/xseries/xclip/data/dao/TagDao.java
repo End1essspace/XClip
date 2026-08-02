@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -49,22 +50,10 @@ public final class TagDao {
      */
     public ClipTag createOrGet(String rawName) {
         NormalizedTagName normalized = TagNamePolicy.normalize(rawName);
-        Connection c = connections.connection();
-        boolean previousAutoCommit = connections.beginTransaction(
-                c,
-                "tag create transaction setup failed"
+        return connections.inTransaction(
+                "createOrGet tag failed",
+                c -> createOrGet(c, normalized)
         );
-
-        try {
-            ClipTag tag = createOrGet(c, normalized);
-            c.commit();
-            return tag;
-        } catch (Exception e) {
-            connections.rollbackQuietly(c);
-            throw new RuntimeException("createOrGet tag failed", e);
-        } finally {
-            connections.restoreAutoCommit(c, previousAutoCommit);
-        }
     }
 
     private ClipTag createOrGet(Connection c, NormalizedTagName normalized) throws SQLException {
@@ -223,17 +212,10 @@ public final class TagDao {
         requirePositiveId(clipId, "clipId");
         requirePositiveId(tagId, "tagId");
 
-        Connection c = connections.connection();
-        boolean previousAutoCommit = connections.beginTransaction(
-                c,
-                "tag assignment transaction setup failed"
-        );
-
-        try {
+        return connections.inTransaction("addTagToClip failed", c -> {
             requireClipExists(c, clipId);
             requireTagExists(c, tagId);
 
-            boolean inserted;
             try (PreparedStatement ps = c.prepareStatement("""
                     INSERT INTO clip_tags(clip_id, tag_id, assigned_at)
                     VALUES (?, ?, ?)
@@ -242,17 +224,9 @@ public final class TagDao {
                 ps.setLong(1, clipId);
                 ps.setLong(2, tagId);
                 ps.setLong(3, System.currentTimeMillis());
-                inserted = ps.executeUpdate() > 0;
+                return ps.executeUpdate() > 0;
             }
-
-            c.commit();
-            return inserted;
-        } catch (RuntimeException | SQLException e) {
-            connections.rollbackQuietly(c);
-            throw propagate("addTagToClip failed", e);
-        } finally {
-            connections.restoreAutoCommit(c, previousAutoCommit);
-        }
+        });
     }
 
     public boolean removeTagFromClip(long clipId, long tagId) {
@@ -280,13 +254,7 @@ public final class TagDao {
         requirePositiveId(clipId, "clipId");
         List<Long> uniqueTagIds = uniquePositiveIds(tagIds, "tagIds");
 
-        Connection c = connections.connection();
-        boolean previousAutoCommit = connections.beginTransaction(
-                c,
-                "replace tags transaction setup failed"
-        );
-
-        try {
+        connections.inTransaction("replaceTagsForClip failed", c -> {
             requireClipExists(c, clipId);
             for (Long tagId : uniqueTagIds) {
                 requireTagExists(c, tagId);
@@ -313,14 +281,8 @@ public final class TagDao {
                     insert.executeBatch();
                 }
             }
-
-            c.commit();
-        } catch (RuntimeException | SQLException e) {
-            connections.rollbackQuietly(c);
-            throw propagate("replaceTagsForClip failed", e);
-        } finally {
-            connections.restoreAutoCommit(c, previousAutoCommit);
-        }
+            return null;
+        });
     }
 
     /**
@@ -347,13 +309,7 @@ public final class TagDao {
         List<Long> uniqueRemoveIds = uniquePositiveIds(removeTagIds, "removeTagIds");
         List<NormalizedTagName> normalizedNewNames = normalizeUniqueNames(createAndAssignNames);
 
-        Connection c = connections.connection();
-        boolean previousAutoCommit = connections.beginTransaction(
-                c,
-                "tag edit transaction setup failed"
-        );
-
-        try {
+        return connections.inTransaction("apply tag edit failed", c -> {
             for (Long clipId : uniqueClipIds) {
                 requireClipExists(c, clipId);
             }
@@ -404,15 +360,8 @@ public final class TagDao {
                     insert.executeBatch();
                 }
             }
-
-            c.commit();
             return List.copyOf(resolvedNewTags);
-        } catch (RuntimeException | SQLException e) {
-            connections.rollbackQuietly(c);
-            throw propagate("apply tag edit failed", e);
-        } finally {
-            connections.restoreAutoCommit(c, previousAutoCommit);
-        }
+        });
     }
 
     /**
@@ -589,11 +538,6 @@ public final class TagDao {
 
     private void requirePositiveId(long id, String field) {
         if (id <= 0) throw new IllegalArgumentException(field + " must be positive");
-    }
-
-    private RuntimeException propagate(String message, Exception e) {
-        if (e instanceof RuntimeException runtime) return runtime;
-        return new RuntimeException(message, e);
     }
 
     private boolean isConstraintViolation(SQLException e) {

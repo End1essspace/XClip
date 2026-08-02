@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -281,6 +282,49 @@ class TagDaoTest {
         }
     }
 
+
+    @Test
+    void failedBatchAssignmentRollsBackEarlierRowsAndConnectionRemainsReusable() throws Exception {
+        TestContext ctx = createContext("assignment-trigger-rollback.db");
+        try {
+            long firstClip = insertClip(ctx.clips, "first", "hash-first", 1_000L);
+            long secondClip = insertClip(ctx.clips, "second", "hash-second", 2_000L);
+            ClipTag target = ctx.tags.createOrGet("Target");
+
+            executeSql(ctx.db.jdbcUrl(), """
+                    CREATE TRIGGER block_second_assignment
+                    BEFORE INSERT ON clip_tags
+                    WHEN NEW.clip_id = %d AND NEW.tag_id = %d
+                    BEGIN
+                        SELECT RAISE(ABORT, 'blocked assignment');
+                    END
+                    """.formatted(secondClip, target.id()));
+
+            assertThrows(RuntimeException.class, () -> ctx.tags.applyEdit(
+                    List.of(firstClip, secondClip),
+                    List.of(target.id()),
+                    List.of(),
+                    List.of()
+            ));
+
+            assertTrue(tagNames(ctx.tags, firstClip).isEmpty());
+            assertTrue(tagNames(ctx.tags, secondClip).isEmpty());
+
+            executeSql(ctx.db.jdbcUrl(), "DROP TRIGGER block_second_assignment");
+            ctx.tags.applyEdit(
+                    List.of(firstClip, secondClip),
+                    List.of(target.id()),
+                    List.of(),
+                    List.of()
+            );
+
+            assertEquals(List.of("Target"), tagNames(ctx.tags, firstClip));
+            assertEquals(List.of("Target"), tagNames(ctx.tags, secondClip));
+        } finally {
+            ctx.close();
+        }
+    }
+
     private TestContext createContext(String fileName) {
         Path dbPath = tempDir.resolve(fileName);
         Database db = new Database(dbPath);
@@ -310,6 +354,14 @@ class TagDaoTest {
         return tags.listForClip(clipId).stream().map(ClipTag::name).toList();
     }
 
+
+    private void executeSql(String jdbcUrl, String sql) throws Exception {
+        try (Connection c = DriverManager.getConnection(jdbcUrl);
+             Statement st = c.createStatement()) {
+            st.execute(sql);
+        }
+    }
+
     private int relationCount(String jdbcUrl, String column, long id) throws Exception {
         try (Connection c = DriverManager.getConnection(jdbcUrl);
              Statement st = c.createStatement();
@@ -328,7 +380,3 @@ class TagDaoTest {
         }
     }
 }
-
-
-
-

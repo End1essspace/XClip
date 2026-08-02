@@ -431,6 +431,48 @@ class ClipEntryDaoTest {
         }
     }
 
+
+    @Test
+    void multiBatchDeleteRollsBackCompletelyAndConnectionRemainsReusable() throws Exception {
+        Path dbPath = tempDir.resolve("delete-batch-rollback.db");
+        Database db = new Database(dbPath);
+        db.init();
+
+        ClipEntryDao dao = new ClipEntryDao(db.jdbcUrl());
+        try {
+            for (int index = 0; index < 501; index++) {
+                String content = "delete-candidate-" + index;
+                dao.insertNew(
+                        content,
+                        content,
+                        DuplicateContentKeys.from(content),
+                        1_000L + index
+                );
+            }
+
+            List<Long> ids = allIds(db.jdbcUrl());
+            long blockedId = ids.get(ids.size() - 1);
+            executeSql(db.jdbcUrl(), """
+                    CREATE TRIGGER block_second_delete
+                    BEFORE DELETE ON clip_entries
+                    WHEN OLD.id = %d
+                    BEGIN
+                        SELECT RAISE(ABORT, 'blocked delete');
+                    END
+                    """.formatted(blockedId));
+
+            assertThrows(RuntimeException.class, () -> dao.deleteByIds(ids));
+            assertEquals(501, dao.countAll());
+
+            executeSql(db.jdbcUrl(), "DROP TRIGGER block_second_delete");
+            assertEquals(501, dao.deleteByIds(ids));
+            assertEquals(0, dao.countAll());
+        } finally {
+            dao.closeForCurrentThread();
+            db.close();
+        }
+    }
+
     private long idFor(ClipEntryDao dao, String content) {
         return dao.listLatest(100).stream()
                 .filter(e -> content.equals(e.content()))
@@ -451,6 +493,24 @@ class ClipEntryDaoTest {
                 .filter(ClipEntry::favorite)
                 .map(ClipEntry::pinOrder)
                 .toList();
+    }
+
+
+    private List<Long> allIds(String jdbcUrl) throws Exception {
+        try (Connection c = DriverManager.getConnection(jdbcUrl);
+             Statement st = c.createStatement();
+             ResultSet rs = st.executeQuery("SELECT id FROM clip_entries ORDER BY id ASC")) {
+            java.util.ArrayList<Long> ids = new java.util.ArrayList<>();
+            while (rs.next()) ids.add(rs.getLong(1));
+            return List.copyOf(ids);
+        }
+    }
+
+    private void executeSql(String jdbcUrl, String sql) throws Exception {
+        try (Connection c = DriverManager.getConnection(jdbcUrl);
+             Statement st = c.createStatement()) {
+            st.execute(sql);
+        }
     }
 
     private int usageCount(String jdbcUrl, String hash) throws Exception {

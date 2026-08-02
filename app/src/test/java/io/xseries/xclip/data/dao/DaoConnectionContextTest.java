@@ -8,15 +8,22 @@ package io.xseries.xclip.data.dao;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Proxy;
 import java.nio.file.Path;
 import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DaoConnectionContextTest {
@@ -34,17 +41,6 @@ class DaoConnectionContextTest {
             assertSame(first, context.connection());
             assertEquals(1, pragmaInt(first, "foreign_keys"));
             assertEquals(3_000, pragmaInt(first, "busy_timeout"));
-
-            boolean previousAutoCommit = context.beginTransaction(
-                    first,
-                    "transaction setup failed"
-            );
-            assertTrue(previousAutoCommit);
-            assertFalse(first.getAutoCommit());
-
-            context.rollbackQuietly(first);
-            context.restoreAutoCommit(first, previousAutoCommit);
-            assertTrue(first.getAutoCommit());
         } finally {
             context.closeForCurrentThread();
         }
@@ -62,9 +58,127 @@ class DaoConnectionContextTest {
         }
     }
 
+    @Test
+    void transactionFailureRollsBackRestoresAndKeepsConnectionReusable() throws Exception {
+        String jdbcUrl = "jdbc:sqlite:" + tempDir.resolve("rollback.db").toAbsolutePath();
+        DaoConnectionContext context = new DaoConnectionContext(jdbcUrl);
+        Connection connection = context.connection();
+
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("CREATE TABLE values_table(value TEXT NOT NULL)");
+        }
+
+        IllegalStateException failure = assertThrows(
+                IllegalStateException.class,
+                () -> context.inTransaction("insert failed", c -> {
+                    try (Statement statement = c.createStatement()) {
+                        statement.executeUpdate(
+                                "INSERT INTO values_table(value) VALUES ('rolled back')"
+                        );
+                    }
+                    throw new IllegalStateException("primary failure");
+                })
+        );
+
+        assertEquals("primary failure", failure.getMessage());
+        assertTrue(connection.getAutoCommit());
+        assertSame(connection, context.connection());
+        assertEquals(0, rowCount(connection));
+
+        context.inTransaction("retry failed", c -> {
+            try (Statement statement = c.createStatement()) {
+                statement.executeUpdate(
+                        "INSERT INTO values_table(value) VALUES ('committed')"
+                );
+            }
+            return null;
+        });
+
+        assertTrue(connection.getAutoCommit());
+        assertEquals(1, rowCount(connection));
+        context.closeForCurrentThread();
+    }
+
+    @Test
+    void restoreFailureIsSuppressedWithoutMaskingPrimaryFailure() throws Exception {
+        String jdbcUrl = "jdbc:sqlite:" + tempDir.resolve("restore-failure.db").toAbsolutePath();
+        AtomicBoolean failRestore = new AtomicBoolean(false);
+        AtomicInteger opened = new AtomicInteger();
+
+        DaoConnectionContext context = new DaoConnectionContext(jdbcUrl, () -> {
+            opened.incrementAndGet();
+            Connection delegate = DriverManager.getConnection(jdbcUrl);
+            return (Connection) Proxy.newProxyInstance(
+                    Connection.class.getClassLoader(),
+                    new Class<?>[]{Connection.class},
+                    (proxy, method, args) -> {
+                        if (method.getName().equals("setAutoCommit")
+                                && args != null
+                                && args.length == 1
+                                && Boolean.TRUE.equals(args[0])
+                                && failRestore.get()) {
+                            throw new SQLException("restore failed");
+                        }
+                        try {
+                            return method.invoke(delegate, args);
+                        } catch (InvocationTargetException invocationFailure) {
+                            throw invocationFailure.getCause();
+                        }
+                    }
+            );
+        });
+
+        Connection first = context.connection();
+        failRestore.set(true);
+
+        IllegalArgumentException primary = assertThrows(
+                IllegalArgumentException.class,
+                () -> context.inTransaction(
+                        "operation failed",
+                        c -> { throw new IllegalArgumentException("primary failure"); }
+                )
+        );
+
+        assertEquals("primary failure", primary.getMessage());
+        assertEquals(1, primary.getSuppressed().length);
+        assertEquals("restore failed", primary.getSuppressed()[0].getMessage());
+        assertTrue(first.isClosed());
+
+        failRestore.set(false);
+        Connection reopened = context.connection();
+        try {
+            assertNotSame(first, reopened);
+            assertEquals(2, opened.get());
+        } finally {
+            context.closeForCurrentThread();
+        }
+    }
+
+    @Test
+    void closingUnusedContextDoesNotOpenConnection() {
+        AtomicInteger opened = new AtomicInteger();
+        DaoConnectionContext context = new DaoConnectionContext(
+                "jdbc:sqlite:unused",
+                () -> {
+                    opened.incrementAndGet();
+                    throw new SQLException("must not open");
+                }
+        );
+
+        context.closeForCurrentThread();
+        assertEquals(0, opened.get());
+    }
+
     private int pragmaInt(Connection connection, String name) throws Exception {
         try (Statement statement = connection.createStatement();
              ResultSet result = statement.executeQuery("PRAGMA " + name + ";")) {
+            return result.next() ? result.getInt(1) : -1;
+        }
+    }
+
+    private int rowCount(Connection connection) throws Exception {
+        try (Statement statement = connection.createStatement();
+             ResultSet result = statement.executeQuery("SELECT COUNT(*) FROM values_table")) {
             return result.next() ? result.getInt(1) : -1;
         }
     }

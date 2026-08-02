@@ -158,13 +158,7 @@ public final class ClipEntryDao {
             throw new IllegalArgumentException("duplicate decision is required");
         }
 
-        Connection c = connections.connection();
-        boolean previousAutoCommit = connections.beginTransaction(
-                c,
-                "duplicate transaction setup failed"
-        );
-
-        try {
+        return connections.inTransaction("applyDuplicate failed", c -> {
             int updated;
             try (PreparedStatement ps = c.prepareStatement("""
                     UPDATE clip_entries
@@ -190,10 +184,7 @@ public final class ClipEntryDao {
                 updated = ps.executeUpdate();
             }
 
-            if (updated == 0) {
-                c.rollback();
-                return false;
-            }
+            if (updated == 0) return false;
 
             if (decision.movePinnedToTop() && isFavorite(c, id)) {
                 List<Long> pinnedIds = loadPinnedIds(c);
@@ -202,15 +193,8 @@ public final class ClipEntryDao {
                     persistPinnedOrder(c, pinnedIds);
                 }
             }
-
-            c.commit();
             return true;
-        } catch (Exception e) {
-            connections.rollbackQuietly(c);
-            throw new RuntimeException("applyDuplicate failed", e);
-        } finally {
-            connections.restoreAutoCommit(c, previousAutoCommit);
-        }
+        });
     }
 
     public record DuplicateCandidate(
@@ -470,13 +454,7 @@ public final class ClipEntryDao {
     }
 
     public void deleteById(long id) {
-        Connection c = connections.connection();
-        boolean previousAutoCommit = connections.beginTransaction(
-                c,
-                "delete transaction setup failed"
-        );
-
-        try {
+        connections.inTransaction("delete failed", c -> {
             boolean wasFavorite = isFavorite(c, id);
             try (PreparedStatement ps = c.prepareStatement(
                     "DELETE FROM clip_entries WHERE id = ?")) {
@@ -487,14 +465,8 @@ public final class ClipEntryDao {
             if (wasFavorite) {
                 persistPinnedOrder(c, loadPinnedIds(c));
             }
-
-            c.commit();
-        } catch (Exception e) {
-            connections.rollbackQuietly(c);
-            throw new RuntimeException("delete failed", e);
-        } finally {
-            connections.restoreAutoCommit(c, previousAutoCommit);
-        }
+            return null;
+        });
     }
 
     /**
@@ -518,13 +490,7 @@ public final class ClipEntryDao {
      * intentionally keeps optional metadata such as the custom title.
      */
     public void setFavorite(long id, boolean favorite) {
-        Connection c = connections.connection();
-        boolean previousAutoCommit = connections.beginTransaction(
-                c,
-                "favorite transaction setup failed"
-        );
-
-        try {
+        connections.inTransaction("favorite update failed", c -> {
             boolean currentlyFavorite = isFavorite(c, id);
 
             if (favorite) {
@@ -549,14 +515,8 @@ public final class ClipEntryDao {
                 }
                 persistPinnedOrder(c, loadPinnedIds(c));
             }
-
-            c.commit();
-        } catch (Exception e) {
-            connections.rollbackQuietly(c);
-            throw new RuntimeException("favorite update failed", e);
-        } finally {
-            connections.restoreAutoCommit(c, previousAutoCommit);
-        }
+            return null;
+        });
     }
 
     /**
@@ -602,19 +562,10 @@ public final class ClipEntryDao {
     }
 
     private boolean movePinned(long id, PinMove move) {
-        Connection c = connections.connection();
-        boolean previousAutoCommit = connections.beginTransaction(
-                c,
-                "pin reorder transaction setup failed"
-        );
-
-        try {
+        return connections.inTransaction("pin reorder failed", c -> {
             List<Long> pinnedIds = loadPinnedIds(c);
             int from = pinnedIds.indexOf(id);
-            if (from < 0 || pinnedIds.size() < 2) {
-                c.commit();
-                return false;
-            }
+            if (from < 0 || pinnedIds.size() < 2) return false;
 
             int to = switch (move) {
                 case UP -> Math.max(0, from - 1);
@@ -623,22 +574,13 @@ public final class ClipEntryDao {
                 case BOTTOM -> pinnedIds.size() - 1;
             };
 
-            if (to == from) {
-                c.commit();
-                return false;
-            }
+            if (to == from) return false;
 
             Long moved = pinnedIds.remove(from);
             pinnedIds.add(to, moved);
             persistPinnedOrder(c, pinnedIds);
-            c.commit();
             return true;
-        } catch (Exception e) {
-            connections.rollbackQuietly(c);
-            throw new RuntimeException("pin reorder failed", e);
-        } finally {
-            connections.restoreAutoCommit(c, previousAutoCommit);
-        }
+        });
     }
 
     private boolean isFavorite(Connection c, long id) throws SQLException {
@@ -844,13 +786,7 @@ public final class ClipEntryDao {
         if (uniqueIds.isEmpty()) return 0;
 
         List<Long> validIds = new ArrayList<>(uniqueIds);
-        Connection c = connections.connection();
-        boolean previousAutoCommit = connections.beginTransaction(
-                c,
-                "deleteByIds transaction setup failed"
-        );
-
-        try {
+        return connections.inTransaction("deleteByIds failed", c -> {
             int deleted = 0;
             for (int offset = 0; offset < validIds.size(); offset += ID_DELETE_BATCH_SIZE) {
                 int end = Math.min(validIds.size(), offset + ID_DELETE_BATCH_SIZE);
@@ -866,14 +802,8 @@ public final class ClipEntryDao {
                     deleted += ps.executeUpdate();
                 }
             }
-            c.commit();
             return deleted;
-        } catch (Exception e) {
-            connections.rollbackQuietly(c);
-            throw new RuntimeException("deleteByIds failed", e);
-        } finally {
-            connections.restoreAutoCommit(c, previousAutoCommit);
-        }
+        });
     }
 
     private static String deleteByIdsSql(int count) {
