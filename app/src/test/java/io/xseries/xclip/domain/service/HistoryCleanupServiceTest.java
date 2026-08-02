@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -23,6 +24,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class HistoryCleanupServiceTest {
@@ -149,6 +151,44 @@ class HistoryCleanupServiceTest {
     }
 
     @Test
+    void maintenancePauseBlocksCleanupAndCanResumeAfterFailedDataOperation() {
+        try (Fixture fixture = fixture();
+             HistoryCleanupService service = new HistoryCleanupService(fixture.dao)) {
+            long day = HistoryRetentionPolicy.MILLIS_PER_DAY;
+            long now = 100L * day;
+            fixture.insert("old value", now - 40L * day);
+
+            service.applyPolicy(new HistoryRetentionPolicy(
+                    true,
+                    30,
+                    Map.of(),
+                    false
+            ));
+
+            HistoryCleanupService.CleanupStatus before = service.status();
+            service.pauseForMaintenance();
+
+            HistoryCleanupService.CleanupStatus paused = service.runCleanupAt(
+                    now,
+                    HistoryCleanupService.CleanupTrigger.MANUAL
+            );
+
+            assertSame(before, paused);
+            assertEquals(1, fixture.dao.countAll());
+
+            service.resumeAfterMaintenance();
+            HistoryCleanupService.CleanupStatus resumed = service.runCleanupAt(
+                    now,
+                    HistoryCleanupService.CleanupTrigger.MANUAL
+            );
+
+            assertEquals(HistoryCleanupService.CleanupOutcome.SUCCESS, resumed.outcome());
+            assertEquals(1, resumed.deletedCount());
+            assertEquals(0, fixture.dao.countAll());
+        }
+    }
+
+    @Test
     void closeTerminatesInjectedExecutorThread() {
         try (Fixture fixture = fixture()) {
             AtomicReference<Thread> workerThread = new AtomicReference<>();
@@ -224,3 +264,4 @@ class HistoryCleanupServiceTest {
         }
     }
 }
+

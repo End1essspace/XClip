@@ -1,4 +1,5 @@
 
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -50,6 +51,7 @@ public final class HistoryCleanupService implements AutoCloseable {
             new CopyOnWriteArrayList<>();
     private final AtomicBoolean started = new AtomicBoolean(false);
     private final AtomicBoolean closed = new AtomicBoolean(false);
+    private final AtomicBoolean maintenancePaused = new AtomicBoolean(false);
 
     public HistoryCleanupService(ClipEntryDao dao) {
         this(dao, Clock.systemDefaultZone(), newExecutor());
@@ -104,7 +106,7 @@ public final class HistoryCleanupService implements AutoCloseable {
     }
 
     public void requestCleanup(CleanupTrigger trigger) {
-        if (closed.get()) return;
+        if (closed.get() || maintenancePaused.get()) return;
         CleanupTrigger effective = Objects.requireNonNullElse(
                 trigger,
                 CleanupTrigger.MANUAL
@@ -125,6 +127,8 @@ public final class HistoryCleanupService implements AutoCloseable {
 
     CleanupStatus runCleanupAt(long nowMillis, CleanupTrigger trigger) {
         synchronized (cleanupLock) {
+            if (maintenancePaused.get()) return status.get();
+
             HistoryRetentionPolicy snapshot = policy.get();
             if (!snapshot.anyAgeRuleEnabled()) {
                 return publish(new CleanupStatus(
@@ -180,6 +184,27 @@ public final class HistoryCleanupService implements AutoCloseable {
                 dao.closeForCurrentThread();
             }
         }
+    }
+
+    /**
+     * Prevents new cleanup work and waits until any active cleanup leaves its
+     * database critical section. The service remains restartable when a
+     * maintenance operation fails.
+     */
+    public void pauseForMaintenance() {
+        if (closed.get()) return;
+
+        maintenancePaused.set(true);
+        synchronized (cleanupLock) {
+            // Barrier only: an in-flight cleanup has completed when this returns.
+        }
+    }
+
+    /**
+     * Re-enables scheduled and manual cleanup after a failed maintenance action.
+     */
+    public void resumeAfterMaintenance() {
+        if (!closed.get()) maintenancePaused.set(false);
     }
 
     /**
@@ -262,6 +287,7 @@ public final class HistoryCleanupService implements AutoCloseable {
     @Override
     public void close() {
         if (!closed.compareAndSet(false, true)) return;
+        maintenancePaused.set(true);
         executor.shutdownNow();
         try {
             executor.awaitTermination(2, TimeUnit.SECONDS);
@@ -399,3 +425,4 @@ public final class HistoryCleanupService implements AutoCloseable {
         }
     }
 }
+

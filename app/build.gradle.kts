@@ -2,11 +2,13 @@
 
 
 
+
 import java.io.File
 import java.util.Locale
 import java.util.Properties
 import java.util.zip.ZipFile
 import org.gradle.jvm.tasks.Jar
+import org.gradle.api.tasks.testing.Test
 import org.gradle.internal.os.OperatingSystem
 import org.gradle.jvm.toolchain.JavaLanguageVersion
 
@@ -59,14 +61,13 @@ application {
     mainClass.set("io.xseries.xclip.XClipApp")
 }
 
-tasks.test {
+fun Test.configureDeterministicTestRuntime() {
     useJUnitPlatform()
 
-    // Keep native/SQLite lifecycle tests deterministic and prevent two test
-    // workers from competing for process-wide desktop or file-system state.
+    // Native desktop and SQLite integration tests intentionally share process state.
     maxParallelForks = 1
-
     systemProperty("file.encoding", "UTF-8")
+
     reports {
         html.required.set(true)
         junitXml.required.set(true)
@@ -80,6 +81,30 @@ tasks.test {
         showStackTraces = true
         showStandardStreams = false
     }
+}
+
+tasks.withType<Test>().configureEach {
+    configureDeterministicTestRuntime()
+}
+
+val repeatRegressionTest = tasks.register<Test>("repeatRegressionTest") {
+    group = "verification"
+    description = "Repeats the complete test suite in a deterministic alternate order."
+
+    testClassesDirs = sourceSets["test"].output.classesDirs
+    classpath = sourceSets["test"].runtimeClasspath
+    dependsOn(tasks.named("testClasses"))
+    mustRunAfter(tasks.named("test"))
+
+    systemProperty(
+        "junit.jupiter.testclass.order.default",
+        "org.junit.jupiter.api.ClassOrderer\$Random"
+    )
+    systemProperty(
+        "junit.jupiter.testmethod.order.default",
+        "org.junit.jupiter.api.MethodOrderer\$Random"
+    )
+    systemProperty("junit.jupiter.execution.order.random.seed", "1302026")
 }
 
 tasks.named<JavaExec>("run") {
@@ -260,6 +285,16 @@ val r11AutomatedGate = tasks.register("r11AutomatedGate") {
 
 tasks.named("check") {
     dependsOn(verifyPackagedUiResources, verifyR11RegressionAssets)
+}
+
+val c8BaselineGate = tasks.register("c8BaselineGate") {
+    group = "verification"
+    description = "Runs the complete baseline gate plus a second randomized-order test pass."
+    dependsOn(tasks.named("check"), repeatRegressionTest)
+
+    doLast {
+        println("C8_BASELINE_GATE_OK: standard and alternate-order suites passed")
+    }
 }
 
 // -------------------------
@@ -528,5 +563,6 @@ tasks.register("packageMsi") {
         println("MSI_PACKAGE_OK: ${installers.maxBy { it.lastModified() }.absolutePath}")
     }
 }
+
 
 

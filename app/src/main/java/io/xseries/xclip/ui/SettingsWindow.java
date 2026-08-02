@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -1268,11 +1269,23 @@ public final class SettingsWindow {
         } catch (Throwable ignored) {
         }
 
+        boolean cleanupPaused = false;
         try {
-            historyCleanupService.close();
-            historyCleanupService.applyPolicy(HistoryRetentionPolicy.defaults());
+            historyCleanupService.pauseForMaintenance();
+            cleanupPaused = true;
+
             dataOwnershipService.clearAllData();
+
+            historyCleanupService.close();
+            cleanupPaused = false;
         } catch (Throwable failure) {
+            if (cleanupPaused) {
+                try {
+                    historyCleanupService.resumeAfterMaintenance();
+                } catch (Throwable ignored) {
+                }
+            }
+
             try {
                 if (current.watcherEnabled()) watcherController.enable();
             } catch (Throwable ignored) {
@@ -1828,3 +1841,4 @@ public final class SettingsWindow {
         return section;
     }
 }
+

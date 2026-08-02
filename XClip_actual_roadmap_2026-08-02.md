@@ -1,15 +1,16 @@
+
 # XClip — актуальный полный roadmap разработки
 
-**Статус документа:** единый актуальный рабочий roadmap  
-**Дата актуализации:** 2026-08-02  
-**Текущая версия приложения:** v1.3.0  
-**Технологический стек:** Java 17, JavaFX 21, SQLite, Gradle, JNA, Windows 10/11  
-**Текущая версия схемы БД:** 6  
-**Текущая версия config schema:** 5  
-**Текущая ревизия UI contract:** 11  
-**Основная ветка:** `main`  
-**Текущая точка:** Repository Cleanup C1–C3 завершён; следующий этап — M6 Settings Redesign  
-**Следующий основной milestone:** M6 — Settings Redesign
+**Статус документа:** единый актуальный рабочий roadmap
+**Дата актуализации:** 2026-08-02
+**Текущая версия приложения:** v1.3.0
+**Технологический стек:** Java 17, JavaFX 21, SQLite, Gradle, JNA, Windows 10/11
+**Текущая версия схемы БД:** 6
+**Текущая версия config schema:** 5
+**Текущая ревизия UI contract:** 12
+**Основная ветка:** `main`
+**Текущая точка:** Repository Cleanup and Hardening C1–C8 завершены; M6.1 завершён; следующий этап — M6.2
+**Следующий основной milestone:** M6.2 — Page extraction and config draft model
 
 ---
 
@@ -740,7 +741,7 @@ Saved queries не входят в текущий product contract и не бл�
 - fail-open gate;
 - no scan or destructive cleanup of existing history.
 
-Config schema после M5.2: 4.  
+Config schema после M5.2: 4.
 UI contract revision после M5.2: 9.
 
 ---
@@ -799,7 +800,7 @@ Commit / push                ✅
 
 ---
 
-# 10. Repository Cleanup C1–C3
+# 10. Repository Cleanup and Hardening C1–C8
 
 **Статус:** ✅ завершено
 
@@ -870,25 +871,84 @@ Commit / push                ✅
 
 ## 10.6. C3.2 — Roadmap synchronization
 
-Этот документ синхронизирован с фактическим состоянием repository:
+Первичная cleanup-синхронизация закрыла C1–C3 и подготовила переход к Settings.
 
-- M5.3 закрыт полностью;
-- UI contract revision исправлен на 11;
-- C1–C3 зафиксированы как завершённые;
-- старые Git instructions заменены простым Git gate;
-- следующей рабочей точкой назначен M6 Settings Redesign.
+## 10.7. C4 — Architectural consolidation
 
-Repository Cleanup не изменял application version: текущая версия остаётся v1.3.0.
+Завершено:
+
+- удалены подтверждённые redundant domain abstractions;
+- объединён popup responsive/layout support;
+- централизован DAO connection context;
+- унифицированы text validation и normalization helpers.
+
+## 10.8. C5 — Hot-path optimization
+
+Завершено:
+
+- popup reload/search metadata cache;
+- clipboard ingest и duplicate hash preparation;
+- candidate evaluation без повторной incoming normalization;
+- content classifier regex reuse;
+- keyset pagination для retention cleanup;
+- bounded batch deletion;
+- deterministic watcher worker cleanup.
+
+## 10.9. C6 — SQLite lifecycle and data cleanup
+
+Завершено:
+
+- единый transaction boundary с rollback и `autoCommit` recovery;
+- общие SQLite connection PRAGMA;
+- отслеживание и закрытие connections всех DAO threads;
+- terminal DAO shutdown;
+- удаление `.db`, `-wal`, `-shm` и `-journal`;
+- безопасное освобождение connections перед `Clear ALL data`.
+
+## 10.10. C7 — Test/build stability
+
+Завершено:
+
+- single-fork test runtime;
+- глобальный JUnit timeout;
+- обязательная очистка `@TempDir`;
+- bounded executor waits;
+- устранение timing-dependent polling;
+- lifecycle assertions для watcher, paste и cleanup workers.
+
+## 10.11. C8 — Final automated baseline audit
+
+Завершено:
+
+- полный source/resource/lifecycle audit очищенного baseline;
+- второй полный test pass в фиксированном randomized order через `c8BaselineGate`;
+- исправлено восстановление `HistoryCleanupService` после неудачного
+  `Clear ALL data`;
+- roadmap синхронизирован с фактической точкой продолжения.
+
+Application version остаётся v1.3.0. Config / SQLite / UI contract:
+`5 / 6 / 12`.
 
 ---
 
 # 11. M6 — Settings Redesign
 
-**Статус:** ⬜ следующий основной milestone
+**Статус:** 🟡 M6.1 завершён; M6.2 следующий
 
 ## 11.1. Цель
 
-Преобразовать текущий функционально перегруженный scrolling `SettingsWindow` в полноценную многостраничную Settings architecture без изменения уже проверенной runtime semantics M4–M5.
+Преобразовать Settings в полноценную многостраничную architecture без изменения
+проверенной runtime semantics.
+
+**M6.1 завершён:**
+
+- создан shell с left sidebar;
+- добавлены девять Settings pages;
+- применён custom undecorated window chrome;
+- page scrolling разделён;
+- UI contract повышен до revision 12.
+
+**Следующая подзадача:** M6.2 — page extraction and config draft model.
 
 ## 11.2. Целевая навигация
 
@@ -1014,9 +1074,26 @@ About
 
 # 12. M7 — Data and Performance Hardening
 
-**Статус:** ⬜ не начат формально
+**Статус:** 🟡 значительная foundation закрыта фазами C4–C8
 
-Часть foundation уже присутствует:
+Уже завершено:
+
+- DAO connection ownership и terminal shutdown;
+- transaction rollback/cleanup hardening;
+- единые SQLite PRAGMA;
+- popup/search/clipboard/classifier/retention hot-path optimization;
+- large retention batch tests;
+- deterministic repeatable test gate.
+
+Остаётся в M7:
+
+- integrity check и checkpoint strategy;
+- database size/status;
+- vacuum policy;
+- backup/restore design;
+- полноценная large-data performance matrix.
+
+Текущая foundation:
 
 - SQLite WAL;
 - busy timeout;
@@ -1290,15 +1367,17 @@ Milestone завершён только когда:
 # 17. Актуальная последовательность следующих шагов
 
 ```text
+Cleanup and hardening
+     C1–C8                                   ✅
+
 M6   Settings Redesign
-     M6.1 Settings shell and navigation
-     M6.2 Page extraction and config draft model
+     M6.1 Settings shell and navigation      ✅
+     M6.2 Page extraction and config draft   ⬜ NEXT
      M6.3 Validation / Apply / Cancel / Reset
      M6.4 Data/About/Shortcuts pages
-     M6.5 Responsive, accessibility and regression gate
+     M6.5 Responsive/accessibility gate
 
-M7   Data and Performance Hardening
-     M7.1 DAO lifecycle
+M7   Remaining Data and Performance Hardening
      M7.2 Database maintenance
      M7.3 Large-data validation
 
@@ -1313,65 +1392,46 @@ M9   Documentation, Packaging and Final Release
 
 ```text
 Последняя завершённая фаза:
-Repository Cleanup C1–C3
+Repository Cleanup and Hardening C1–C8
+
+Также завершено:
+M6.1 — Settings shell and navigation
 
 Application version:
 v1.3.0
 
 Config / SQLite / UI contract:
-5 / 6 / 11
+5 / 6 / 12
 
 Следующий milestone:
-M6 — Settings Redesign
-
-Первая подзадача:
-M6.1 — Settings shell and navigation
+M6.2 — Page extraction and config draft model
 ```
 
-Перед M6.1 необходимо запросить только локальный набор файлов Settings/window chrome,
-а не весь проект.
+Для M6.2 требуется только локальный набор Settings/config файлов; полный проект
+повторно запрашивать не нужно при наличии актуального Full Folder snapshot.
 
 ---
 
 # 19. Финальный статус roadmap
 
 ```text
-Clipboard foundation                     ✅
-Direct Paste                             ✅
-Advanced PINNED workflow                 ✅
-Content classification                   ✅
-Scope/type filters                       ✅
-Safe type actions                        ✅
+Clipboard and popup foundation             ✅
+Tags / Advanced Search                     ✅
+Duplicate / Privacy / Retention            ✅
+Repository Cleanup C1–C3                   ✅
+Architectural consolidation C4             ✅
+Hot-path optimization C5                   ✅
+SQLite lifecycle hardening C6              ✅
+Test/build stabilization C7                ✅
+Final automated baseline audit C8          ✅
+UI contract revision 12                    ✅
 
-Popup UI contract                        ✅
-Popup decomposition                      ✅
-Custom window chrome                     ✅
-Theme extraction                         ✅
-Lucide icon system                       ✅
-Compact popup redesign                   ✅
-Bounded preview                          ✅
-Quick Help                               ✅
-Accessibility/keyboard                   ✅
-Responsive/performance validation        ✅
-Full regression/UI freeze                ✅
-
-Tags                                     ✅
-Advanced Search                          ✅
-Duplicate Preferences                    ✅
-Excluded Applications                    ✅
-Sensitive Content Rules                  ✅
-Retention and Cleanup                    ✅
-
-Repository Cleanup C1–C3                ✅
-UI contract revision 11                  ✅
-Validation docs consolidation             ✅
-
-Settings Redesign                        ⬜ NEXT
-Data/Performance Hardening               ⬜
-Windows Lifecycle Hardening              ⬜
-Documentation/Packaging/Release          ⬜
+Settings Redesign M6.1                     ✅
+Settings Redesign M6.2–M6.5                ⬜ NEXT
+Remaining DB maintenance / large data      ⬜
+Windows Lifecycle Hardening                ⬜
+Documentation / Packaging / Release        ⬜
 ```
 
-XClip уже имеет зрелый пользовательский функционал, frozen popup UI и очищенную
-repository baseline. Следующий крупный продуктовый шаг — перестройка Settings,
-после которой проект переходит в hardening и final release preparation.
+Очищенный и hardening-проверенный baseline закрыт. Следующая рабочая точка —
+**M6.2: extraction Settings pages and introducing a config draft model**.
