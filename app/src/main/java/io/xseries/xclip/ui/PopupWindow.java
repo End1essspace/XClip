@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -16,6 +17,7 @@ import io.xseries.xclip.ui.popup.ClipPreviewPolicy;
 import io.xseries.xclip.ui.popup.PopupHeader;
 import io.xseries.xclip.ui.popup.PopupKeyBindings;
 import io.xseries.xclip.ui.popup.PopupPerformancePolicy;
+import io.xseries.xclip.ui.popup.PopupReloadCache;
 import io.xseries.xclip.ui.popup.PopupRows;
 import io.xseries.xclip.ui.popup.ReloadRequestGate;
 import io.xseries.xclip.ui.popup.SearchAssistBar;
@@ -154,6 +156,8 @@ public final class PopupWindow {
     ) {}
     private final BoundedLruCache<Long, ContentTypeCache> contentTypeCache =
             new BoundedLruCache<>(PopupPerformancePolicy.CONTENT_TYPE_CACHE_CAPACITY);
+    private final PopupReloadCache reloadCache =
+            new PopupReloadCache(PopupPerformancePolicy.TAG_ASSIGNMENT_CACHE_CAPACITY);
 
     // v1.1 UX state
     private final Label countLabel = new Label();
@@ -1672,6 +1676,9 @@ public final class PopupWindow {
      * scheduled history cleanup. Safe to call from any thread.
      */
     public void refreshFromStorage() {
+        reloadCache.invalidateTotalClipCount();
+        reloadCache.invalidateAllTagAssignments();
+
         Runnable refresh = () -> reloadNow(searchField.getText());
         if (Platform.isFxApplicationThread()) refresh.run();
         else Platform.runLater(refresh);
@@ -1704,6 +1711,7 @@ public final class PopupWindow {
         stage.requestFocus();
 
         searchField.requestFocus();
+        reloadCache.invalidateTotalClipCount();
         reloadNow(searchField.getText());
     }
 
@@ -1740,6 +1748,7 @@ public final class PopupWindow {
         if (pendingSearch != null) pendingSearch.cancel(false);
         previewCache.clear();
         contentTypeCache.clear();
+        reloadCache.clear();
         pasteService.close();
         dbExec.shutdownNow();
         debounceExec.shutdownNow();
@@ -1849,7 +1858,7 @@ public final class PopupWindow {
                     executionPlan.derivedTypeFilteringActive()
             );
 
-            int totalClipCount = dao.countAll();
+            int totalClipCount = reloadCache.totalClipCount(dao::countAll);
             if (!reloadGate.isCurrent(requestGeneration)) return;
 
             List<ClipEntry> candidates = executionPlan.unsatisfiable()
@@ -1872,14 +1881,20 @@ public final class PopupWindow {
             );
             if (!reloadGate.isCurrent(requestGeneration)) return;
 
+            List<Long> visibleClipIds = new ArrayList<>(list.size());
+            for (ClipEntry entry : list) {
+                visibleClipIds.add(entry.id());
+            }
+
             Map<Long, List<ClipTag>> tagsByClipId = tagDao == null
                     ? Map.of()
-                    : tagDao.listForClips(
-                            list.stream().map(ClipEntry::id).toList()
+                    : reloadCache.tagAssignments(
+                            visibleClipIds,
+                            tagDao::listForClips
                     );
             List<ClipTag> availableTags = tagDao == null
                     ? List.of()
-                    : tagDao.listAll();
+                    : reloadCache.availableTags(tagDao::listAll);
             if (!reloadGate.isCurrent(requestGeneration)) return;
 
             List<PopupRow> preparedRows = PopupRows.build(list, tagsByClipId);
@@ -1888,8 +1903,10 @@ public final class PopupWindow {
             Platform.runLater(() -> {
                 if (!reloadGate.isCurrent(requestGeneration)) return;
 
-                searchSuggestionTags = List.copyOf(availableTags);
-                syncTagFilterOptions(availableTags);
+                if (!searchSuggestionTags.equals(availableTags)) {
+                    searchSuggestionTags = availableTags;
+                    syncTagFilterOptions(availableTags);
+                }
                 updateSearchAssist();
                 items.setAll(preparedRows);
                 countLabel.setText("Clips " + totalClipCount);
@@ -2165,6 +2182,9 @@ public final class PopupWindow {
                             TagManagementDialog.show(stage, summaries, dialogActions)
                     );
                     if (result.changed()) {
+                        reloadCache.invalidateAvailableTags();
+                        reloadCache.invalidateAllTagAssignments();
+
                         Long activeTagId = viewState.tagId();
                         boolean activeTagStillExists = activeTagId == null
                                 || result.tags().stream().anyMatch(tag -> tag.id() == activeTagId);
@@ -2204,9 +2224,12 @@ public final class PopupWindow {
 
         dbExec.submit(() -> {
             try {
-                List<ClipTag> allTags = tagDao.listAll();
+                List<ClipTag> allTags = reloadCache.availableTags(tagDao::listAll);
                 Map<Long, List<ClipTag>> assignmentsByClip =
-                        new LinkedHashMap<>(tagDao.listForClips(clipIds));
+                        new LinkedHashMap<>(reloadCache.tagAssignments(
+                                clipIds,
+                                tagDao::listForClips
+                        ));
 
                 Platform.runLater(() -> {
                     if (!stage.isShowing()) return;
@@ -2246,6 +2269,10 @@ public final class PopupWindow {
                 );
 
                 Platform.runLater(() -> {
+                    reloadCache.invalidateTagAssignments(clipIds);
+                    if (!plan.createAndAssignNames().isEmpty()) {
+                        reloadCache.invalidateAvailableTags();
+                    }
                     reloadNow(searchField.getText());
 
                     int changedExisting = plan.assignTagIds().size()
@@ -2490,6 +2517,10 @@ public final class PopupWindow {
                 }
 
                 Platform.runLater(() -> {
+                    reloadCache.invalidateTotalClipCount();
+                    reloadCache.invalidateTagAssignments(
+                            selected.stream().map(ClipEntry::id).toList()
+                    );
                     for (ClipEntry entry : selected) {
                         expandedById.remove(entry.id());
                         previewCache.remove(entry.id());
@@ -2505,6 +2536,8 @@ public final class PopupWindow {
                 });
             } catch (Throwable failure) {
                 Platform.runLater(() -> {
+                    reloadCache.invalidateTotalClipCount();
+                    reloadCache.invalidateAllTagAssignments();
                     reloadNow(searchField.getText());
                     showOperationError(
                         "Delete failed",
@@ -2541,6 +2574,8 @@ public final class PopupWindow {
                 dao.deleteByIds(visibleNonFavoriteIds);
                 Platform.runLater(() -> {
                     java.util.Set<Long> removed = new java.util.HashSet<>(visibleNonFavoriteIds);
+                    reloadCache.invalidateTotalClipCount();
+                    reloadCache.invalidateTagAssignments(removed);
                     expandedById.keySet().removeIf(removed::contains);
                     previewCache.removeKeys(removed);
                     contentTypeCache.removeKeys(removed);

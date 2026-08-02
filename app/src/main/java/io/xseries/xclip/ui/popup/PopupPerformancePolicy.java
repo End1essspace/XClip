@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -13,6 +14,7 @@ public final class PopupPerformancePolicy {
     public static final int TYPE_FILTER_SCAN_LIMIT = 5_000;
     public static final int PREVIEW_CACHE_CAPACITY = 4_096;
     public static final int CONTENT_TYPE_CACHE_CAPACITY = 8_192;
+    public static final int TAG_ASSIGNMENT_CACHE_CAPACITY = 8_192;
     public static final long SEARCH_DEBOUNCE_MS = 150L;
 
     private PopupPerformancePolicy() {}
