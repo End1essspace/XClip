@@ -532,11 +532,11 @@ public final class ClipEntryDao {
      * Used by PopupWindow "Clear" button.
      * Keeps favorites intact.
      */
-    public void deleteAllNonFavorites() {
+    public int deleteAllNonFavorites() {
         String sql = "DELETE FROM clip_entries WHERE is_favorite = 0";
         Connection c = conn();
         try (Statement st = c.createStatement()) {
-            st.executeUpdate(sql);
+            return st.executeUpdate(sql);
         } catch (Exception e) {
             throw new RuntimeException("deleteAllNonFavorites failed", e);
         }
@@ -743,6 +743,44 @@ public final class ClipEntryDao {
         }
     }
 
+    /**
+     * Loads only unpinned rows old enough to match at least one retention rule.
+     * Exact per-type decisions are made in the domain service because content
+     * type is derived metadata and is intentionally not stored in SQLite.
+     */
+    public List<RetentionCandidate> listRetentionCandidates(long cutoffExclusive) {
+        if (cutoffExclusive < 0) {
+            throw new IllegalArgumentException("cutoffExclusive cannot be negative");
+        }
+
+        String sql = """
+                SELECT id, content, last_copied_at
+                FROM clip_entries
+                WHERE is_favorite = 0
+                  AND last_copied_at < ?
+                ORDER BY id ASC
+                """;
+
+        List<RetentionCandidate> candidates = new ArrayList<>();
+        try (PreparedStatement ps = conn().prepareStatement(sql)) {
+            ps.setLong(1, cutoffExclusive);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    candidates.add(new RetentionCandidate(
+                            rs.getLong("id"),
+                            rs.getString("content"),
+                            rs.getLong("last_copied_at")
+                    ));
+                }
+            }
+            return List.copyOf(candidates);
+        } catch (Exception e) {
+            throw new RuntimeException("listRetentionCandidates failed", e);
+        }
+    }
+
+    public record RetentionCandidate(long id, String content, long lastCopiedAt) {}
+
     private List<ClipEntry> map(ResultSet rs) throws SQLException {
         List<ClipEntry> list = new ArrayList<>();
         while (rs.next()) {
@@ -800,24 +838,55 @@ public final class ClipEntryDao {
         }
     }
 
-    public void deleteByIds(List<Long> ids) {
-        if (ids == null || ids.isEmpty()) return;
+    public int deleteByIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) return 0;
 
-        StringBuilder sql = new StringBuilder("DELETE FROM clip_entries WHERE id IN (");
-        for (int i = 0; i < ids.size(); i++) {
-            if (i > 0) sql.append(", ");
-            sql.append("?");
-        }
-        sql.append(")");
+        List<Long> validIds = ids.stream()
+                .filter(java.util.Objects::nonNull)
+                .filter(id -> id > 0)
+                .distinct()
+                .toList();
+        if (validIds.isEmpty()) return 0;
 
+        final int batchSize = 500;
         Connection c = conn();
-        try (PreparedStatement ps = c.prepareStatement(sql.toString())) {
-            for (int i = 0; i < ids.size(); i++) {
-                ps.setLong(i + 1, ids.get(i));
+        boolean previousAutoCommit;
+        try {
+            previousAutoCommit = c.getAutoCommit();
+            c.setAutoCommit(false);
+        } catch (SQLException e) {
+            throw new RuntimeException("deleteByIds transaction setup failed", e);
+        }
+
+        try {
+            int deleted = 0;
+            for (int offset = 0; offset < validIds.size(); offset += batchSize) {
+                int end = Math.min(validIds.size(), offset + batchSize);
+                List<Long> batch = validIds.subList(offset, end);
+
+                StringBuilder sql = new StringBuilder(
+                        "DELETE FROM clip_entries WHERE id IN ("
+                );
+                for (int i = 0; i < batch.size(); i++) {
+                    if (i > 0) sql.append(", ");
+                    sql.append("?");
+                }
+                sql.append(")");
+
+                try (PreparedStatement ps = c.prepareStatement(sql.toString())) {
+                    for (int i = 0; i < batch.size(); i++) {
+                        ps.setLong(i + 1, batch.get(i));
+                    }
+                    deleted += ps.executeUpdate();
+                }
             }
-            ps.executeUpdate();
+            c.commit();
+            return deleted;
         } catch (Exception e) {
+            rollbackQuietly(c);
             throw new RuntimeException("deleteByIds failed", e);
+        } finally {
+            restoreAutoCommit(c, previousAutoCommit);
         }
     }
 

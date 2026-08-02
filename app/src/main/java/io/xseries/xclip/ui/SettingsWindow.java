@@ -11,7 +11,9 @@ import io.xseries.xclip.config.ConfigService;
 import io.xseries.xclip.domain.duplicate.DuplicateBehaviorPolicy;
 import io.xseries.xclip.domain.privacy.ExcludedApplicationPolicy;
 import io.xseries.xclip.domain.privacy.SensitiveContentPolicy;
+import io.xseries.xclip.domain.retention.HistoryRetentionPolicy;
 import io.xseries.xclip.domain.service.ClipService;
+import io.xseries.xclip.domain.service.HistoryCleanupService;
 import io.xseries.xclip.system.DataOwnershipService;
 import io.xseries.xclip.system.WindowsAutoStartService;
 import io.xseries.xclip.system.clipboard.WatcherController;
@@ -49,6 +51,10 @@ import javafx.stage.StageStyle;
 import javafx.util.Duration;
 import javafx.util.StringConverter;
 
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.EnumMap;
 import java.util.Objects;
 import java.util.function.Function;
 
@@ -65,6 +71,9 @@ public final class SettingsWindow {
     private static final double DEFAULT_HEIGHT = 720;
     private static final double MIN_WIDTH = 620;
     private static final double MIN_HEIGHT = 520;
+    private static final DateTimeFormatter CLEANUP_TIME_FORMAT =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+                    .withZone(ZoneId.systemDefault());
 
     private final Stage stage;
 
@@ -72,6 +81,7 @@ public final class SettingsWindow {
     private final ClipService clipService;
     private final WatcherController watcherController;
     private final DataOwnershipService dataOwnershipService;
+    private final HistoryCleanupService historyCleanupService;
 
     private Config current;
 
@@ -103,6 +113,19 @@ public final class SettingsWindow {
     private final ComboBox<SensitiveContentPolicy.RuleAction> oneTimeCodeAction;
     private final Button resetSensitiveRulesBtn;
 
+    private final CheckBox retentionRecentEnabled;
+    private final Spinner<Integer> retentionRecentDays;
+    private final Spinner<Integer> retentionTextDays;
+    private final Spinner<Integer> retentionCodeDays;
+    private final Spinner<Integer> retentionUrlDays;
+    private final Spinner<Integer> retentionPathDays;
+    private final Spinner<Integer> retentionJsonDays;
+    private final Spinner<Integer> retentionCommandDays;
+    private final CheckBox clearRecentOnExit;
+    private final Label cleanupStatusLabel;
+    private final Button runCleanupNowBtn;
+    private final Button resetRetentionDefaultsBtn;
+
     private final Button openDataFolderBtn;
     private final Button clearAllDataBtn;
 
@@ -119,6 +142,7 @@ public final class SettingsWindow {
             ClipService clipService,
             WatcherController watcherController,
             DataOwnershipService dataOwnershipService,
+            HistoryCleanupService historyCleanupService,
             Config initial,
             java.util.function.Consumer<Config> onConfigApplied
     ) {
@@ -126,6 +150,7 @@ public final class SettingsWindow {
         this.clipService = Objects.requireNonNull(clipService);
         this.watcherController = Objects.requireNonNull(watcherController);
         this.dataOwnershipService = Objects.requireNonNull(dataOwnershipService);
+        this.historyCleanupService = Objects.requireNonNull(historyCleanupService);
         this.current = (initial == null ? Config.defaults() : initial).normalized();
         this.onConfigApplied = onConfigApplied != null ? onConfigApplied : cfg -> {};
 
@@ -289,6 +314,45 @@ public final class SettingsWindow {
                 "Restore normal capture for every sensitive-content rule."
         );
         resetSensitiveRulesBtn.getStyleClass().add("btn-subtle");
+
+        HistoryRetentionPolicy initialRetention = current.historyRetentionPolicy();
+        retentionRecentEnabled = new CheckBox("Auto-delete old RECENT clips");
+        retentionRecentEnabled.setAccessibleHelp(
+                "Enable the general age limit for unpinned clipboard history."
+        );
+        retentionRecentDays = retentionSpinner(
+                initialRetention.recentMaxAgeDays(),
+                "General RECENT retention in days",
+                "Unpinned clips older than this value are deleted when the general rule is enabled."
+        );
+        retentionTextDays = typeRetentionSpinner(initialRetention, io.xseries.xclip.domain.model.ClipContentType.TEXT);
+        retentionCodeDays = typeRetentionSpinner(initialRetention, io.xseries.xclip.domain.model.ClipContentType.CODE);
+        retentionUrlDays = typeRetentionSpinner(initialRetention, io.xseries.xclip.domain.model.ClipContentType.URL);
+        retentionPathDays = typeRetentionSpinner(initialRetention, io.xseries.xclip.domain.model.ClipContentType.PATH);
+        retentionJsonDays = typeRetentionSpinner(initialRetention, io.xseries.xclip.domain.model.ClipContentType.JSON);
+        retentionCommandDays = typeRetentionSpinner(initialRetention, io.xseries.xclip.domain.model.ClipContentType.COMMAND);
+
+        clearRecentOnExit = new CheckBox("Clear all RECENT clips when XClip exits");
+        clearRecentOnExit.setAccessibleHelp(
+                "Delete every unpinned clipboard entry during a normal XClip shutdown."
+        );
+
+        cleanupStatusLabel = new Label();
+        cleanupStatusLabel.setWrapText(true);
+        cleanupStatusLabel.getStyleClass().add("settings-cleanup-status");
+        cleanupStatusLabel.setAccessibleText("History cleanup status");
+
+        runCleanupNowBtn = new Button("Run cleanup now");
+        runCleanupNowBtn.setAccessibleHelp(
+                "Apply the currently saved age-based retention rules immediately."
+        );
+        runCleanupNowBtn.getStyleClass().add("btn-subtle");
+
+        resetRetentionDefaultsBtn = new Button("Reset retention defaults");
+        resetRetentionDefaultsBtn.setAccessibleHelp(
+                "Disable automatic age cleanup, type overrides, and clear on exit."
+        );
+        resetRetentionDefaultsBtn.getStyleClass().add("btn-subtle");
 
         GridPane captureGrid = settingsGrid();
         int captureRow = 0;
@@ -454,6 +518,84 @@ public final class SettingsWindow {
         );
         sensitiveSection.getStyleClass().add("sensitive-settings-section");
 
+        GridPane retentionGrid = settingsGrid();
+        int retentionRow = 0;
+        retentionGrid.add(retentionRecentEnabled, 1, retentionRow++);
+        retentionRow = addSettingRow(
+                retentionGrid,
+                retentionRow,
+                "General RECENT age",
+                "Applies to every unpinned content type when automatic age cleanup is enabled.",
+                retentionRecentDays
+        );
+        retentionRow = addSettingRow(
+                retentionGrid,
+                retentionRow,
+                "TEXT override",
+                "Days to keep TEXT clips. Zero disables this type-specific rule.",
+                retentionTextDays
+        );
+        retentionRow = addSettingRow(
+                retentionGrid,
+                retentionRow,
+                "CODE override",
+                "Days to keep CODE clips. Zero disables this type-specific rule.",
+                retentionCodeDays
+        );
+        retentionRow = addSettingRow(
+                retentionGrid,
+                retentionRow,
+                "URL override",
+                "Days to keep URL clips. Zero disables this type-specific rule.",
+                retentionUrlDays
+        );
+        retentionRow = addSettingRow(
+                retentionGrid,
+                retentionRow,
+                "PATH override",
+                "Days to keep PATH clips. Zero disables this type-specific rule.",
+                retentionPathDays
+        );
+        retentionRow = addSettingRow(
+                retentionGrid,
+                retentionRow,
+                "JSON override",
+                "Days to keep JSON clips. Zero disables this type-specific rule.",
+                retentionJsonDays
+        );
+        retentionRow = addSettingRow(
+                retentionGrid,
+                retentionRow,
+                "COMMAND override",
+                "Days to keep COMMAND clips. Zero disables this type-specific rule.",
+                retentionCommandDays
+        );
+        retentionGrid.add(clearRecentOnExit, 1, retentionRow);
+
+        Label retentionHint = new Label(
+                "PINNED clips are always preserved. If both general and per-type rules apply, the shorter age wins. Cleanup never rewrites clipboard content."
+        );
+        retentionHint.setWrapText(true);
+        retentionHint.getStyleClass().add("settings-retention-hint");
+
+        HBox retentionActions = new HBox(
+                10,
+                cleanupStatusLabel,
+                runCleanupNowBtn,
+                resetRetentionDefaultsBtn
+        );
+        retentionActions.setAlignment(Pos.CENTER_RIGHT);
+        HBox.setHgrow(cleanupStatusLabel, Priority.ALWAYS);
+
+        VBox retentionSection = section(
+                "History retention & cleanup",
+                "Age-based cleanup is opt-in and applies only to RECENT history.",
+                retentionGrid,
+                retentionHint,
+                retentionActions
+        );
+        retentionSection.getStyleClass().add("retention-settings-section");
+
         statusLabel.getStyleClass().add("status-text");
         statusLabel.setAccessibleText("Settings operation status");
         statusLabel.setManaged(false);
@@ -558,6 +700,7 @@ public final class SettingsWindow {
                 duplicateSection,
                 privacySection,
                 sensitiveSection,
+                retentionSection,
                 dataSection,
                 new Separator(),
                 dangerBox
@@ -599,6 +742,13 @@ public final class SettingsWindow {
         wireDirtyForIntSpinner(minClipLength);
         wireDirtyForIntSpinner(maxClipChars);
         wireDirtyForIntSpinner(uiClipLimit);
+        wireDirtyForIntSpinner(retentionRecentDays);
+        wireDirtyForIntSpinner(retentionTextDays);
+        wireDirtyForIntSpinner(retentionCodeDays);
+        wireDirtyForIntSpinner(retentionUrlDays);
+        wireDirtyForIntSpinner(retentionPathDays);
+        wireDirtyForIntSpinner(retentionJsonDays);
+        wireDirtyForIntSpinner(retentionCommandDays);
 
         watcherEnabled.selectedProperty().addListener(
                 (observable, oldValue, newValue) -> markDirtyUnlessSyncing()
@@ -658,6 +808,28 @@ public final class SettingsWindow {
         );
         resetSensitiveRulesBtn.setOnAction(event -> resetSensitiveControlsToDefaults());
 
+        retentionRecentEnabled.selectedProperty().addListener(
+                (observable, oldValue, newValue) -> {
+                    syncRetentionAvailability();
+                    markDirtyUnlessSyncing();
+                }
+        );
+        clearRecentOnExit.selectedProperty().addListener(
+                (observable, oldValue, newValue) -> markDirtyUnlessSyncing()
+        );
+        runCleanupNowBtn.setOnAction(event -> {
+            historyCleanupService.requestCleanup(
+                    HistoryCleanupService.CleanupTrigger.MANUAL
+            );
+            showStatus("Cleanup scheduled");
+        });
+        resetRetentionDefaultsBtn.setOnAction(
+                event -> resetRetentionControlsToDefaults()
+        );
+        historyCleanupService.addStatusListener(status -> Platform.runLater(
+                () -> updateCleanupStatus(status)
+        ));
+
         internalSync = true;
         syncUiFromCurrent();
         internalSync = false;
@@ -667,6 +839,7 @@ public final class SettingsWindow {
     public void show() {
         internalSync = true;
         syncAutostartCheckbox();
+        updateCleanupStatus(historyCleanupService.status());
         forceSyncSpinnerEditors();
         internalSync = false;
 
@@ -706,6 +879,13 @@ public final class SettingsWindow {
                 "Max clip chars"
         )) return;
         if (!validateIntSpinner(uiClipLimit, 50, 5_000, "UI clip limit")) return;
+        if (!validateIntSpinner(retentionRecentDays, 1, HistoryRetentionPolicy.MAX_MAX_AGE_DAYS, "General retention days")) return;
+        if (!validateIntSpinner(retentionTextDays, 0, HistoryRetentionPolicy.MAX_MAX_AGE_DAYS, "TEXT retention days")) return;
+        if (!validateIntSpinner(retentionCodeDays, 0, HistoryRetentionPolicy.MAX_MAX_AGE_DAYS, "CODE retention days")) return;
+        if (!validateIntSpinner(retentionUrlDays, 0, HistoryRetentionPolicy.MAX_MAX_AGE_DAYS, "URL retention days")) return;
+        if (!validateIntSpinner(retentionPathDays, 0, HistoryRetentionPolicy.MAX_MAX_AGE_DAYS, "PATH retention days")) return;
+        if (!validateIntSpinner(retentionJsonDays, 0, HistoryRetentionPolicy.MAX_MAX_AGE_DAYS, "JSON retention days")) return;
+        if (!validateIntSpinner(retentionCommandDays, 0, HistoryRetentionPolicy.MAX_MAX_AGE_DAYS, "COMMAND retention days")) return;
 
         DuplicateBehaviorPolicy duplicatePolicy = duplicatePolicyFromUi();
         if (duplicatePolicy == null) return;
@@ -714,6 +894,7 @@ public final class SettingsWindow {
         if (excludedPolicy == null) return;
 
         SensitiveContentPolicy sensitivePolicy = sensitiveContentPolicyFromUi();
+        HistoryRetentionPolicy retentionPolicy = historyRetentionPolicyFromUi();
 
         Config next = current
                 .withMaxHistory(maxHistory.getValue())
@@ -725,7 +906,8 @@ public final class SettingsWindow {
                 .withStartOnBoot(startOnBoot.isSelected())
                 .withDuplicateBehaviorPolicy(duplicatePolicy)
                 .withExcludedApplications(excludedPolicy.executableNames())
-                .withSensitiveContentPolicy(sensitivePolicy);
+                .withSensitiveContentPolicy(sensitivePolicy)
+                .withHistoryRetentionPolicy(retentionPolicy);
 
         boolean autoStartChanged = current.startOnBoot() != next.startOnBoot();
 
@@ -734,6 +916,10 @@ public final class SettingsWindow {
 
         try {
             clipService.applyConfig(next);
+        } catch (Throwable ignored) {
+        }
+        try {
+            historyCleanupService.applyConfig(next);
         } catch (Throwable ignored) {
         }
 
@@ -805,6 +991,23 @@ public final class SettingsWindow {
         );
     }
 
+    private HistoryRetentionPolicy historyRetentionPolicyFromUi() {
+        EnumMap<io.xseries.xclip.domain.model.ClipContentType, Integer> typeDays =
+                new EnumMap<>(io.xseries.xclip.domain.model.ClipContentType.class);
+        typeDays.put(io.xseries.xclip.domain.model.ClipContentType.TEXT, retentionTextDays.getValue());
+        typeDays.put(io.xseries.xclip.domain.model.ClipContentType.CODE, retentionCodeDays.getValue());
+        typeDays.put(io.xseries.xclip.domain.model.ClipContentType.URL, retentionUrlDays.getValue());
+        typeDays.put(io.xseries.xclip.domain.model.ClipContentType.PATH, retentionPathDays.getValue());
+        typeDays.put(io.xseries.xclip.domain.model.ClipContentType.JSON, retentionJsonDays.getValue());
+        typeDays.put(io.xseries.xclip.domain.model.ClipContentType.COMMAND, retentionCommandDays.getValue());
+        return new HistoryRetentionPolicy(
+                retentionRecentEnabled.isSelected(),
+                retentionRecentDays.getValue(),
+                typeDays,
+                clearRecentOnExit.isSelected()
+        );
+    }
+
     private void resetDuplicateControlsToDefaults() {
         internalSync = true;
         syncDuplicateControls(DuplicateBehaviorPolicy.defaults());
@@ -821,6 +1024,14 @@ public final class SettingsWindow {
         showStatus("Sensitive rules reset • Apply to save");
     }
 
+    private void resetRetentionControlsToDefaults() {
+        internalSync = true;
+        syncRetentionControls(HistoryRetentionPolicy.defaults());
+        internalSync = false;
+        markDirty();
+        showStatus("Retention defaults restored • Apply to save");
+    }
+
     private void syncUiFromCurrent() {
         maxHistory.getValueFactory().setValue(current.maxHistory());
         minClipLength.getValueFactory().setValue(current.minClipLength());
@@ -835,6 +1046,7 @@ public final class SettingsWindow {
         );
         excludedApplications.getStyleClass().remove("input-error");
         syncSensitiveControls(current.sensitiveContentPolicy());
+        syncRetentionControls(current.historyRetentionPolicy());
         syncAutostartCheckbox();
         forceSyncSpinnerEditors();
     }
@@ -845,6 +1057,46 @@ public final class SettingsWindow {
                 : policy;
         paymentCardAction.setValue(value.paymentCardAction());
         oneTimeCodeAction.setValue(value.oneTimeCodeAction());
+    }
+
+    private void syncRetentionControls(HistoryRetentionPolicy policy) {
+        HistoryRetentionPolicy value = policy == null
+                ? HistoryRetentionPolicy.defaults()
+                : policy;
+        retentionRecentEnabled.setSelected(value.autoDeleteRecentEnabled());
+        retentionRecentDays.getValueFactory().setValue(value.recentMaxAgeDays());
+        retentionTextDays.getValueFactory().setValue(value.maxAgeDaysFor(io.xseries.xclip.domain.model.ClipContentType.TEXT));
+        retentionCodeDays.getValueFactory().setValue(value.maxAgeDaysFor(io.xseries.xclip.domain.model.ClipContentType.CODE));
+        retentionUrlDays.getValueFactory().setValue(value.maxAgeDaysFor(io.xseries.xclip.domain.model.ClipContentType.URL));
+        retentionPathDays.getValueFactory().setValue(value.maxAgeDaysFor(io.xseries.xclip.domain.model.ClipContentType.PATH));
+        retentionJsonDays.getValueFactory().setValue(value.maxAgeDaysFor(io.xseries.xclip.domain.model.ClipContentType.JSON));
+        retentionCommandDays.getValueFactory().setValue(value.maxAgeDaysFor(io.xseries.xclip.domain.model.ClipContentType.COMMAND));
+        clearRecentOnExit.setSelected(value.clearRecentOnExit());
+        syncRetentionAvailability();
+    }
+
+    private void syncRetentionAvailability() {
+        retentionRecentDays.setDisable(!retentionRecentEnabled.isSelected());
+    }
+
+    private void updateCleanupStatus(HistoryCleanupService.CleanupStatus status) {
+        if (status == null || status.outcome() == HistoryCleanupService.CleanupOutcome.NOT_RUN) {
+            cleanupStatusLabel.setText("Last cleanup: not run yet");
+            return;
+        }
+        String time = status.completedAt() <= 0
+                ? "unknown time"
+                : CLEANUP_TIME_FORMAT.format(Instant.ofEpochMilli(status.completedAt()));
+        String result = switch (status.outcome()) {
+            case SUCCESS -> "success";
+            case SKIPPED -> "skipped";
+            case FAILED -> "failed";
+            case NOT_RUN -> "not run";
+        };
+        cleanupStatusLabel.setText(
+                "Last cleanup: " + result + " • " + status.deletedCount()
+                        + " deleted • " + time + " • " + status.detail()
+        );
     }
 
     private void syncDuplicateControls(DuplicateBehaviorPolicy policy) {
@@ -901,6 +1153,8 @@ public final class SettingsWindow {
         }
 
         try {
+            historyCleanupService.close();
+            historyCleanupService.applyPolicy(HistoryRetentionPolicy.defaults());
             dataOwnershipService.clearAllData();
         } catch (Throwable failure) {
             try {
@@ -1042,6 +1296,13 @@ public final class SettingsWindow {
         syncSpinnerEditor(minClipLength);
         syncSpinnerEditor(maxClipChars);
         syncSpinnerEditor(uiClipLimit);
+        syncSpinnerEditor(retentionRecentDays);
+        syncSpinnerEditor(retentionTextDays);
+        syncSpinnerEditor(retentionCodeDays);
+        syncSpinnerEditor(retentionUrlDays);
+        syncSpinnerEditor(retentionPathDays);
+        syncSpinnerEditor(retentionJsonDays);
+        syncSpinnerEditor(retentionCommandDays);
     }
 
     private void syncSpinnerEditor(Spinner<Integer> spinner) {
@@ -1057,6 +1318,35 @@ public final class SettingsWindow {
             case CAPTURE -> "Capture normally";
             case SKIP -> "Skip capture";
         };
+    }
+
+    private static Spinner<Integer> retentionSpinner(
+            int initial,
+            String accessibleText,
+            String accessibleHelp
+    ) {
+        return intSpinner(
+                HistoryRetentionPolicy.MIN_MAX_AGE_DAYS,
+                HistoryRetentionPolicy.MAX_MAX_AGE_DAYS,
+                initial,
+                1,
+                accessibleText,
+                accessibleHelp
+        );
+    }
+
+    private static Spinner<Integer> typeRetentionSpinner(
+            HistoryRetentionPolicy policy,
+            io.xseries.xclip.domain.model.ClipContentType type
+    ) {
+        return intSpinner(
+                HistoryRetentionPolicy.TYPE_RULE_DISABLED,
+                HistoryRetentionPolicy.MAX_MAX_AGE_DAYS,
+                policy.maxAgeDaysFor(type),
+                1,
+                type.name() + " retention in days",
+                "Zero disables the type-specific age rule."
+        );
     }
 
     private static Spinner<Integer> intSpinner(

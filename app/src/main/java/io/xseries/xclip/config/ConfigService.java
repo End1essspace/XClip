@@ -224,6 +224,15 @@ public final class ConfigService {
                 && java.util.Objects.equals(
                         a.sensitiveOneTimeCodeActionValue(),
                         b.sensitiveOneTimeCodeActionValue()
-                );
+                )
+                && a.retentionRecentEnabledValue() == b.retentionRecentEnabledValue()
+                && a.retentionRecentDaysValue() == b.retentionRecentDaysValue()
+                && a.retentionTextDaysValue() == b.retentionTextDaysValue()
+                && a.retentionCodeDaysValue() == b.retentionCodeDaysValue()
+                && a.retentionUrlDaysValue() == b.retentionUrlDaysValue()
+                && a.retentionPathDaysValue() == b.retentionPathDaysValue()
+                && a.retentionJsonDaysValue() == b.retentionJsonDaysValue()
+                && a.retentionCommandDaysValue() == b.retentionCommandDaysValue()
+                && a.clearRecentOnExitValue() == b.clearRecentOnExitValue();
     }
 }

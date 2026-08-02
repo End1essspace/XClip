@@ -283,3 +283,34 @@ Config advances from version 3 to version 4; database schema remains version 6.
 - Existing history is never scanned or automatically deleted.
 - Password-manager applications remain governed by the explicit M5.1 executable
   exclusion list. Retention and cleanup belong to Milestone 5.3.
+
+---
+
+## 17. History retention and cleanup extension — contract revision 10
+
+Milestone 5.3 adds explicit, age-based cleanup for unpinned history. Config
+advances from version 4 to version 5; database schema remains version 6.
+
+- Settings exposes a dedicated `History retention & cleanup` section.
+- The general rule deletes only `RECENT` clips older than `N` whole days.
+- The supported age range is `1` to `3,650` days.
+- Independent age overrides exist for `TEXT`, `CODE`, `URL`, `PATH`, `JSON`,
+  and `COMMAND`; `0` disables one type-specific override.
+- When the general rule and a type override both apply, the shorter age wins.
+- `PINNED` clips are never retention candidates and remain preserved regardless
+  of age or content type.
+- Age cleanup runs at startup, after Settings Apply, on explicit manual request,
+  and every six hours while XClip remains running.
+- Clear on exit is a separate explicit option and deletes all `RECENT` clips
+  synchronously during normal shutdown while preserving `PINNED` clips.
+- The Settings section displays the runtime last cleanup result, trigger,
+  timestamp, and deleted-row count.
+- Content type remains deterministic derived metadata and is not added to the
+  database schema. SQLite first returns bounded unpinned age candidates; the
+  domain policy performs the exact type decision locally.
+- Multi-row deletion uses batches of at most `500` ids so cleanup remains below
+  SQLite parameter limits.
+- Automatic age cleanup and clear on exit are both disabled by default.
+- Cleanup does not rewrite clipboard content, mutate PINNED order, or scan
+  sensitive rules. Tag relations for deleted RECENT clips follow the existing
+  foreign-key cascade.

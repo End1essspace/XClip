@@ -12,6 +12,7 @@ import io.xseries.xclip.data.dao.ClipEntryDao;
 import io.xseries.xclip.data.dao.TagDao;
 import io.xseries.xclip.data.db.Database;
 import io.xseries.xclip.domain.service.ClipService;
+import io.xseries.xclip.domain.service.HistoryCleanupService;
 import io.xseries.xclip.domain.service.PasteService;
 import io.xseries.xclip.system.DataOwnershipService;
 import io.xseries.xclip.system.clipboard.ClipboardAccess;
@@ -37,6 +38,7 @@ public final class XClipApp extends Application {
     private WatcherController watcherController;
     private PopupWindow popup;
     private TrayController tray;
+    private HistoryCleanupService historyCleanupService;
 
     @Override
     public void start(Stage unusedStage) {
@@ -66,6 +68,8 @@ public final class XClipApp extends Application {
         TagDao tagDao = new TagDao(db.jdbcUrl());
         ClipService clipService = new ClipService(dao);
         clipService.applyConfig(config);
+        this.historyCleanupService = new HistoryCleanupService(dao);
+        historyCleanupService.applyConfig(config);
 
         ClipboardAccess clipboard = new ClipboardAccess();
         PasteService pasteService = PasteService.createDefault(clipboard, clipService);
@@ -101,12 +105,20 @@ public final class XClipApp extends Application {
                 clipService,
                 watcherController,
                 dataOwnershipService,
+                historyCleanupService,
                 config,
                 nextConfig -> {
                     privacyGate.applyConfig(nextConfig);
                     popup.applyConfig(nextConfig);
                 }
         );
+
+        historyCleanupService.addStatusListener(cleanupStatus -> {
+            if (cleanupStatus.deletedCount() > 0 && popup != null) {
+                popup.refreshFromStorage();
+            }
+        });
+        historyCleanupService.start();
 
         openSettingsRef[0] = settingsWindow::show;
 
@@ -162,6 +174,13 @@ public final class XClipApp extends Application {
             if (popup != null) {
                 popup.shutdown();
                 popup = null;
+            }
+        } catch (Exception ignored) {}
+
+        try {
+            if (historyCleanupService != null) {
+                historyCleanupService.shutdownAndClearOnExit();
+                historyCleanupService = null;
             }
         } catch (Exception ignored) {}
 

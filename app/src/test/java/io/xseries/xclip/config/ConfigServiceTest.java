@@ -8,6 +8,8 @@ package io.xseries.xclip.config;
 
 import io.xseries.xclip.domain.duplicate.DuplicateBehaviorPolicy;
 import io.xseries.xclip.domain.privacy.SensitiveContentPolicy;
+import io.xseries.xclip.domain.model.ClipContentType;
+import io.xseries.xclip.domain.retention.HistoryRetentionPolicy;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -52,7 +54,7 @@ class ConfigServiceTest {
         assertEquals(900, loaded.maxHistory());
         assertTrue(loaded.startMinimized());
         assertEquals(DuplicateBehaviorPolicy.defaults(), loaded.duplicateBehaviorPolicy());
-        assertTrue(persisted.contains("\"version\": 4"));
+        assertTrue(persisted.contains("\"version\": 5"));
         assertTrue(persisted.contains("duplicateRecentPosition"));
         assertTrue(persisted.contains("MOVE_TO_TOP"));
         assertTrue(persisted.contains("excludedApplications"));
@@ -137,7 +139,7 @@ class ConfigServiceTest {
                 java.util.List.of("chrome.exe", "keepassxc.exe"),
                 loaded.excludedApplications()
         );
-        assertTrue(persisted.contains("\"version\": 4"));
+        assertTrue(persisted.contains("\"version\": 5"));
         assertTrue(persisted.contains("chrome.exe"));
         assertTrue(persisted.contains("keepassxc.exe"));
         assertFalse(persisted.contains("*.exe"));
@@ -181,9 +183,60 @@ class ConfigServiceTest {
                 SensitiveContentPolicy.RuleAction.CAPTURE,
                 loaded.sensitiveContentPolicy().oneTimeCodeAction()
         );
-        assertTrue(persisted.contains("\"version\": 4"));
+        assertTrue(persisted.contains("\"version\": 5"));
         assertTrue(persisted.contains("\"sensitivePaymentCardAction\": \"SKIP\""));
         assertTrue(persisted.contains("\"sensitiveOneTimeCodeAction\": \"CAPTURE\""));
+    }
+
+    @Test
+    void migratesV4RetentionDefaultsAndNormalizesManualValues() throws Exception {
+        Path path = tempDir.resolve("config.json");
+        Files.writeString(path, """
+                {
+                  "version": 4,
+                  "maxHistory": 1450,
+                  "minClipLength": 0,
+                  "maxClipChars": 500000,
+                  "uiClipLimit": 200,
+                  "startOnBoot": false,
+                  "startMinimized": false,
+                  "watcherEnabled": true,
+                  "windowX": -1,
+                  "windowY": -1,
+                  "windowW": 520,
+                  "windowH": 420,
+                  "windowMaximized": false,
+                  "retentionRecentEnabled": true,
+                  "retentionRecentDays": 0,
+                  "retentionTextDays": -5,
+                  "retentionCodeDays": 9000,
+                  "retentionUrlDays": 7,
+                  "retentionPathDays": 0,
+                  "retentionJsonDays": 14,
+                  "retentionCommandDays": 2,
+                  "clearRecentOnExit": true
+                }
+                """, StandardCharsets.UTF_8);
+
+        Config loaded = new ConfigService(path).loadOrCreate();
+        String persisted = Files.readString(path, StandardCharsets.UTF_8);
+        HistoryRetentionPolicy policy = loaded.historyRetentionPolicy();
+
+        assertEquals(Config.CURRENT_VERSION, loaded.version());
+        assertEquals(1450, loaded.maxHistory());
+        assertTrue(policy.autoDeleteRecentEnabled());
+        assertEquals(HistoryRetentionPolicy.DEFAULT_RECENT_MAX_AGE_DAYS,
+                policy.recentMaxAgeDays());
+        assertEquals(0, policy.maxAgeDaysFor(ClipContentType.TEXT));
+        assertEquals(HistoryRetentionPolicy.MAX_MAX_AGE_DAYS,
+                policy.maxAgeDaysFor(ClipContentType.CODE));
+        assertEquals(7, policy.maxAgeDaysFor(ClipContentType.URL));
+        assertEquals(14, policy.maxAgeDaysFor(ClipContentType.JSON));
+        assertEquals(2, policy.maxAgeDaysFor(ClipContentType.COMMAND));
+        assertTrue(policy.clearRecentOnExit());
+        assertTrue(persisted.contains("\"version\": 5"));
+        assertTrue(persisted.contains("\"retentionRecentDays\": 30"));
+        assertTrue(persisted.contains("\"retentionCodeDays\": 3650"));
     }
 
 }

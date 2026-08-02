@@ -112,6 +112,18 @@ class UiStylesResourceTest {
         }
     }
 
+    @Test
+    void retentionSettingsSelectorsArePackaged() throws Exception {
+        try (InputStream stream = UiStyles.class.getResourceAsStream("/ui/dialogs.css")) {
+            assertNotNull(stream);
+            String css = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+
+            assertTrue(css.contains(".retention-settings-section"));
+            assertTrue(css.contains(".settings-retention-hint"));
+            assertTrue(css.contains(".settings-cleanup-status"));
+        }
+    }
+
     private static int count(String value, char needle) {
         int count = 0;
         for (int index = 0; index < value.length(); index++) {

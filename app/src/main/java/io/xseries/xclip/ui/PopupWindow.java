@@ -1717,6 +1717,16 @@ public final class PopupWindow {
         showOrFocusInternal();
     }
 
+    /**
+     * Reloads the visible popup after an external storage mutation such as
+     * scheduled history cleanup. Safe to call from any thread.
+     */
+    public void refreshFromStorage() {
+        Runnable refresh = () -> reloadNow(searchField.getText());
+        if (Platform.isFxApplicationThread()) refresh.run();
+        else Platform.runLater(refresh);
+    }
+
     private void showOrFocusInternal() {
         suppressAutoHide = false;
         autoHideDelay.stop();

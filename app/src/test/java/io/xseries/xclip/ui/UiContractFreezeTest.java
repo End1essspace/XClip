@@ -10,7 +10,9 @@ import io.xseries.xclip.domain.duplicate.DuplicateBehaviorPolicy;
 import io.xseries.xclip.domain.model.ClipContentType;
 import io.xseries.xclip.domain.privacy.ExcludedApplicationPolicy;
 import io.xseries.xclip.domain.privacy.SensitiveContentPolicy;
+import io.xseries.xclip.domain.retention.HistoryRetentionPolicy;
 import io.xseries.xclip.domain.model.ClipViewScope;
+import io.xseries.xclip.domain.service.HistoryCleanupService;
 import io.xseries.xclip.domain.service.TagNamePolicy;
 import io.xseries.xclip.ui.components.UiIcon;
 import io.xseries.xclip.ui.popup.ClipPreviewPolicy;
@@ -41,7 +43,7 @@ class UiContractFreezeTest {
     void frozenContractMatchesRuntimeConstantsAndEnums() throws Exception {
         Properties contract = loadContract();
 
-        assertEquals("9", contract.getProperty("contract.version"));
+        assertEquals("10", contract.getProperty("contract.version"));
         assertEquals("1.3.0", contract.getProperty("product.version"));
         assertEquals(Config.MIN_WINDOW_W, intValue(contract, "window.minWidth"));
         assertEquals(Config.MIN_WINDOW_H, intValue(contract, "window.minHeight"));
@@ -258,6 +260,40 @@ class UiContractFreezeTest {
         assertEquals("CAPTURE", required(contract, "privacy.defaultSensitiveActions"));
         assertEquals("FAIL_OPEN", required(contract, "privacy.sensitiveFailure"));
         assertEquals("NONE", required(contract, "privacy.sensitiveHistoryMutation"));
+        assertEquals("DEDICATED", required(contract, "history.settingsSection"));
+        assertEquals("RECENT_ONLY", required(contract, "history.autoDeleteScope"));
+        assertEquals("PRESERVE_ALWAYS", required(contract, "history.pinnedBehavior"));
+        assertEquals("DAYS", required(contract, "history.ageUnit"));
+        assertEquals(
+                HistoryRetentionPolicy.MAX_MAX_AGE_DAYS,
+                intValue(contract, "history.maxAgeDays")
+        );
+        assertEquals(
+                enumNames(ClipContentType.values()),
+                values(contract, "history.typeOverrides")
+        );
+        assertEquals(
+                HistoryRetentionPolicy.TYPE_RULE_DISABLED,
+                intValue(contract, "history.typeRuleDisabled")
+        );
+        assertEquals("SHORTEST_AGE_WINS", required(contract, "history.ruleCombination"));
+        assertEquals(
+                "RECENT_ONLY_EXPLICIT",
+                required(contract, "history.clearOnExit")
+        );
+        assertEquals(
+                enumNames(HistoryCleanupService.CleanupTrigger.values()),
+                values(contract, "history.cleanupTriggers")
+        );
+        assertEquals(
+                HistoryCleanupService.PERIODIC_INTERVAL_HOURS,
+                longValue(contract, "history.periodicIntervalHours")
+        );
+        assertEquals(
+                "RUNTIME_LAST_RESULT",
+                required(contract, "history.cleanupStatus")
+        );
+        assertEquals("NONE", required(contract, "history.schemaMutation"));
         assertEquals(UiStyles.popupResourcePaths(), values(contract, "popup.stylesheets"));
         assertEquals(UiStyles.settingsResourcePaths(), values(contract, "settings.stylesheets"));
         assertEquals(UiIcon.values().length, intValue(contract, "popup.iconCount"));

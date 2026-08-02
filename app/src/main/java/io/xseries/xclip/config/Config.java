@@ -6,11 +6,15 @@
 package io.xseries.xclip.config;
 
 import io.xseries.xclip.domain.duplicate.DuplicateBehaviorPolicy;
+import io.xseries.xclip.domain.model.ClipContentType;
 import io.xseries.xclip.domain.privacy.ExcludedApplicationPolicy;
 import io.xseries.xclip.domain.privacy.SensitiveContentPolicy;
+import io.xseries.xclip.domain.retention.HistoryRetentionPolicy;
 
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -18,7 +22,7 @@ import java.util.Objects;
  */
 public final class Config {
 
-    public static final int CURRENT_VERSION = 4;
+    public static final int CURRENT_VERSION = 5;
 
     private final int version;
     private final int maxHistory;
@@ -56,6 +60,16 @@ public final class Config {
     private final List<String> excludedApplications;
     private final String sensitivePaymentCardAction;
     private final String sensitiveOneTimeCodeAction;
+
+    private final boolean retentionRecentEnabled;
+    private final int retentionRecentDays;
+    private final int retentionTextDays;
+    private final int retentionCodeDays;
+    private final int retentionUrlDays;
+    private final int retentionPathDays;
+    private final int retentionJsonDays;
+    private final int retentionCommandDays;
+    private final boolean clearRecentOnExit;
 
     public Config(
             int version,
@@ -119,7 +133,16 @@ public final class Config {
                 false,
                 List.of(),
                 null,
-                null
+                null,
+                false,
+                HistoryRetentionPolicy.DEFAULT_RECENT_MAX_AGE_DAYS,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                false
         );
     }
 
@@ -145,7 +168,16 @@ public final class Config {
             boolean duplicateExactContentMode,
             List<String> excludedApplications,
             String sensitivePaymentCardAction,
-            String sensitiveOneTimeCodeAction
+            String sensitiveOneTimeCodeAction,
+            boolean retentionRecentEnabled,
+            int retentionRecentDays,
+            int retentionTextDays,
+            int retentionCodeDays,
+            int retentionUrlDays,
+            int retentionPathDays,
+            int retentionJsonDays,
+            int retentionCommandDays,
+            boolean clearRecentOnExit
     ) {
         this.version = version;
         this.maxHistory = maxHistory;
@@ -169,6 +201,15 @@ public final class Config {
         this.excludedApplications = excludedApplications;
         this.sensitivePaymentCardAction = sensitivePaymentCardAction;
         this.sensitiveOneTimeCodeAction = sensitiveOneTimeCodeAction;
+        this.retentionRecentEnabled = retentionRecentEnabled;
+        this.retentionRecentDays = retentionRecentDays;
+        this.retentionTextDays = retentionTextDays;
+        this.retentionCodeDays = retentionCodeDays;
+        this.retentionUrlDays = retentionUrlDays;
+        this.retentionPathDays = retentionPathDays;
+        this.retentionJsonDays = retentionJsonDays;
+        this.retentionCommandDays = retentionCommandDays;
+        this.clearRecentOnExit = clearRecentOnExit;
     }
 
     public static Config defaults() {
@@ -220,8 +261,9 @@ public final class Config {
         DuplicateBehaviorPolicy duplicatePolicy = duplicateBehaviorPolicy();
         ExcludedApplicationPolicy excludedPolicy = excludedApplicationPolicy();
         SensitiveContentPolicy sensitivePolicy = sensitiveContentPolicy();
+        HistoryRetentionPolicy retentionPolicy = historyRetentionPolicy();
 
-        return new Config(
+        return fromPolicies(
                 v,
                 mh,
                 ml,
@@ -235,15 +277,10 @@ public final class Config {
                 w,
                 h,
                 max,
-                duplicatePolicy.recentDuplicatePosition().name(),
-                duplicatePolicy.pinnedDuplicatePosition().name(),
-                duplicatePolicy.whitespaceMode().name(),
-                duplicatePolicy.caseSensitivity().name(),
-                duplicatePolicy.duplicateWindowMillis(),
-                duplicatePolicy.exactContentMode(),
-                excludedPolicy.executableNames(),
-                sensitivePolicy.paymentCardAction().name(),
-                sensitivePolicy.oneTimeCodeAction().name()
+                duplicatePolicy,
+                excludedPolicy,
+                sensitivePolicy,
+                retentionPolicy
         );
     }
 
@@ -293,16 +330,6 @@ public final class Config {
         );
     }
 
-    String duplicateRecentPositionValue() { return duplicateRecentPosition; }
-    String duplicatePinnedPositionValue() { return duplicatePinnedPosition; }
-    String duplicateWhitespaceModeValue() { return duplicateWhitespaceMode; }
-    String duplicateCaseSensitivityValue() { return duplicateCaseSensitivity; }
-    long duplicateWindowMillisValue() { return duplicateWindowMillis; }
-    boolean duplicateExactContentModeValue() { return duplicateExactContentMode; }
-    List<String> excludedApplicationsValue() { return excludedApplications; }
-    String sensitivePaymentCardActionValue() { return sensitivePaymentCardAction; }
-    String sensitiveOneTimeCodeActionValue() { return sensitiveOneTimeCodeAction; }
-
     public ExcludedApplicationPolicy excludedApplicationPolicy() {
         return ExcludedApplicationPolicy.sanitized(excludedApplications);
     }
@@ -327,6 +354,42 @@ public final class Config {
         );
     }
 
+    public HistoryRetentionPolicy historyRetentionPolicy() {
+        int recentDays = clampRecentDays(retentionRecentDays);
+        EnumMap<ClipContentType, Integer> typeDays = new EnumMap<>(ClipContentType.class);
+        typeDays.put(ClipContentType.TEXT, clampTypeDays(retentionTextDays));
+        typeDays.put(ClipContentType.CODE, clampTypeDays(retentionCodeDays));
+        typeDays.put(ClipContentType.URL, clampTypeDays(retentionUrlDays));
+        typeDays.put(ClipContentType.PATH, clampTypeDays(retentionPathDays));
+        typeDays.put(ClipContentType.JSON, clampTypeDays(retentionJsonDays));
+        typeDays.put(ClipContentType.COMMAND, clampTypeDays(retentionCommandDays));
+        return new HistoryRetentionPolicy(
+                retentionRecentEnabled,
+                recentDays,
+                typeDays,
+                clearRecentOnExit
+        );
+    }
+
+    String duplicateRecentPositionValue() { return duplicateRecentPosition; }
+    String duplicatePinnedPositionValue() { return duplicatePinnedPosition; }
+    String duplicateWhitespaceModeValue() { return duplicateWhitespaceMode; }
+    String duplicateCaseSensitivityValue() { return duplicateCaseSensitivity; }
+    long duplicateWindowMillisValue() { return duplicateWindowMillis; }
+    boolean duplicateExactContentModeValue() { return duplicateExactContentMode; }
+    List<String> excludedApplicationsValue() { return excludedApplications; }
+    String sensitivePaymentCardActionValue() { return sensitivePaymentCardAction; }
+    String sensitiveOneTimeCodeActionValue() { return sensitiveOneTimeCodeAction; }
+    boolean retentionRecentEnabledValue() { return retentionRecentEnabled; }
+    int retentionRecentDaysValue() { return retentionRecentDays; }
+    int retentionTextDaysValue() { return retentionTextDays; }
+    int retentionCodeDaysValue() { return retentionCodeDays; }
+    int retentionUrlDaysValue() { return retentionUrlDays; }
+    int retentionPathDaysValue() { return retentionPathDays; }
+    int retentionJsonDaysValue() { return retentionJsonDays; }
+    int retentionCommandDaysValue() { return retentionCommandDays; }
+    boolean clearRecentOnExitValue() { return clearRecentOnExit; }
+
     public boolean hasWindowPos() {
         return Double.isFinite(windowX)
                 && Double.isFinite(windowY)
@@ -336,49 +399,57 @@ public final class Config {
     public Config withMaxHistory(int value) {
         return copy(value, minClipLength, maxClipChars, uiClipLimit, startOnBoot,
                 startMinimized, watcherEnabled, windowX, windowY, windowW, windowH,
-                windowMaximized, duplicateBehaviorPolicy()).normalized();
+                windowMaximized, duplicateBehaviorPolicy(), excludedApplicationPolicy(),
+                sensitiveContentPolicy(), historyRetentionPolicy()).normalized();
     }
 
     public Config withMinClipLength(int value) {
         return copy(maxHistory, value, maxClipChars, uiClipLimit, startOnBoot,
                 startMinimized, watcherEnabled, windowX, windowY, windowW, windowH,
-                windowMaximized, duplicateBehaviorPolicy()).normalized();
+                windowMaximized, duplicateBehaviorPolicy(), excludedApplicationPolicy(),
+                sensitiveContentPolicy(), historyRetentionPolicy()).normalized();
     }
 
     public Config withMaxClipChars(int value) {
         return copy(maxHistory, minClipLength, value, uiClipLimit, startOnBoot,
                 startMinimized, watcherEnabled, windowX, windowY, windowW, windowH,
-                windowMaximized, duplicateBehaviorPolicy()).normalized();
+                windowMaximized, duplicateBehaviorPolicy(), excludedApplicationPolicy(),
+                sensitiveContentPolicy(), historyRetentionPolicy()).normalized();
     }
 
     public Config withUiClipLimit(int value) {
         return copy(maxHistory, minClipLength, maxClipChars, value, startOnBoot,
                 startMinimized, watcherEnabled, windowX, windowY, windowW, windowH,
-                windowMaximized, duplicateBehaviorPolicy()).normalized();
+                windowMaximized, duplicateBehaviorPolicy(), excludedApplicationPolicy(),
+                sensitiveContentPolicy(), historyRetentionPolicy()).normalized();
     }
 
     public Config withStartOnBoot(boolean value) {
         return copy(maxHistory, minClipLength, maxClipChars, uiClipLimit, value,
                 startMinimized, watcherEnabled, windowX, windowY, windowW, windowH,
-                windowMaximized, duplicateBehaviorPolicy()).normalized();
+                windowMaximized, duplicateBehaviorPolicy(), excludedApplicationPolicy(),
+                sensitiveContentPolicy(), historyRetentionPolicy()).normalized();
     }
 
     public Config withStartMinimized(boolean value) {
         return copy(maxHistory, minClipLength, maxClipChars, uiClipLimit, startOnBoot,
                 value, watcherEnabled, windowX, windowY, windowW, windowH,
-                windowMaximized, duplicateBehaviorPolicy()).normalized();
+                windowMaximized, duplicateBehaviorPolicy(), excludedApplicationPolicy(),
+                sensitiveContentPolicy(), historyRetentionPolicy()).normalized();
     }
 
     public Config withWatcherEnabled(boolean value) {
         return copy(maxHistory, minClipLength, maxClipChars, uiClipLimit, startOnBoot,
                 startMinimized, value, windowX, windowY, windowW, windowH,
-                windowMaximized, duplicateBehaviorPolicy()).normalized();
+                windowMaximized, duplicateBehaviorPolicy(), excludedApplicationPolicy(),
+                sensitiveContentPolicy(), historyRetentionPolicy()).normalized();
     }
 
     public Config withWindowState(double x, double y, double w, double h, boolean maximized) {
         return copy(maxHistory, minClipLength, maxClipChars, uiClipLimit, startOnBoot,
                 startMinimized, watcherEnabled, x, y, w, h, maximized,
-                duplicateBehaviorPolicy()).normalized();
+                duplicateBehaviorPolicy(), excludedApplicationPolicy(),
+                sensitiveContentPolicy(), historyRetentionPolicy()).normalized();
     }
 
     public Config withWindowState(double x, double y, double w, double h) {
@@ -386,134 +457,33 @@ public final class Config {
     }
 
     public Config withDuplicateBehaviorPolicy(DuplicateBehaviorPolicy policy) {
-        DuplicateBehaviorPolicy normalizedPolicy = Objects.requireNonNull(policy, "policy");
         return copy(maxHistory, minClipLength, maxClipChars, uiClipLimit, startOnBoot,
                 startMinimized, watcherEnabled, windowX, windowY, windowW, windowH,
-                windowMaximized, normalizedPolicy).normalized();
+                windowMaximized, Objects.requireNonNull(policy, "policy"),
+                excludedApplicationPolicy(), sensitiveContentPolicy(),
+                historyRetentionPolicy()).normalized();
     }
 
     public Config withExcludedApplications(List<String> applications) {
-        ExcludedApplicationPolicy excludedPolicy = new ExcludedApplicationPolicy(applications);
-        return copy(
-                maxHistory,
-                minClipLength,
-                maxClipChars,
-                uiClipLimit,
-                startOnBoot,
-                startMinimized,
-                watcherEnabled,
-                windowX,
-                windowY,
-                windowW,
-                windowH,
-                windowMaximized,
-                duplicateBehaviorPolicy(),
-                excludedPolicy
-        ).normalized();
+        return copy(maxHistory, minClipLength, maxClipChars, uiClipLimit, startOnBoot,
+                startMinimized, watcherEnabled, windowX, windowY, windowW, windowH,
+                windowMaximized, duplicateBehaviorPolicy(),
+                new ExcludedApplicationPolicy(applications), sensitiveContentPolicy(),
+                historyRetentionPolicy()).normalized();
     }
 
     public Config withSensitiveContentPolicy(SensitiveContentPolicy policy) {
-        SensitiveContentPolicy sensitivePolicy = Objects.requireNonNull(policy, "policy");
-        return copy(
-                maxHistory,
-                minClipLength,
-                maxClipChars,
-                uiClipLimit,
-                startOnBoot,
-                startMinimized,
-                watcherEnabled,
-                windowX,
-                windowY,
-                windowW,
-                windowH,
-                windowMaximized,
-                duplicateBehaviorPolicy(),
-                excludedApplicationPolicy(),
-                sensitivePolicy
-        ).normalized();
+        return copy(maxHistory, minClipLength, maxClipChars, uiClipLimit, startOnBoot,
+                startMinimized, watcherEnabled, windowX, windowY, windowW, windowH,
+                windowMaximized, duplicateBehaviorPolicy(), excludedApplicationPolicy(),
+                Objects.requireNonNull(policy, "policy"), historyRetentionPolicy()).normalized();
     }
 
-    private Config copy(
-            int maxHistory,
-            int minClipLength,
-            int maxClipChars,
-            int uiClipLimit,
-            boolean startOnBoot,
-            boolean startMinimized,
-            boolean watcherEnabled,
-            double windowX,
-            double windowY,
-            double windowW,
-            double windowH,
-            boolean windowMaximized,
-            DuplicateBehaviorPolicy duplicatePolicy
-    ) {
-        return new Config(
-                version,
-                maxHistory,
-                minClipLength,
-                maxClipChars,
-                uiClipLimit,
-                startOnBoot,
-                startMinimized,
-                watcherEnabled,
-                windowX,
-                windowY,
-                windowW,
-                windowH,
-                windowMaximized,
-                duplicatePolicy.recentDuplicatePosition().name(),
-                duplicatePolicy.pinnedDuplicatePosition().name(),
-                duplicatePolicy.whitespaceMode().name(),
-                duplicatePolicy.caseSensitivity().name(),
-                duplicatePolicy.duplicateWindowMillis(),
-                duplicatePolicy.exactContentMode(),
-                excludedApplicationPolicy().executableNames(),
-                sensitiveContentPolicy().paymentCardAction().name(),
-                sensitiveContentPolicy().oneTimeCodeAction().name()
-        );
-    }
-
-    private Config copy(
-            int maxHistory,
-            int minClipLength,
-            int maxClipChars,
-            int uiClipLimit,
-            boolean startOnBoot,
-            boolean startMinimized,
-            boolean watcherEnabled,
-            double windowX,
-            double windowY,
-            double windowW,
-            double windowH,
-            boolean windowMaximized,
-            DuplicateBehaviorPolicy duplicatePolicy,
-            ExcludedApplicationPolicy excludedPolicy
-    ) {
-        return new Config(
-                version,
-                maxHistory,
-                minClipLength,
-                maxClipChars,
-                uiClipLimit,
-                startOnBoot,
-                startMinimized,
-                watcherEnabled,
-                windowX,
-                windowY,
-                windowW,
-                windowH,
-                windowMaximized,
-                duplicatePolicy.recentDuplicatePosition().name(),
-                duplicatePolicy.pinnedDuplicatePosition().name(),
-                duplicatePolicy.whitespaceMode().name(),
-                duplicatePolicy.caseSensitivity().name(),
-                duplicatePolicy.duplicateWindowMillis(),
-                duplicatePolicy.exactContentMode(),
-                excludedPolicy.executableNames(),
-                sensitiveContentPolicy().paymentCardAction().name(),
-                sensitiveContentPolicy().oneTimeCodeAction().name()
-        );
+    public Config withHistoryRetentionPolicy(HistoryRetentionPolicy policy) {
+        return copy(maxHistory, minClipLength, maxClipChars, uiClipLimit, startOnBoot,
+                startMinimized, watcherEnabled, windowX, windowY, windowW, windowH,
+                windowMaximized, duplicateBehaviorPolicy(), excludedApplicationPolicy(),
+                sensitiveContentPolicy(), Objects.requireNonNull(policy, "policy")).normalized();
     }
 
     private Config copy(
@@ -531,8 +501,50 @@ public final class Config {
             boolean windowMaximized,
             DuplicateBehaviorPolicy duplicatePolicy,
             ExcludedApplicationPolicy excludedPolicy,
-            SensitiveContentPolicy sensitivePolicy
+            SensitiveContentPolicy sensitivePolicy,
+            HistoryRetentionPolicy retentionPolicy
     ) {
+        return fromPolicies(
+                version,
+                maxHistory,
+                minClipLength,
+                maxClipChars,
+                uiClipLimit,
+                startOnBoot,
+                startMinimized,
+                watcherEnabled,
+                windowX,
+                windowY,
+                windowW,
+                windowH,
+                windowMaximized,
+                duplicatePolicy,
+                excludedPolicy,
+                sensitivePolicy,
+                retentionPolicy
+        );
+    }
+
+    private static Config fromPolicies(
+            int version,
+            int maxHistory,
+            int minClipLength,
+            int maxClipChars,
+            int uiClipLimit,
+            boolean startOnBoot,
+            boolean startMinimized,
+            boolean watcherEnabled,
+            double windowX,
+            double windowY,
+            double windowW,
+            double windowH,
+            boolean windowMaximized,
+            DuplicateBehaviorPolicy duplicatePolicy,
+            ExcludedApplicationPolicy excludedPolicy,
+            SensitiveContentPolicy sensitivePolicy,
+            HistoryRetentionPolicy retentionPolicy
+    ) {
+        Map<ClipContentType, Integer> typeDays = retentionPolicy.perTypeMaxAgeDays();
         return new Config(
                 version,
                 maxHistory,
@@ -555,8 +567,27 @@ public final class Config {
                 duplicatePolicy.exactContentMode(),
                 excludedPolicy.executableNames(),
                 sensitivePolicy.paymentCardAction().name(),
-                sensitivePolicy.oneTimeCodeAction().name()
+                sensitivePolicy.oneTimeCodeAction().name(),
+                retentionPolicy.autoDeleteRecentEnabled(),
+                retentionPolicy.recentMaxAgeDays(),
+                typeDays.getOrDefault(ClipContentType.TEXT, 0),
+                typeDays.getOrDefault(ClipContentType.CODE, 0),
+                typeDays.getOrDefault(ClipContentType.URL, 0),
+                typeDays.getOrDefault(ClipContentType.PATH, 0),
+                typeDays.getOrDefault(ClipContentType.JSON, 0),
+                typeDays.getOrDefault(ClipContentType.COMMAND, 0),
+                retentionPolicy.clearRecentOnExit()
         );
+    }
+
+    private static int clampRecentDays(int value) {
+        if (value <= 0) return HistoryRetentionPolicy.DEFAULT_RECENT_MAX_AGE_DAYS;
+        return Math.min(value, HistoryRetentionPolicy.MAX_MAX_AGE_DAYS);
+    }
+
+    private static int clampTypeDays(int value) {
+        if (value <= 0) return HistoryRetentionPolicy.TYPE_RULE_DISABLED;
+        return Math.min(value, HistoryRetentionPolicy.MAX_MAX_AGE_DAYS);
     }
 
     private static <E extends Enum<E>> E parseEnum(

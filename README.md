@@ -30,6 +30,12 @@ Unlike simple clipboard utilities, XClip focuses on engineering quality: layered
 - Safe defaults capture normally; every blocking rule requires explicit opt-in
 - Existing clipboard history is never scanned or deleted automatically
 
+🧹 **History Retention & Cleanup**
+- Optional age-based cleanup for RECENT history with a general day limit
+- Independent day overrides for TEXT, CODE, URL, PATH, JSON, and COMMAND clips
+- PINNED clips are always preserved; the shorter applicable age rule wins
+- Optional clear-RECENT-on-exit plus startup, manual, Apply, and periodic cleanup status
+
 🔍 **Instant Search with Highlighting**
 - Live search across full clipboard history
 - Advanced operators: `type:`, `is:`, `tag:`, `-type:`, and `-tag:`
@@ -211,6 +217,12 @@ Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
 - Опциональный пропуск 4–8-значных OTP-кодов только при явном контексте подтверждения
 - Безопасные defaults сохраняют обычный capture; блокировка включается только явно
 - Существующая clipboard history автоматически не сканируется и не удаляется
+
+🧹 **Retention и очистка истории**
+- Опциональная возрастная очистка RECENT по общему лимиту дней
+- Отдельные day overrides для TEXT, CODE, URL, PATH, JSON и COMMAND
+- PINNED всегда сохраняются; при совпадении правил применяется меньший срок
+- Опциональная очистка RECENT при выходе, ручной запуск и статус startup/Apply/periodic cleanup
 
 🔍 **Мгновенный поиск с подсветкой**
 - Живой поиск по всей истории буфера обмена

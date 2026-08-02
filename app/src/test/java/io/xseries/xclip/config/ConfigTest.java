@@ -7,6 +7,10 @@ package io.xseries.xclip.config;
 
 import io.xseries.xclip.domain.duplicate.DuplicateBehaviorPolicy;
 import io.xseries.xclip.domain.privacy.SensitiveContentPolicy;
+import io.xseries.xclip.domain.model.ClipContentType;
+import io.xseries.xclip.domain.retention.HistoryRetentionPolicy;
+
+import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
@@ -143,6 +147,39 @@ class ConfigTest {
         assertEquals(policy, config.sensitiveContentPolicy());
         assertEquals(java.util.List.of("keepassxc.exe"), config.excludedApplications());
         assertEquals(1_600, config.maxHistory());
+        assertTrue(config.startMinimized());
+    }
+
+    @Test
+    void v4ConfigMigratesToDisabledRetentionDefaults() {
+        Config config = new Config(4, 800, 0, false, false, true).normalized();
+
+        assertEquals(Config.CURRENT_VERSION, config.version());
+        assertEquals(HistoryRetentionPolicy.defaults(), config.historyRetentionPolicy());
+    }
+
+    @Test
+    void retentionPolicySurvivesEveryUnrelatedWither() {
+        HistoryRetentionPolicy policy = new HistoryRetentionPolicy(
+                true,
+                45,
+                Map.of(
+                        ClipContentType.URL, 7,
+                        ClipContentType.COMMAND, 2
+                ),
+                true
+        );
+
+        Config config = Config.defaults()
+                .withHistoryRetentionPolicy(policy)
+                .withSensitiveContentPolicy(SensitiveContentPolicy.defaults())
+                .withExcludedApplications(java.util.List.of("keepassxc.exe"))
+                .withMaxHistory(1_700)
+                .withStartMinimized(true)
+                .withDuplicateBehaviorPolicy(DuplicateBehaviorPolicy.defaults());
+
+        assertEquals(policy, config.historyRetentionPolicy());
+        assertEquals(1_700, config.maxHistory());
         assertTrue(config.startMinimized());
     }
 

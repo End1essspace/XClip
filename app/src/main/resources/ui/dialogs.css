@@ -706,3 +706,25 @@
     -fx-line-spacing: 1px;
     -fx-padding: 0 2 0 2;
 }
+
+/* =========================================================
+   Milestone 5.3 — history retention and cleanup
+   ========================================================= */
+
+.retention-settings-section {
+    -fx-border-color: #48614E;
+}
+
+.settings-retention-hint {
+    -fx-text-fill: #8EB89A;
+    -fx-font-size: 10px;
+    -fx-line-spacing: 1px;
+    -fx-padding: 0 2 0 2;
+}
+
+.settings-cleanup-status {
+    -fx-text-fill: #8FA0B5;
+    -fx-font-size: 10px;
+    -fx-line-spacing: 1px;
+    -fx-max-width: 250px;
+}

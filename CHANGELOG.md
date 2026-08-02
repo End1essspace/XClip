@@ -3,10 +3,15 @@
 All notable changes to this project will be documented in this file.
 
 
-## [Unreleased] — Privacy controls and duplicate behavior preferences
+## [Unreleased] — Privacy, retention, and duplicate behavior preferences
 
 ### Added
 
+* Added opt-in age-based cleanup for RECENT history with a general 1–3,650 day policy and independent TEXT, CODE, URL, PATH, JSON, and COMMAND overrides.
+* Added deterministic rule composition: PINNED clips are always preserved and the shortest applicable general/type age wins.
+* Added explicit clear-RECENT-on-exit behavior, startup/Apply/manual/periodic cleanup triggers, and a runtime last-result status in Settings.
+* Added config v5 persistence and backward-compatible migration from v4; database schema remains v6 because content type stays derived metadata.
+* Added batched multi-id deletion, retention candidate loading, cleanup service tests, config migration tests, CSS coverage, and UI contract revision 10.
 * Added explicit opt-in sensitive-content rules for payment-card-like values and contextual one-time codes.
 * Added local-only payment-card detection with bounded 13–19 digit candidates, safe token boundaries, common separators, and Luhn verification.
 * Added low-false-positive OTP detection for 4–8 digit values near explicit English, Russian, or Uzbek verification context; standalone numbers remain capturable.
@@ -65,7 +70,9 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-* Duplicate behavior and application exclusions remain persisted in config v4 together with sensitive-content actions.
+* Automatic retention remains disabled by default; no existing history is deleted until the user explicitly enables an age rule or clear on exit.
+* `ClipEntryDao.deleteByIds` now deletes atomically in bounded 500-id batches to remain below SQLite parameter limits during cleanup.
+* Duplicate behavior, application exclusions, and sensitive-content actions remain preserved in config v5 alongside retention settings.
 * Clipboard capture gates now receive the exact capped changed text, allowing content-aware privacy rules without moving detection into persistence.
 * Clipboard watcher now evaluates the foreground privacy gate after marking a changed value as observed, preventing excluded content from being captured later after a window switch without another clipboard change.
 * Clipboard watching now forwards exact capped text to the domain layer so case- and whitespace-only changes can be evaluated by the selected duplicate policy.
