@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -64,9 +65,9 @@ public final class PopupHeader extends VBox {
         if (mode == appliedMode) return;
         appliedMode = mode;
 
-        resetGridConstraints(search);
-        resetGridConstraints(statusGroup);
-        resetGridConstraints(controlGroup);
+        PopupLayoutSupport.resetGridConstraints(search);
+        PopupLayoutSupport.resetGridConstraints(statusGroup);
+        PopupLayoutSupport.resetGridConstraints(controlGroup);
         topBar.getColumnConstraints().clear();
 
         ColumnConstraints flexible = new ColumnConstraints();
@@ -106,25 +107,6 @@ public final class PopupHeader extends VBox {
             GridPane.setColumnIndex(controlGroup, 2);
             GridPane.setHalignment(controlGroup, HPos.RIGHT);
         }
-
-        getStyleClass().removeAll(
-                "responsive-compact",
-                "responsive-balanced",
-                "responsive-wide"
-        );
-        getStyleClass().add(switch (mode) {
-            case COMPACT -> "responsive-compact";
-            case BALANCED -> "responsive-balanced";
-            case WIDE -> "responsive-wide";
-        });
-    }
-
-    private static void resetGridConstraints(Node node) {
-        GridPane.setRowIndex(node, null);
-        GridPane.setColumnIndex(node, null);
-        GridPane.setRowSpan(node, null);
-        GridPane.setColumnSpan(node, null);
-        GridPane.setHalignment(node, null);
-        GridPane.setHgrow(node, null);
+        PopupLayoutSupport.applyResponsiveClass(this, mode);
     }
 }

@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -40,15 +41,20 @@ public final class DuplicatePolicyEngine {
             return Decision.CREATE_NEW_ENTRY;
         }
 
-        return switch (effectivePolicy.mutationFor(existing.pinned())) {
-            case UPDATE_METADATA_MOVE_RECENT_TO_TOP ->
+        if (existing.pinned()) {
+            return switch (effectivePolicy.pinnedDuplicatePosition()) {
+                case PRESERVE_PIN_POSITION ->
+                        Decision.UPDATE_EXISTING_PRESERVE_PIN_POSITION;
+                case MOVE_PIN_TO_TOP ->
+                        Decision.UPDATE_EXISTING_MOVE_PIN_TO_TOP;
+            };
+        }
+
+        return switch (effectivePolicy.recentDuplicatePosition()) {
+            case MOVE_TO_TOP ->
                     Decision.UPDATE_EXISTING_MOVE_RECENT_TO_TOP;
-            case UPDATE_METADATA_PRESERVE_RECENT_POSITION ->
+            case PRESERVE_EXISTING_POSITION ->
                     Decision.UPDATE_EXISTING_PRESERVE_RECENT_POSITION;
-            case UPDATE_METADATA_PRESERVE_PIN_POSITION ->
-                    Decision.UPDATE_EXISTING_PRESERVE_PIN_POSITION;
-            case UPDATE_METADATA_MOVE_PIN_TO_TOP ->
-                    Decision.UPDATE_EXISTING_MOVE_PIN_TO_TOP;
         };
     }
 

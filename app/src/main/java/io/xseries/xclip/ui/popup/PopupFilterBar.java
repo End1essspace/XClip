@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -85,10 +86,10 @@ public final class PopupFilterBar extends GridPane {
         if (mode == appliedMode) return;
         appliedMode = mode;
 
-        resetGridConstraints(scopeButtons);
-        resetGridConstraints(typeControl);
-        resetGridConstraints(tagControl);
-        resetGridConstraints(resetButton);
+        PopupLayoutSupport.resetGridConstraints(scopeButtons);
+        PopupLayoutSupport.resetGridConstraints(typeControl);
+        PopupLayoutSupport.resetGridConstraints(tagControl);
+        PopupLayoutSupport.resetGridConstraints(resetButton);
         getColumnConstraints().clear();
 
         ColumnConstraints flexible = new ColumnConstraints();
@@ -126,17 +127,7 @@ public final class PopupFilterBar extends GridPane {
             GridPane.setColumnIndex(resetButton, 3);
             GridPane.setHalignment(resetButton, HPos.RIGHT);
         }
-
-        getStyleClass().removeAll(
-                "responsive-compact",
-                "responsive-balanced",
-                "responsive-wide"
-        );
-        getStyleClass().add(switch (mode) {
-            case COMPACT -> "responsive-compact";
-            case BALANCED -> "responsive-balanced";
-            case WIDE -> "responsive-wide";
-        });
+        PopupLayoutSupport.applyResponsiveClass(this, mode);
     }
 
     private StackPane createComboControl(
@@ -187,14 +178,5 @@ public final class PopupFilterBar extends GridPane {
         control.setMinWidth(minWidth);
         control.setPrefWidth(prefWidth);
         control.setMaxWidth(maxWidth);
-    }
-
-    private static void resetGridConstraints(Node node) {
-        GridPane.setRowIndex(node, null);
-        GridPane.setColumnIndex(node, null);
-        GridPane.setRowSpan(node, null);
-        GridPane.setColumnSpan(node, null);
-        GridPane.setHalignment(node, null);
-        GridPane.setHgrow(node, null);
     }
 }

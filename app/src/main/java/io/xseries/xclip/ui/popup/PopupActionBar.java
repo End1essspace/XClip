@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -122,9 +123,9 @@ public final class PopupActionBar extends GridPane {
         if (mode == appliedMode) return;
         appliedMode = mode;
 
-        resetGridConstraints(left);
-        resetGridConstraints(statusLabel);
-        resetGridConstraints(right);
+        PopupLayoutSupport.resetGridConstraints(left);
+        PopupLayoutSupport.resetGridConstraints(statusLabel);
+        PopupLayoutSupport.resetGridConstraints(right);
         getColumnConstraints().clear();
 
         if (PopupResponsivePolicy.stackFooter(width)) {
@@ -170,17 +171,7 @@ public final class PopupActionBar extends GridPane {
             GridPane.setColumnIndex(right, 2);
             GridPane.setHalignment(right, HPos.RIGHT);
         }
-
-        getStyleClass().removeAll(
-                "responsive-compact",
-                "responsive-balanced",
-                "responsive-wide"
-        );
-        getStyleClass().add(switch (mode) {
-            case COMPACT -> "responsive-compact";
-            case BALANCED -> "responsive-balanced";
-            case WIDE -> "responsive-wide";
-        });
+        PopupLayoutSupport.applyResponsiveClass(this, mode);
     }
 
     private void applyStatusPseudoClasses() {
@@ -224,14 +215,5 @@ public final class PopupActionBar extends GridPane {
     static String hintTextForAvailableWidth(double available) {
         if (!Double.isFinite(available) || available < 330.0) return "";
         return available >= 520.0 ? FULL_HINTS : COMPACT_HINTS;
-    }
-
-    private static void resetGridConstraints(Node node) {
-        GridPane.setRowIndex(node, null);
-        GridPane.setColumnIndex(node, null);
-        GridPane.setRowSpan(node, null);
-        GridPane.setColumnSpan(node, null);
-        GridPane.setHalignment(node, null);
-        GridPane.setHgrow(node, null);
     }
 }

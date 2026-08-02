@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -102,25 +103,6 @@ public record DuplicateBehaviorPolicy(
         }
         return now - existingLastCopiedAt <= duplicateWindowMillis;
     }
-
-    public DuplicateMutation mutationFor(boolean pinned) {
-        if (pinned) {
-            return switch (pinnedDuplicatePosition) {
-                case PRESERVE_PIN_POSITION ->
-                        DuplicateMutation.UPDATE_METADATA_PRESERVE_PIN_POSITION;
-                case MOVE_PIN_TO_TOP ->
-                        DuplicateMutation.UPDATE_METADATA_MOVE_PIN_TO_TOP;
-            };
-        }
-
-        return switch (recentDuplicatePosition) {
-            case MOVE_TO_TOP ->
-                    DuplicateMutation.UPDATE_METADATA_MOVE_RECENT_TO_TOP;
-            case PRESERVE_EXISTING_POSITION ->
-                    DuplicateMutation.UPDATE_METADATA_PRESERVE_RECENT_POSITION;
-        };
-    }
-
     public static String normalizeWhitespace(String value) {
         if (value.isEmpty()) return "";
 
@@ -159,31 +141,5 @@ public record DuplicateBehaviorPolicy(
     public enum CaseSensitivity {
         SENSITIVE,
         INSENSITIVE
-    }
-
-    /**
-     * Domain-level mutation intent. Persistence decides how to realize it.
-     */
-    public enum DuplicateMutation {
-        UPDATE_METADATA_MOVE_RECENT_TO_TOP(true, false),
-        UPDATE_METADATA_PRESERVE_RECENT_POSITION(false, false),
-        UPDATE_METADATA_PRESERVE_PIN_POSITION(true, false),
-        UPDATE_METADATA_MOVE_PIN_TO_TOP(true, true);
-
-        private final boolean updateLastCopiedAt;
-        private final boolean movePinnedToTop;
-
-        DuplicateMutation(boolean updateLastCopiedAt, boolean movePinnedToTop) {
-            this.updateLastCopiedAt = updateLastCopiedAt;
-            this.movePinnedToTop = movePinnedToTop;
-        }
-
-        public boolean updateLastCopiedAt() {
-            return updateLastCopiedAt;
-        }
-
-        public boolean movePinnedToTop() {
-            return movePinnedToTop;
-        }
     }
 }
