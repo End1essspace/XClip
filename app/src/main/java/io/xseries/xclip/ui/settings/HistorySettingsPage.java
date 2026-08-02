@@ -12,10 +12,10 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Spinner;
 import javafx.scene.layout.GridPane;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
+import static io.xseries.xclip.ui.settings.SettingsPageSupport.actionRow;
+import static io.xseries.xclip.ui.settings.SettingsPageSupport.addControlRow;
 import static io.xseries.xclip.ui.settings.SettingsPageSupport.addSettingRow;
 import static io.xseries.xclip.ui.settings.SettingsPageSupport.pageScroll;
 import static io.xseries.xclip.ui.settings.SettingsPageSupport.section;
@@ -58,7 +58,7 @@ public final class HistorySettingsPage {
 
         GridPane retentionGrid = settingsGrid();
         int row = 0;
-        retentionGrid.add(controls.retentionRecentEnabled(), 1, row++);
+        row = addControlRow(retentionGrid, row, controls.retentionRecentEnabled());
         row = addSettingRow(
                 retentionGrid,
                 row,
@@ -72,7 +72,7 @@ public final class HistorySettingsPage {
         row = addSettingRow(retentionGrid, row, "PATH override", "Days to keep PATH clips. Zero disables this type-specific rule.", controls.retentionPathDays());
         row = addSettingRow(retentionGrid, row, "JSON override", "Days to keep JSON clips. Zero disables this type-specific rule.", controls.retentionJsonDays());
         row = addSettingRow(retentionGrid, row, "COMMAND override", "Days to keep COMMAND clips. Zero disables this type-specific rule.", controls.retentionCommandDays());
-        retentionGrid.add(controls.clearRecentOnExit(), 1, row);
+        addControlRow(retentionGrid, row, controls.clearRecentOnExit());
 
         Label hint = new Label(
                 "PINNED clips are always preserved. If both general and per-type rules apply, the shorter age wins. Cleanup never rewrites clipboard content."
@@ -80,20 +80,18 @@ public final class HistorySettingsPage {
         hint.setWrapText(true);
         hint.getStyleClass().add("settings-retention-hint");
 
-        HBox actions = new HBox(
-                10,
-                controls.cleanupStatusLabel(),
+        var actions = actionRow(
+                Pos.CENTER_RIGHT,
                 controls.runCleanupNow(),
                 controls.resetRetentionDefaults()
         );
-        actions.setAlignment(Pos.CENTER_RIGHT);
-        HBox.setHgrow(controls.cleanupStatusLabel(), Priority.ALWAYS);
 
         VBox retentionSection = section(
                 "History retention & cleanup",
                 "Age-based cleanup is opt-in and applies only to RECENT history.",
                 retentionGrid,
                 hint,
+                controls.cleanupStatusLabel(),
                 actions
         );
         retentionSection.getStyleClass().add("retention-settings-section");

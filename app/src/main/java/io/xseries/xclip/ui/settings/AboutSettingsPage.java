@@ -9,13 +9,13 @@ import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
-import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
 
+import static io.xseries.xclip.ui.settings.SettingsPageSupport.actionRow;
 import static io.xseries.xclip.ui.settings.SettingsPageSupport.infoRow;
 import static io.xseries.xclip.ui.settings.SettingsPageSupport.informationSection;
 import static io.xseries.xclip.ui.settings.SettingsPageSupport.pageScroll;
@@ -44,7 +44,7 @@ public final class AboutSettingsPage {
                         infoRow("Author", AboutSettingsContent.AUTHOR),
                         infoRow("License", AboutSettingsContent.LICENSE),
                         infoRow("Data model", "Local SQLite + config.json"),
-                        infoRow("UI contract", "v1.3.0 revision 14")
+                        infoRow("UI contract", "v1.3.0 revision 15")
                 )
         );
 
@@ -63,9 +63,12 @@ public final class AboutSettingsPage {
                 AboutSettingsContent.GPL_URL,
                 linkAction
         );
-        HBox links = new HBox(10, repository, telegram, license);
-        links.setAlignment(Pos.CENTER_LEFT);
-        links.getStyleClass().add("settings-action-row");
+        var links = actionRow(
+                Pos.CENTER_LEFT,
+                repository,
+                telegram,
+                license
+        );
 
         VBox linksSection = section(
                 "Project links",

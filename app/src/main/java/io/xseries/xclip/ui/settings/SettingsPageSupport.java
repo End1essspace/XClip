@@ -5,12 +5,11 @@
  */
 package io.xseries.xclip.ui.settings;
 
-import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
-import javafx.scene.layout.ColumnConstraints;
+import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -25,7 +24,6 @@ final class SettingsPageSupport {
 
     static ScrollPane pageScroll(Node... cards) {
         VBox content = new VBox(14);
-        content.setPadding(new Insets(20, 22, 24, 22));
         content.getChildren().addAll(cards);
         content.getStyleClass().add("settings-page-content");
 
@@ -65,19 +63,7 @@ final class SettingsPageSupport {
     }
 
     static GridPane settingsGrid() {
-        GridPane grid = new GridPane();
-        grid.setHgap(18);
-        grid.setVgap(14);
-
-        ColumnConstraints textColumn = new ColumnConstraints();
-        textColumn.setMinWidth(250);
-        textColumn.setHgrow(Priority.ALWAYS);
-
-        ColumnConstraints controlColumn = new ColumnConstraints();
-        controlColumn.setMinWidth(250);
-
-        grid.getColumnConstraints().addAll(textColumn, controlColumn);
-        return grid;
+        return new SettingsResponsiveGrid();
     }
 
     static int addSettingRow(
@@ -87,10 +73,45 @@ final class SettingsPageSupport {
             String description,
             Node control
     ) {
+        if (grid instanceof SettingsResponsiveGrid responsive) {
+            return responsive.addSettingRow(
+                    row,
+                    settingText(title, description),
+                    control
+            );
+        }
+
         grid.add(settingText(title, description), 0, row);
         grid.add(control, 1, row);
         GridPane.setHgrow(control, Priority.ALWAYS);
         return row + 1;
+    }
+
+    static int addControlRow(
+            GridPane grid,
+            int row,
+            Node control
+    ) {
+        if (grid instanceof SettingsResponsiveGrid responsive) {
+            return responsive.addControlRow(row, control);
+        }
+
+        grid.add(control, 1, row);
+        GridPane.setHgrow(control, Priority.ALWAYS);
+        return row + 1;
+    }
+
+    static FlowPane actionRow(
+            Pos alignment,
+            Node... actions
+    ) {
+        FlowPane row = new FlowPane();
+        row.setHgap(10);
+        row.setVgap(8);
+        row.setAlignment(alignment);
+        row.getChildren().addAll(actions);
+        row.getStyleClass().add("settings-action-row");
+        return row;
     }
 
     static VBox settingText(String title, String description) {

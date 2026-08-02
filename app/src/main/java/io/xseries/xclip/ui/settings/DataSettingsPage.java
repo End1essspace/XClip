@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
 
+import static io.xseries.xclip.ui.settings.SettingsPageSupport.actionRow;
 import static io.xseries.xclip.ui.settings.SettingsPageSupport.infoRow;
 import static io.xseries.xclip.ui.settings.SettingsPageSupport.informationSection;
 import static io.xseries.xclip.ui.settings.SettingsPageSupport.pageScroll;
@@ -82,9 +83,11 @@ public final class DataSettingsPage {
         clearRecentButton.getStyleClass().add("button-danger-subtle");
         clearRecentButton.setOnAction(event -> clearRecentAction.run());
 
-        HBox maintenanceActions = new HBox(10, runCleanup, clearRecentButton);
-        maintenanceActions.setAlignment(Pos.CENTER_LEFT);
-        maintenanceActions.getStyleClass().add("settings-action-row");
+        var maintenanceActions = actionRow(
+                Pos.CENTER_LEFT,
+                runCleanup,
+                clearRecentButton
+        );
 
         VBox maintenance = section(
                 "History maintenance",

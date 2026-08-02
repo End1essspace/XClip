@@ -25,6 +25,7 @@ import io.xseries.xclip.ui.popup.TagChipPolicy;
 import io.xseries.xclip.ui.popup.TagEditorModel;
 import io.xseries.xclip.ui.settings.DuplicateSettingsModel;
 import io.xseries.xclip.ui.settings.SettingsPage;
+import io.xseries.xclip.ui.settings.SettingsResponsivePolicy;
 import io.xseries.xclip.system.tray.HotkeyRegistrationStatus;
 import org.junit.jupiter.api.Test;
 
@@ -45,7 +46,7 @@ class UiContractFreezeTest {
     void frozenContractMatchesRuntimeConstantsAndEnums() throws Exception {
         Properties contract = loadContract();
 
-        assertEquals("14", contract.getProperty("contract.version"));
+        assertEquals("15", contract.getProperty("contract.version"));
         assertEquals("1.3.0", contract.getProperty("product.version"));
         assertEquals(Config.MIN_WINDOW_W, intValue(contract, "window.minWidth"));
         assertEquals(Config.MIN_WINDOW_H, intValue(contract, "window.minHeight"));
@@ -359,6 +360,54 @@ class UiContractFreezeTest {
                 ),
                 values(contract, "settings.aboutContent")
         );
+        assertEquals(
+                enumNames(SettingsResponsivePolicy.LayoutMode.values()),
+                values(contract, "settings.responsiveModes")
+        );
+        assertEquals(
+                (int) SettingsResponsivePolicy.COMPACT_MAX_WIDTH,
+                intValue(contract, "settings.compactMaxWidth")
+        );
+        assertEquals(
+                (int) SettingsResponsivePolicy.WIDE_MIN_WIDTH,
+                intValue(contract, "settings.wideMinWidth")
+        );
+        assertEquals(
+                (int) SettingsResponsivePolicy.MIN_WIDTH
+                        + "x"
+                        + (int) SettingsResponsivePolicy.MIN_HEIGHT,
+                required(contract, "settings.minimumWindow")
+        );
+        assertEquals(
+                "VISUAL_BOUNDS_AWARE",
+                required(contract, "settings.initialSizing")
+        );
+        assertEquals(
+                "TWO_COLUMN_TO_STACKED",
+                required(contract, "settings.gridLayout")
+        );
+        assertEquals("WRAPPING", required(contract, "settings.actionLayout"));
+        assertEquals(
+                List.of(
+                        "NAMED_NAVIGATION",
+                        "NAMED_PAGE_SCROLL",
+                        "KEYBOARD_VALIDATION_ACTION",
+                        "VISIBLE_FOCUS"
+                ),
+                values(contract, "settings.accessibility")
+        );
+        assertEquals(
+                "SELECTED_NAVIGATION",
+                required(contract, "settings.initialFocus")
+        );
+        assertEquals(
+                List.of("MOUSE", "ENTER", "SPACE"),
+                values(contract, "settings.validationActivation")
+        );
+        assertEquals(
+                "M6_SETTINGS_GATE",
+                required(contract, "settings.regressionGate")
+        );
         assertEquals(UiIcon.values().length, intValue(contract, "popup.iconCount"));
         assertEquals(shortcuts(), values(contract, "popup.shortcuts"));
     }
@@ -430,4 +479,3 @@ class UiContractFreezeTest {
         return value;
     }
 }
-

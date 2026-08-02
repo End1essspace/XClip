@@ -1,4 +1,3 @@
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -33,16 +32,20 @@ import io.xseries.xclip.ui.settings.DuplicateSettingsModel.WindowPreset;
 import io.xseries.xclip.ui.settings.GeneralSettingsPage;
 import io.xseries.xclip.ui.settings.HistorySettingsPage;
 import io.xseries.xclip.ui.settings.PrivacySettingsPage;
+import io.xseries.xclip.ui.settings.SettingsAccessibilityText;
 import io.xseries.xclip.ui.settings.SettingsDraft;
 import io.xseries.xclip.ui.settings.SettingsDraftSession;
 import io.xseries.xclip.ui.settings.SettingsDraftValidation;
 import io.xseries.xclip.ui.settings.SettingsField;
 import io.xseries.xclip.ui.settings.SettingsPage;
+import io.xseries.xclip.ui.settings.SettingsResponsivePolicy;
 import io.xseries.xclip.ui.settings.SettingsValidationIssue;
 import io.xseries.xclip.ui.settings.ShortcutsSettingsPage;
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.geometry.Pos;
+import javafx.geometry.Rectangle2D;
+import javafx.scene.AccessibleRole;
 import javafx.scene.Scene;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -65,6 +68,7 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.Modality;
+import javafx.stage.Screen;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import javafx.util.Duration;
@@ -88,10 +92,6 @@ import java.util.function.Function;
  */
 public final class SettingsWindow {
 
-    private static final double DEFAULT_WIDTH = 960;
-    private static final double DEFAULT_HEIGHT = 640;
-    private static final double MIN_WIDTH = 840;
-    private static final double MIN_HEIGHT = 520;
     private static final double RESIZE_EDGE = 6;
     private static final DateTimeFormatter CLEANUP_TIME_FORMAT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
@@ -201,8 +201,8 @@ public final class SettingsWindow {
         ));
         stage.initModality(Modality.APPLICATION_MODAL);
         stage.setResizable(true);
-        stage.setMinWidth(MIN_WIDTH);
-        stage.setMinHeight(MIN_HEIGHT);
+        stage.setMinWidth(SettingsResponsivePolicy.MIN_WIDTH);
+        stage.setMinHeight(SettingsResponsivePolicy.MIN_HEIGHT);
         chromeController = WindowChromeController.forStage(
                 stage,
                 this::closeAndDiscard
@@ -399,16 +399,38 @@ public final class SettingsWindow {
         resetRetentionDefaultsBtn.getStyleClass().add("btn-subtle");
 
         validationLabel.getStyleClass().add("settings-validation-status");
-        validationLabel.setAccessibleText("Settings validation status");
-        validationLabel.setAccessibleHelp(
-                "Select the validation message to open and focus the first invalid field."
+        validationLabel.setAccessibleRole(AccessibleRole.BUTTON);
+        validationLabel.setAccessibleText(
+                SettingsAccessibilityText.validationAction("")
         );
+        validationLabel.setAccessibleHelp(
+                "Activate this message to open and focus the first invalid field."
+        );
+        validationLabel.setFocusTraversable(true);
+        validationLabel.setWrapText(true);
+        validationLabel.setMaxWidth(Double.MAX_VALUE);
+        validationLabel.setMinWidth(0);
         validationLabel.setOnMouseClicked(event -> focusFirstValidationIssue());
+        validationLabel.setOnKeyPressed(event -> {
+            switch (event.getCode()) {
+                case ENTER, SPACE -> {
+                    focusFirstValidationIssue();
+                    event.consume();
+                }
+                default -> {
+                }
+            }
+        });
         validationLabel.setManaged(false);
         validationLabel.setVisible(false);
 
         statusLabel.getStyleClass().add("status-text");
-        statusLabel.setAccessibleText("Settings operation status");
+        statusLabel.setAccessibleText(
+                SettingsAccessibilityText.operationStatus("")
+        );
+        statusLabel.setWrapText(true);
+        statusLabel.setMaxWidth(Double.MAX_VALUE);
+        statusLabel.setMinWidth(0);
         statusLabel.setManaged(false);
         statusLabel.setVisible(false);
 
@@ -504,7 +526,10 @@ public final class SettingsWindow {
                 )
         );
 
+        configurePageAccessibility();
+
         Button cancelBtn = new Button("Cancel");
+        cancelBtn.setAccessibleText("Cancel Settings changes");
         cancelBtn.setAccessibleHelp(
                 "Close Settings and discard unapplied changes."
         );
@@ -512,6 +537,7 @@ public final class SettingsWindow {
         cancelBtn.setCancelButton(true);
 
         applyBtn.setDefaultButton(true);
+        applyBtn.setAccessibleText("Apply Settings changes");
         applyBtn.setAccessibleHelp("Save and apply the current settings.");
         applyBtn.getStyleClass().add("btn-apply");
         applyBtn.setDisable(true);
@@ -519,17 +545,16 @@ public final class SettingsWindow {
         applyBtn.setOnAction(event -> apply());
         cancelBtn.setOnAction(event -> closeAndDiscard());
 
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
+        VBox feedback = new VBox(2, validationLabel, statusLabel);
+        feedback.setMinWidth(0);
+        HBox.setHgrow(feedback, Priority.ALWAYS);
+        feedback.getStyleClass().add("settings-feedback");
 
-        HBox bottomBar = new HBox(
-                10,
-                validationLabel,
-                statusLabel,
-                spacer,
-                applyBtn,
-                cancelBtn
-        );
+        HBox footerActions = new HBox(10, applyBtn, cancelBtn);
+        footerActions.setAlignment(Pos.CENTER_RIGHT);
+        footerActions.getStyleClass().add("settings-footer-actions");
+
+        HBox bottomBar = new HBox(12, feedback, footerActions);
         bottomBar.setAlignment(Pos.CENTER_RIGHT);
         bottomBar.getStyleClass().add("settings-bottom-bar");
 
@@ -545,15 +570,27 @@ public final class SettingsWindow {
         root.setBottom(bottomBar);
         root.getStyleClass().add("settings-root");
 
-        Scene scene = new Scene(root, DEFAULT_WIDTH, DEFAULT_HEIGHT);
+        SettingsResponsivePolicy.WindowSize initialSize =
+                initialWindowSize();
+        Scene scene = new Scene(
+                root,
+                initialSize.width(),
+                initialSize.height()
+        );
         UiStyles.applySettings(scene);
         stage.setScene(scene);
+
+        applyResponsiveMode(root, scene.getWidth());
+        scene.widthProperty().addListener(
+                (observable, oldValue, newValue) ->
+                        applyResponsiveMode(root, newValue.doubleValue())
+        );
 
         chromeController.installResizeSupport(
                 scene,
                 RESIZE_EDGE,
-                MIN_WIDTH,
-                MIN_HEIGHT
+                SettingsResponsivePolicy.MIN_WIDTH,
+                SettingsResponsivePolicy.MIN_HEIGHT
         );
         stage.maximizedProperty().addListener(
                 (observable, oldValue, newValue) -> syncMaximizeButton()
@@ -701,6 +738,7 @@ public final class SettingsWindow {
         stage.toFront();
         stage.requestFocus();
         selectPage(selectedPage);
+        Platform.runLater(this::focusSelectedNavigation);
     }
 
     private void apply() {
@@ -1088,7 +1126,9 @@ public final class SettingsWindow {
                     .map(issue -> issue.page().title() + " • " + issue.displayMessage())
                     .orElse("Invalid settings");
             validationLabel.setText(message);
-            validationLabel.setAccessibleText("Settings validation error: " + message);
+            validationLabel.setAccessibleText(
+                    SettingsAccessibilityText.validationAction(message)
+            );
             validationLabel.setVisible(true);
             validationLabel.setManaged(true);
         }
@@ -1121,7 +1161,7 @@ public final class SettingsWindow {
         if (statusHide != null) statusHide.stop();
 
         statusLabel.setText(text);
-        statusLabel.setAccessibleText("Settings status: " + text);
+        statusLabel.setAccessibleText(SettingsAccessibilityText.operationStatus(text));
         statusLabel.setVisible(true);
         statusLabel.setManaged(true);
 
@@ -1449,7 +1489,16 @@ public final class SettingsWindow {
             button.setMaxWidth(Double.MAX_VALUE);
             button.setAlignment(Pos.CENTER_LEFT);
             button.setToggleGroup(group);
-            button.setAccessibleText(page.title() + " settings page");
+            button.setAccessibleText(
+                    SettingsAccessibilityText.navigationLabel(
+                            page,
+                            index,
+                            pages.length
+                    )
+            );
+            button.setAccessibleHelp(
+                    SettingsAccessibilityText.navigationHelp(page)
+            );
             button.getStyleClass().add("settings-nav-button");
             button.setOnAction(event -> selectPage(page));
 
@@ -1507,13 +1556,16 @@ public final class SettingsWindow {
 
     private VBox buildPagePane() {
         pageTitleLabel.getStyleClass().add("settings-page-title");
+        pageTitleLabel.setAccessibleText("Settings page heading");
         pageDescriptionLabel.setWrapText(true);
+        pageDescriptionLabel.setAccessibleText("Settings page description");
         pageDescriptionLabel.getStyleClass().add("settings-page-description");
 
         VBox pageHeader = new VBox(4, pageTitleLabel, pageDescriptionLabel);
         pageHeader.getStyleClass().add("settings-page-header");
 
         pageHost.getStyleClass().add("settings-page-host");
+        pageHost.setAccessibleText("Settings page content");
         VBox.setVgrow(pageHost, Priority.ALWAYS);
 
         VBox pane = new VBox(pageHeader, pageHost);
@@ -1533,12 +1585,64 @@ public final class SettingsWindow {
 
         selectedPage = next;
         pageTitleLabel.setText(next.title());
+        pageTitleLabel.setAccessibleText(
+                SettingsAccessibilityText.pageHeading(next)
+        );
         pageDescriptionLabel.setText(next.description());
+        pageHost.setAccessibleText(
+                SettingsAccessibilityText.pageContentLabel(next)
+        );
         pageHost.getChildren().setAll(view);
 
         ToggleButton navigation = navigationButtons.get(next);
         if (navigation != null && !navigation.isSelected()) {
             navigation.setSelected(true);
+        }
+    }
+
+    private void configurePageAccessibility() {
+        for (SettingsPage page : SettingsPage.values()) {
+            ScrollPane view = pageViews.get(page);
+            if (view == null) continue;
+
+            view.setAccessibleText(
+                    SettingsAccessibilityText.pageContentLabel(page)
+            );
+            view.setAccessibleHelp(
+                    SettingsAccessibilityText.pageContentHelp(page)
+            );
+            view.setPannable(true);
+        }
+    }
+
+    private static SettingsResponsivePolicy.WindowSize initialWindowSize() {
+        try {
+            Rectangle2D bounds = Screen.getPrimary().getVisualBounds();
+            return SettingsResponsivePolicy.initialSize(
+                    bounds.getWidth(),
+                    bounds.getHeight()
+            );
+        } catch (Throwable ignored) {
+            return SettingsResponsivePolicy.defaultSize();
+        }
+    }
+
+    private static void applyResponsiveMode(
+            Region root,
+            double sceneWidth
+    ) {
+        SettingsResponsivePolicy.LayoutMode mode =
+                SettingsResponsivePolicy.modeFor(sceneWidth);
+        root.getStyleClass().removeAll(
+                SettingsResponsivePolicy.modeStyleClasses()
+        );
+        root.getStyleClass().add(mode.styleClass());
+    }
+
+    private void focusSelectedNavigation() {
+        ToggleButton button = navigationButtons.get(selectedPage);
+        if (button != null && stage.isShowing()) {
+            button.requestFocus();
         }
     }
 
@@ -1553,4 +1657,3 @@ public final class SettingsWindow {
 
 
 }
-

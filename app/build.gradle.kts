@@ -1,8 +1,3 @@
-
-
-
-
-
 import java.io.File
 import java.util.Locale
 import java.util.Properties
@@ -297,6 +292,84 @@ val c8BaselineGate = tasks.register("c8BaselineGate") {
     }
 }
 
+val verifyM6SettingsRegressionAssets = tasks.register(
+    "verifyM6SettingsRegressionAssets"
+) {
+    group = "verification"
+    description = "Verifies the frozen M6 Settings contract and 24-case regression matrix."
+
+    doLast {
+        val validation = rootProject.file("docs/M6_SETTINGS_VALIDATION.md")
+        val matrix = rootProject.file("docs/M6_SETTINGS_REGRESSION_MATRIX.csv")
+        val contractFile = file(
+            "src/main/resources/ui/ui-contract-v1.3.0.properties"
+        )
+
+        for (required in listOf(validation, matrix, contractFile)) {
+            if (!required.isFile || required.length() <= 0L) {
+                throw GradleException(
+                    "Missing or empty M6 Settings asset: ${required.absolutePath}"
+                )
+            }
+        }
+
+        val matrixLines = matrix.readLines(Charsets.UTF_8)
+            .filter { it.isNotBlank() }
+        if (matrixLines.size != 25) {
+            throw GradleException(
+                "M6 Settings matrix must contain one header plus 24 cases, " +
+                    "found ${matrixLines.size} lines"
+            )
+        }
+
+        val ids = matrixLines.drop(1).map { line ->
+            line.substringBefore(',').trim().removeSurrounding("\"")
+        }
+        val expectedIds = (1..24).map { index ->
+            "M6-%03d".format(index)
+        }
+        if (ids != expectedIds) {
+            throw GradleException(
+                "M6 Settings regression IDs are missing, duplicated, or out of order: $ids"
+            )
+        }
+
+        val contract = Properties().apply {
+            contractFile.inputStream().use { stream -> load(stream) }
+        }
+        if (contract.getProperty("contract.version") != "15") {
+            throw GradleException(
+                "M6.5 requires UI contract revision 15"
+            )
+        }
+        if (contract.getProperty("settings.regressionGate")
+                != "M6_SETTINGS_GATE") {
+            throw GradleException(
+                "Missing M6 Settings regression gate contract"
+            )
+        }
+
+        println("M6_SETTINGS_ASSETS_OK: cases=24 contract=15")
+    }
+}
+
+tasks.named("check") {
+    dependsOn(verifyM6SettingsRegressionAssets)
+}
+
+val m6SettingsGate = tasks.register("m6SettingsGate") {
+    group = "verification"
+    description = "Runs the complete C8 baseline and frozen M6 Settings regression gate."
+    dependsOn(c8BaselineGate, verifyM6SettingsRegressionAssets)
+
+    doLast {
+        println(
+            "M6_SETTINGS_GATE_OK: responsive, accessibility, " +
+                "contract, and full regression checks passed"
+        )
+    }
+}
+
 // -------------------------
 // Packaging config
 // -------------------------
@@ -563,6 +636,3 @@ tasks.register("packageMsi") {
         println("MSI_PACKAGE_OK: ${installers.maxBy { it.lastModified() }.absolutePath}")
     }
 }
-
-
-

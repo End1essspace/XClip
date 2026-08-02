@@ -1,0 +1,25 @@
+id,area,scenario,expected
+M6-001,Window,Default logical size,Settings opens at the product default size when visual bounds allow it
+M6-002,Window,1366x768 at 125 percent scaling,Window fits visual bounds without clipping title bar footer or page content
+M6-003,Window,Minimum 840x520 size,Current page remains scrollable and footer actions remain reachable
+M6-004,Responsive,Resize compact to standard,Settings grids reflow from stacked rows to two columns without losing controls
+M6-005,Responsive,Resize to wide mode,Sidebar and page spacing expand without changing semantics
+M6-006,Scrolling,Every Settings page,Each page keeps an independent vertical scroll surface with no horizontal scrollbar
+M6-007,Keyboard,Sidebar Up and Down,Focus and selection move one page in canonical order
+M6-008,Keyboard,Sidebar Home and End,Focus and selection move to first or last page
+M6-009,Keyboard,Tab and Shift Tab,All interactive controls remain reachable in scene graph order
+M6-010,Keyboard,Open Settings,Selected navigation item receives predictable initial focus
+M6-011,Validation,Activate error with mouse,First invalid page opens and invalid control receives focus
+M6-012,Validation,Activate error with Enter,First invalid page opens and invalid control receives focus
+M6-013,Validation,Activate error with Space,First invalid page opens and invalid control receives focus
+M6-014,Focus,Sidebar focus,Focused navigation item has a visible accent ring
+M6-015,Focus,Controls and footer actions,Focused controls have a visible accent ring
+M6-016,Footer,Long validation or status message,Feedback wraps without covering Apply or Cancel
+M6-017,Responsive,Multiple page actions,Action buttons wrap instead of clipping at compact width
+M6-018,Data,Long local paths,Path field and Copy or Open actions remain reachable at compact width
+M6-019,About,Project link actions,Link buttons wrap without horizontal clipping
+M6-020,Shortcuts,Shortcut reference,Shortcut rows remain readable and vertically scrollable
+M6-021,Accessibility,Navigation names,Each page announces title position and purpose
+M6-022,Accessibility,Page content names,Each scroll surface announces its page and keyboard guidance
+M6-023,Lifecycle,Apply Cancel and validation,Existing M6 draft lifecycle and destructive confirmations remain unchanged
+M6-024,Regression,Automated gate,Full C8 baseline plus M6 contract and asset verification passes

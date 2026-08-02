@@ -1,11 +1,11 @@
 # XClip UI Contract v1.3.0
 
-**Status:** Frozen R11 baseline, deliberately extended by Milestones 2.2–2.4, 3.2–3.3, 4.3, 5.1–5.3, M6.1, and M6.3
+**Status:** Frozen R11 baseline, deliberately extended by Milestones 2.2–2.4, 3.2–3.3, 4.3, 5.1–5.3, and M6.1–M6.5
 **Scope:** Popup, custom window chrome, modal surfaces, Settings styling, privacy controls, keyboard workflow, responsive behavior, and packaged UI resources.
 
 This document is the human-readable counterpart of `/ui/ui-contract-v1.3.0.properties`. Any intentional contract change must update both files and the `UiContractFreezeTest` expectations in the same reviewed milestone.
 
-**Contract revision:** 13
+**Contract revision:** 15
 **Registered Lucide UI icons:** 30
 
 ## 1. Product invariants
@@ -431,3 +431,48 @@ pages without changing Config schema 5 or SQLite schema 6.
 - About exposes version, author, GPL license, UI contract revision, bundled
   third-party notices, project links, and the local-data/privacy statement.
 - External links open only after an explicit user action.
+
+## 21. Settings responsive and accessibility gate — contract revision 15
+
+Milestone M6.5 freezes the complete Settings shell after architecture, draft,
+product-page, responsive, and accessibility work.
+
+### Responsive modes
+
+| Mode | Settings window width | Required behavior |
+|---|---:|---|
+| Compact | `≤ 919` | Sidebar and page spacing tighten; setting grids reflow from two columns into stacked label/control rows; action groups wrap. |
+| Standard | `920–1179` | Default 960×640 two-column Settings layout. |
+| Wide | `≥ 1180` | Sidebar and page spacing expand without changing semantics or focus order. |
+
+- Settings minimum size remains `840 × 520`.
+- Initial size is constrained to the active Windows visual bounds.
+- The 1366×768 / 125% case must keep the custom title bar, current page, and
+  footer fully reachable.
+- Every page keeps an independent vertical scroll surface.
+- Horizontal scrolling is not part of the Settings contract.
+- Responsive changes do not mutate the draft, selected page, validation state,
+  or runtime configuration.
+
+### Keyboard and accessibility
+
+- Opening Settings places focus on the selected sidebar item.
+- Sidebar `Up`, `Down`, `Home`, and `End` navigation remains canonical.
+- `Tab` and `Shift+Tab` reach page controls and footer actions in scene-graph order.
+- Navigation items expose title, canonical position, and page purpose.
+- Every page scroll surface exposes a page-specific accessible name and keyboard help.
+- Validation feedback is focusable and exposes button semantics.
+- Mouse click, `Enter`, and `Space` activate first-error navigation.
+- Navigation, fields, validation feedback, and footer actions keep visible focus rings.
+- Long feedback text wraps independently from Apply and Cancel.
+
+### Regression gate
+
+- `m6SettingsGate` verifies the 24-case M6 Settings matrix and contract assets.
+- The gate includes the complete `c8BaselineGate`, including the alternate-order
+  full test pass.
+- Canonical assets:
+  - `docs/M6_SETTINGS_VALIDATION.md`
+  - `docs/M6_SETTINGS_REGRESSION_MATRIX.csv`
+- Config schema remains `5`, SQLite schema remains `6`, and product version
+  remains `1.3.0`.

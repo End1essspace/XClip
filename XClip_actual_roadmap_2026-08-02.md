@@ -1,4 +1,3 @@
-
 # XClip — актуальный полный roadmap разработки
 
 **Статус документа:** единый актуальный рабочий roadmap
@@ -7,10 +6,10 @@
 **Технологический стек:** Java 17, JavaFX 21, SQLite, Gradle, JNA, Windows 10/11
 **Текущая версия схемы БД:** 6
 **Текущая версия config schema:** 5
-**Текущая ревизия UI contract:** 14
+**Текущая ревизия UI contract:** 15
 **Основная ветка:** `main`
-**Текущая точка:** C1–C8 и M6.1–M6.4 завершены; следующий этап — M6.5
-**Следующий основной milestone:** M6.5 — Responsive, accessibility and regression gate
+**Текущая точка:** C1–C8 и M6.1–M6.5 завершены; следующий этап — M7.2
+**Следующий основной milestone:** M7.2 — Database maintenance
 
 ---
 
@@ -106,7 +105,7 @@ XClip — локальный Windows clipboard manager с persistent history, п
 | Privacy 5.2 — Sensitive Content Rules | ✅ Завершено |
 | Privacy 5.3 — Retention and Cleanup | ✅ Завершено |
 | Repository Cleanup C1–C3 | ✅ Завершено |
-| M6 — Settings Redesign | ⬜ Следующий этап |
+| M6 — Settings Redesign | ✅ Завершено |
 | M7 — Data/Performance Hardening | ⬜ Не начат формально |
 | M8 — Windows Lifecycle Hardening | ⬜ Не начат формально |
 | M9 — Documentation/Packaging/Release | ⬜ Не начат |
@@ -119,12 +118,12 @@ Popup UI и UX:                       ~95%
 Tags и Advanced Search:             ~100%
 Duplicate и Privacy Controls:       ~100%
 Repository hygiene:                 ~100%
-Settings architecture:               ~45%
+Settings architecture:              ~100%
 Data/Performance Hardening:          ~40%
 Windows Lifecycle Hardening:         ~45%
 Packaging/Release Readiness:         ~55%
 
-Полный расширенный roadmap:          ~84–87%
+Полный расширенный roadmap:          ~87–89%
 ```
 
 XClip уже является функционально зрелым clipboard manager с очищенным production-кодом,
@@ -933,14 +932,14 @@ Application version остаётся v1.3.0. Config / SQLite / UI contract:
 
 # 11. M6 — Settings Redesign
 
-**Статус:** 🟡 M6.1–M6.4 завершены; M6.5 следующий
+**Статус:** ✅ M6.1–M6.5 завершены
 
 ## 11.1. Цель
 
 Преобразовать Settings в полноценную многостраничную architecture без изменения
 проверенной runtime semantics.
 
-**M6.1–M6.4 завершены:**
+**M6.1–M6.5 завершены:**
 
 - создан shell с left sidebar и custom undecorated window chrome;
 - выделены девять независимых page composition classes;
@@ -951,9 +950,12 @@ Application version остаётся v1.3.0. Config / SQLite / UI contract:
 - Clear RECENT сохраняет PINNED, tags и config; Clear ALL выполняется вне FX thread;
 - Shortcuts page использует общий `QuickHelpContent` и live hotkey conflict status;
 - About page содержит version, author, GPL, notices, links и local-data statement;
-- UI contract повышен до revision 14.
+- UI contract повышен до revision 15;
+- Settings адаптирован для compact/standard/wide layout;
+- добавлены accessible navigation/page names, keyboard validation action и visible focus;
+- закрыт 24-case Settings regression gate через `m6SettingsGate`.
 
-**Следующая подзадача:** M6.5 — responsive, accessibility and regression gate.
+**Следующая подзадача:** M7.2 — database maintenance.
 
 ## 11.2. Целевая навигация
 
@@ -1063,7 +1065,25 @@ About
 - links;
 - data/privacy statement.
 
-## 11.5. M6 acceptance gate
+## 11.5. M6.5 — Responsive, accessibility and regression gate
+
+**Статус:** ✅ завершено
+
+Реализовано:
+
+- visual-bounds-aware initial Settings size;
+- responsive modes `COMPACT`, `STANDARD`, `WIDE`;
+- stacked settings grids в compact mode;
+- wrapping action rows;
+- predictable initial focus on selected navigation item;
+- accessible navigation position/purpose and page-scroll names;
+- keyboard activation validation feedback через Enter/Space;
+- visible focus для validation action;
+- 24-case regression matrix;
+- `m6SettingsGate`, включающий полный `c8BaselineGate`;
+- UI contract revision 15.
+
+## 11.6. M6 acceptance gate
 
 - all existing settings survive migration;
 - no change to current safe defaults;
@@ -1380,10 +1400,10 @@ M6   Settings Redesign
      M6.2 Page extraction and config draft   ✅
      M6.3 Validation / Apply / Cancel / Reset ✅
      M6.4 Data/About/Shortcuts pages         ✅
-     M6.5 Responsive/accessibility gate      ⬜ NEXT
+     M6.5 Responsive/accessibility gate      ✅
 
 M7   Remaining Data and Performance Hardening
-     M7.2 Database maintenance
+     M7.2 Database maintenance               ⬜ NEXT
      M7.3 Large-data validation
 
 M8   Windows Lifecycle Hardening
@@ -1400,20 +1420,20 @@ M9   Documentation, Packaging and Final Release
 Repository Cleanup and Hardening C1–C8
 
 Также завершено:
-M6.1–M6.4 — Settings architecture, draft lifecycle и product pages
+M6.1–M6.5 — Settings architecture, draft lifecycle, product pages и final gate
 
 Application version:
 v1.3.0
 
 Config / SQLite / UI contract:
-5 / 6 / 14
+5 / 6 / 15
 
 Следующий milestone:
-M6.5 — Responsive, accessibility and regression gate
+M7.2 — Database maintenance
 ```
 
-Для M6.5 требуется Settings UI, CSS, accessibility tests и regression assets;
-полный проект повторно запрашивать не нужно при наличии актуального snapshot.
+Для M7.2 потребуется актуальный SQLite maintenance scope: `Database`,
+DAO lifecycle, Data page integration, migration tests и backup/restore design.
 
 ---
 
@@ -1429,14 +1449,14 @@ Hot-path optimization C5                   ✅
 SQLite lifecycle hardening C6              ✅
 Test/build stabilization C7                ✅
 Final automated baseline audit C8          ✅
-UI contract revision 14                    ✅
+UI contract revision 15                    ✅
 
-Settings Redesign M6.1–M6.4                ✅
-Settings Redesign M6.5                     ⬜ NEXT
+Settings Redesign M6.1–M6.5                ✅
+Settings responsive/accessibility gate      ✅
 Remaining DB maintenance / large data      ⬜
 Windows Lifecycle Hardening                ⬜
 Documentation / Packaging / Release        ⬜
 ```
 
-Settings architecture и product pages M6.1–M6.4 закрыты. Следующая рабочая точка —
-**M6.5: responsive, accessibility and full Settings regression gate**.
+Settings Redesign M6.1–M6.5 закрыт. Следующая рабочая точка —
+**M7.2: database maintenance, integrity, checkpoint, vacuum and backup design**.

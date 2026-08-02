@@ -896,6 +896,7 @@
 
 .settings-page-content {
     -fx-background-color: -x-bg;
+    -fx-padding: 20 22 24 22;
 }
 
 .settings-info-list {
@@ -955,6 +956,14 @@
 
 .settings-validation-status:hover {
     -fx-underline: true;
+}
+
+.settings-validation-status:focused {
+    -fx-border-color: -x-accent;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-padding: 3 5 3 5;
+    -fx-effect: dropshadow(gaussian, rgba(245, 197, 66, 0.46), 6, 0.22, 0, 0);
 }
 
 /* M6.4 — Data, Shortcuts, and About pages */
@@ -1017,4 +1026,96 @@
 
 .button-danger-subtle:hover {
     -fx-background-color: rgba(217, 73, 73, 0.18);
+}
+
+/* =========================================================
+   M6.5 — Settings responsive and accessibility gate
+   ========================================================= */
+
+.settings-feedback {
+    -fx-alignment: center-left;
+}
+
+.settings-feedback .label {
+    -fx-max-width: 10000px;
+}
+
+.settings-footer-actions {
+    -fx-alignment: center-right;
+}
+
+.settings-grid {
+    -fx-alignment: top-left;
+}
+
+.settings-root.settings-compact .settings-navigation {
+    -fx-min-width: 176px;
+    -fx-pref-width: 176px;
+    -fx-max-width: 176px;
+    -fx-padding: 16 9 14 9;
+}
+
+.settings-root.settings-compact .settings-nav-button {
+    -fx-min-height: 34px;
+    -fx-pref-height: 34px;
+    -fx-padding: 0 9 0 9;
+    -fx-font-size: 10.5px;
+}
+
+.settings-root.settings-compact .settings-page-header {
+    -fx-padding: 16 16 13 16;
+}
+
+.settings-root.settings-compact .settings-page-title {
+    -fx-font-size: 18px;
+}
+
+.settings-root.settings-compact .settings-page-content {
+    -fx-padding: 14 14 18 14;
+}
+
+.settings-root.settings-compact .settings-section {
+    -fx-padding: 14;
+}
+
+.settings-root.settings-compact .settings-control-wide {
+    -fx-pref-width: 280px;
+    -fx-max-width: 10000px;
+}
+
+.settings-root.settings-compact .settings-info-value {
+    -fx-max-width: 260px;
+}
+
+.settings-root.settings-compact .settings-path-label {
+    -fx-min-width: 84px;
+}
+
+.settings-root.settings-compact .settings-bottom-bar {
+    -fx-min-height: 58px;
+    -fx-pref-height: 58px;
+    -fx-padding: 8 10 8 10;
+}
+
+.settings-root.settings-compact .settings-footer-actions .button {
+    -fx-padding: 7 11 7 11;
+}
+
+.settings-root.settings-wide .settings-navigation {
+    -fx-min-width: 224px;
+    -fx-pref-width: 224px;
+    -fx-max-width: 224px;
+    -fx-padding: 22 14 20 14;
+}
+
+.settings-root.settings-wide .settings-page-header {
+    -fx-padding: 22 30 18 30;
+}
+
+.settings-root.settings-wide .settings-page-content {
+    -fx-padding: 24 30 30 30;
+}
+
+.settings-root.settings-wide .settings-info-value {
+    -fx-max-width: 460px;
 }

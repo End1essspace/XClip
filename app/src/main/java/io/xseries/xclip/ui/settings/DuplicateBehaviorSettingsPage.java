@@ -15,13 +15,12 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.GridPane;
-import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 
+import static io.xseries.xclip.ui.settings.SettingsPageSupport.actionRow;
 import static io.xseries.xclip.ui.settings.SettingsPageSupport.addSettingRow;
 import static io.xseries.xclip.ui.settings.SettingsPageSupport.pageScroll;
 import static io.xseries.xclip.ui.settings.SettingsPageSupport.section;
-import static io.xseries.xclip.ui.settings.SettingsPageSupport.settingText;
 import static io.xseries.xclip.ui.settings.SettingsPageSupport.settingsGrid;
 
 public final class DuplicateBehaviorSettingsPage {
@@ -57,15 +56,23 @@ public final class DuplicateBehaviorSettingsPage {
                 windowControl
         );
 
-        VBox exactControl = new VBox(5, controls.exactContentMode(), controls.exactOverrideHint());
-        grid.add(settingText(
+        VBox exactControl = new VBox(
+                5,
+                controls.exactContentMode(),
+                controls.exactOverrideHint()
+        );
+        addSettingRow(
+                grid,
+                row,
                 "Exact content mode",
-                "Compares every character exactly and overrides Whitespace and Letter case."
-        ), 0, row);
-        grid.add(exactControl, 1, row);
+                "Compares every character exactly and overrides Whitespace and Letter case.",
+                exactControl
+        );
 
-        HBox actions = new HBox(controls.resetDefaults());
-        actions.setAlignment(Pos.CENTER_RIGHT);
+        var actions = actionRow(
+                Pos.CENTER_RIGHT,
+                controls.resetDefaults()
+        );
 
         VBox section = section(
                 "Duplicate behavior",

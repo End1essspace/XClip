@@ -13,9 +13,9 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.layout.GridPane;
-import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 
+import static io.xseries.xclip.ui.settings.SettingsPageSupport.actionRow;
 import static io.xseries.xclip.ui.settings.SettingsPageSupport.addSettingRow;
 import static io.xseries.xclip.ui.settings.SettingsPageSupport.pageScroll;
 import static io.xseries.xclip.ui.settings.SettingsPageSupport.section;
@@ -49,8 +49,10 @@ public final class PrivacySettingsPage {
         fallbackHint.setWrapText(true);
         fallbackHint.getStyleClass().add("settings-privacy-hint");
 
-        HBox privacyActions = new HBox(controls.clearExcludedApplications());
-        privacyActions.setAlignment(Pos.CENTER_RIGHT);
+        var privacyActions = actionRow(
+                Pos.CENTER_RIGHT,
+                controls.clearExcludedApplications()
+        );
 
         VBox privacySection = section(
                 "Excluded applications",
@@ -84,8 +86,10 @@ public final class PrivacySettingsPage {
         detectionHint.setWrapText(true);
         detectionHint.getStyleClass().add("settings-sensitive-hint");
 
-        HBox sensitiveActions = new HBox(controls.resetSensitiveRules());
-        sensitiveActions.setAlignment(Pos.CENTER_RIGHT);
+        var sensitiveActions = actionRow(
+                Pos.CENTER_RIGHT,
+                controls.resetSensitiveRules()
+        );
 
         VBox sensitiveSection = section(
                 "Sensitive content",
