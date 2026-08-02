@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -6,6 +7,7 @@
 package io.xseries.xclip.domain.service;
 
 import io.xseries.xclip.domain.model.ClipContentType;
+import io.xseries.xclip.util.TextValues;
 
 import java.net.URI;
 import java.util.Locale;
@@ -117,7 +119,7 @@ public final class ClipContentClassifier {
     }
 
     private static boolean isUrl(String value) {
-        if (value.length() > 4_096 || containsLineBreak(value) || value.indexOf(' ') >= 0) {
+        if (value.length() > 4_096 || TextValues.containsLineBreak(value) || value.indexOf(' ') >= 0) {
             return false;
         }
 
@@ -136,7 +138,7 @@ public final class ClipContentClassifier {
     }
 
     private static boolean isPath(String value) {
-        if (value.length() > 32_767 || containsLineBreak(value)) return false;
+        if (value.length() > 32_767 || TextValues.containsLineBreak(value)) return false;
 
         return WINDOWS_DRIVE_PATH.matcher(value).matches()
                 || WINDOWS_UNC_PATH.matcher(value).matches()
@@ -209,7 +211,7 @@ public final class ClipContentClassifier {
         }
 
         int score = 0;
-        boolean multiline = containsLineBreak(value);
+        boolean multiline = TextValues.containsLineBreak(value);
 
         if (value.contains("{") && value.contains("}")) score += 2;
         if (value.contains(";")) score++;
@@ -254,10 +256,6 @@ public final class ClipContentClassifier {
             end--;
         }
         return token.substring(0, end);
-    }
-
-    private static boolean containsLineBreak(String value) {
-        return value.indexOf('\n') >= 0 || value.indexOf('\r') >= 0;
     }
 
     /**

@@ -1,9 +1,12 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
  * SPDX-License-Identifier: GPL-3.0-only
  */
 package io.xseries.xclip.domain.duplicate;
+
+import io.xseries.xclip.util.TextValues;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -32,13 +35,13 @@ public record DuplicateContentKeys(
     });
 
     public DuplicateContentKeys {
-        exactHash = requireHash(exactHash, "exactHash");
-        exactCaseInsensitiveHash = requireHash(
+        exactHash = TextValues.requireNonBlank(exactHash, "exactHash");
+        exactCaseInsensitiveHash = TextValues.requireNonBlank(
                 exactCaseInsensitiveHash,
                 "exactCaseInsensitiveHash"
         );
-        normalizedHash = requireHash(normalizedHash, "normalizedHash");
-        normalizedCaseInsensitiveHash = requireHash(
+        normalizedHash = TextValues.requireNonBlank(normalizedHash, "normalizedHash");
+        normalizedCaseInsensitiveHash = TextValues.requireNonBlank(
                 normalizedCaseInsensitiveHash,
                 "normalizedCaseInsensitiveHash"
         );
@@ -94,13 +97,6 @@ public record DuplicateContentKeys(
         return out.toString();
     }
 
-    private static String requireHash(String value, String field) {
-        String normalized = Objects.requireNonNullElse(value, "").trim();
-        if (normalized.isEmpty()) {
-            throw new IllegalArgumentException(field + " is required");
-        }
-        return normalized;
-    }
 
     public enum KeyKind {
         EXACT,

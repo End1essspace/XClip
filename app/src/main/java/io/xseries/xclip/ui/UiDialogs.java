@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -6,6 +7,7 @@
 package io.xseries.xclip.ui;
 
 import io.xseries.xclip.system.window.WindowsTitleBar;
+import io.xseries.xclip.util.TextValues;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
@@ -59,11 +61,11 @@ public final class UiDialogs {
             String actionLabel
     ) {
         DialogCopy {
-            windowTitle = requireText(windowTitle, "windowTitle");
-            eyebrow = requireText(eyebrow, "eyebrow");
-            heading = requireText(heading, "heading");
-            body = requireText(body, "body");
-            actionLabel = requireText(actionLabel, "actionLabel");
+            windowTitle = TextValues.requireNonBlank(windowTitle, "windowTitle");
+            eyebrow = TextValues.requireNonBlank(eyebrow, "eyebrow");
+            heading = TextValues.requireNonBlank(heading, "heading");
+            body = TextValues.requireNonBlank(body, "body");
+            actionLabel = TextValues.requireNonBlank(actionLabel, "actionLabel");
         }
     }
 
@@ -347,9 +349,4 @@ public final class UiDialogs {
         return count == 1 ? singular : plural;
     }
 
-    private static String requireText(String value, String field) {
-        String normalized = Objects.requireNonNullElse(value, "").trim();
-        if (normalized.isEmpty()) throw new IllegalArgumentException(field + " is required");
-        return normalized;
-    }
 }

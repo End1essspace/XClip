@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -9,6 +10,7 @@ import io.xseries.xclip.domain.model.ClipContentType;
 import io.xseries.xclip.domain.model.ClipViewScope;
 import io.xseries.xclip.domain.service.TagNamePolicy;
 import io.xseries.xclip.domain.service.TagNamePolicy.NormalizedTagName;
+import io.xseries.xclip.util.TextValues;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -45,7 +47,7 @@ public final class SearchQueryParser {
             );
             return new SearchQuery(
                     raw,
-                    normalizeText(raw),
+                    TextValues.collapseWhitespace(raw),
                     List.of(),
                     List.of(),
                     List.of(),
@@ -79,7 +81,7 @@ public final class SearchQueryParser {
 
         return new SearchQuery(
                 raw,
-                normalizeText(String.join(" ", textTerms)),
+                TextValues.collapseWhitespace(String.join(" ", textTerms)),
                 typeTerms,
                 scopeTerms,
                 tagTerms,
@@ -259,26 +261,6 @@ public final class SearchQueryParser {
         }
 
         return new Tokenization(List.copyOf(tokens), -1);
-    }
-
-    private static String normalizeText(String value) {
-        if (value == null || value.isBlank()) return "";
-
-        StringBuilder out = new StringBuilder(value.length());
-        boolean pendingSpace = false;
-
-        for (int index = 0; index < value.length(); index++) {
-            char ch = value.charAt(index);
-            if (Character.isWhitespace(ch)) {
-                pendingSpace = out.length() > 0;
-                continue;
-            }
-            if (pendingSpace) out.append(' ');
-            pendingSpace = false;
-            out.append(ch);
-        }
-
-        return out.toString().trim();
     }
 
     private record Token(String value, int startIndex, int endIndex) {}

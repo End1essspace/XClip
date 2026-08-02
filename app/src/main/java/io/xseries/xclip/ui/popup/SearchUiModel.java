@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -10,6 +11,7 @@ import io.xseries.xclip.domain.model.ClipContentType;
 import io.xseries.xclip.domain.search.SearchQuery;
 import io.xseries.xclip.domain.search.SearchQueryIssue;
 import io.xseries.xclip.domain.search.SearchQueryParser;
+import io.xseries.xclip.util.TextValues;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -47,7 +49,7 @@ public final class SearchUiModel {
             boolean negated
     ) {
         public OperatorChip {
-            text = requireText(text, "text");
+            text = TextValues.requireNonBlank(text, "text");
             kind = Objects.requireNonNull(kind, "kind");
         }
     }
@@ -68,8 +70,8 @@ public final class SearchUiModel {
             int replaceEnd
     ) {
         public Suggestion {
-            label = requireText(label, "label");
-            replacement = requireText(replacement, "replacement");
+            label = TextValues.requireNonBlank(label, "label");
+            replacement = TextValues.requireNonBlank(replacement, "replacement");
             if (replaceStart < 0) throw new IllegalArgumentException("replaceStart cannot be negative");
             if (replaceEnd < replaceStart) {
                 throw new IllegalArgumentException("replaceEnd cannot precede replaceStart");
@@ -426,13 +428,6 @@ public final class SearchUiModel {
         return quoted ? "\"" + escaped + "\"" : escaped;
     }
 
-    private static String requireText(String value, String field) {
-        String normalized = Objects.requireNonNullElse(value, "").trim();
-        if (normalized.isEmpty()) {
-            throw new IllegalArgumentException(field + " is required");
-        }
-        return normalized;
-    }
 
     private record TokenRange(int start, int end) {}
 }

@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -7,6 +8,7 @@ package io.xseries.xclip.domain.search;
 
 import io.xseries.xclip.domain.model.ClipContentType;
 import io.xseries.xclip.domain.model.ClipViewScope;
+import io.xseries.xclip.util.TextValues;
 
 import java.util.List;
 import java.util.Locale;
@@ -71,8 +73,8 @@ public record SearchQuery(
 
     public record TagTerm(String name, String identity, boolean negated) {
         public TagTerm {
-            name = requireText(name, "name");
-            identity = requireText(identity, "identity");
+            name = TextValues.requireNonBlank(name, "name");
+            identity = TextValues.requireNonBlank(identity, "identity");
         }
 
         public String canonicalText() {
@@ -87,12 +89,5 @@ public record SearchQuery(
                     + (quoted ? "\"" + escaped + "\"" : escaped);
         }
 
-        private static String requireText(String value, String field) {
-            String normalized = Objects.requireNonNullElse(value, "").trim();
-            if (normalized.isEmpty()) {
-                throw new IllegalArgumentException(field + " is required");
-            }
-            return normalized;
-        }
     }
 }

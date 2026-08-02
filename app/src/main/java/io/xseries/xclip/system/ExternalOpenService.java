@@ -1,9 +1,12 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
  * SPDX-License-Identifier: GPL-3.0-only
  */
 package io.xseries.xclip.system;
+
+import io.xseries.xclip.util.TextValues;
 
 import java.awt.Desktop;
 import java.net.URI;
@@ -80,7 +83,7 @@ public final class ExternalOpenService {
 
     static URI normalizeHttpUri(String rawUrl) {
         String value = stripOuterQuotes(rawUrl);
-        if (value == null || value.isBlank() || containsLineBreak(value) || value.indexOf(' ') >= 0) {
+        if (value == null || value.isBlank() || TextValues.containsLineBreak(value) || value.indexOf(' ') >= 0) {
             return null;
         }
 
@@ -103,7 +106,7 @@ public final class ExternalOpenService {
 
     static Path resolvePath(String rawPath, Map<String, String> environment) {
         String value = stripOuterQuotes(rawPath);
-        if (value == null || value.isBlank() || containsLineBreak(value)) return null;
+        if (value == null || value.isBlank() || TextValues.containsLineBreak(value)) return null;
 
         try {
             String expanded = expandWindowsEnvironment(value.trim(), environment);
@@ -159,10 +162,6 @@ public final class ExternalOpenService {
             }
         }
         return value;
-    }
-
-    private static boolean containsLineBreak(String value) {
-        return value.indexOf('\n') >= 0 || value.indexOf('\r') >= 0;
     }
 
     private static boolean isWindows() {

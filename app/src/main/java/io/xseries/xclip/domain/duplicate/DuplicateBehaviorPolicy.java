@@ -1,10 +1,13 @@
 
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
  * SPDX-License-Identifier: GPL-3.0-only
  */
 package io.xseries.xclip.domain.duplicate;
+
+import io.xseries.xclip.util.TextValues;
 
 import java.util.Locale;
 import java.util.Objects;
@@ -104,23 +107,7 @@ public record DuplicateBehaviorPolicy(
         return now - existingLastCopiedAt <= duplicateWindowMillis;
     }
     public static String normalizeWhitespace(String value) {
-        if (value.isEmpty()) return "";
-
-        StringBuilder out = new StringBuilder(value.length());
-        boolean pendingSpace = false;
-
-        for (int index = 0; index < value.length(); index++) {
-            char ch = value.charAt(index);
-            if (Character.isWhitespace(ch)) {
-                pendingSpace = out.length() > 0;
-                continue;
-            }
-            if (pendingSpace) out.append(' ');
-            pendingSpace = false;
-            out.append(ch);
-        }
-
-        return out.toString().trim();
+        return TextValues.collapseWhitespace(value);
     }
 
     public enum RecentDuplicatePosition {

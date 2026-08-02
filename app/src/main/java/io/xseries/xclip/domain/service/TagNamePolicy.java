@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -5,8 +6,9 @@
  */
 package io.xseries.xclip.domain.service;
 
+import io.xseries.xclip.util.TextValues;
+
 import java.util.Locale;
-import java.util.Objects;
 
 /**
  * Shared normalization and validation contract for user-defined tag names.
@@ -62,16 +64,9 @@ public final class TagNamePolicy {
 
     public record NormalizedTagName(String displayName, String identity) {
         public NormalizedTagName {
-            displayName = requireText(displayName, "displayName");
-            identity = requireText(identity, "identity");
+            displayName = TextValues.requireNonBlank(displayName, "displayName");
+            identity = TextValues.requireNonBlank(identity, "identity");
         }
 
-        private static String requireText(String value, String field) {
-            String normalized = Objects.requireNonNullElse(value, "").trim();
-            if (normalized.isEmpty()) {
-                throw new IllegalArgumentException(field + " is required");
-            }
-            return normalized;
-        }
     }
 }
