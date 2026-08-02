@@ -1,4 +1,3 @@
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -17,7 +16,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
-public final class ClipEntryDao {
+public final class ClipEntryDao implements AutoCloseable {
 
     private static final int ID_DELETE_BATCH_SIZE = 500;
     private static final int RETENTION_COMPATIBILITY_PAGE_SIZE = 1_000;
@@ -774,6 +773,15 @@ public final class ClipEntryDao {
 
     public void closeForCurrentThread() {
         connections.closeForCurrentThread();
+    }
+
+    public void releaseConnections() {
+        connections.releaseAllConnections();
+    }
+
+    @Override
+    public void close() {
+        connections.closeAll();
     }
 
     public int deleteByIds(List<Long> ids) {

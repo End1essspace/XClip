@@ -1,4 +1,3 @@
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -11,6 +10,7 @@ import io.xseries.xclip.domain.duplicate.DuplicateContentKeys;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -140,6 +141,43 @@ class DatabaseMigrationTest {
         }
     }
 
+
+
+    @Test
+    void initializationPersistsWalModeAndFreshDatabaseCanBeRecreatedAfterDeletion()
+            throws Exception {
+        Path dbPath = tempDir.resolve("recreate.db");
+        Database database = new Database(dbPath);
+        database.init();
+
+        try (Connection connection = DriverManager.getConnection(database.jdbcUrl());
+             Statement statement = connection.createStatement();
+             ResultSet result = statement.executeQuery("PRAGMA journal_mode")) {
+            assertTrue(result.next());
+            assertEquals("wal", result.getString(1).toLowerCase());
+        }
+
+        database.close();
+
+        Path wal = Path.of(dbPath.toString() + "-wal");
+        Path shm = Path.of(dbPath.toString() + "-shm");
+        Path journal = Path.of(dbPath.toString() + "-journal");
+        Files.writeString(wal, "stale wal");
+        Files.writeString(shm, "stale shm");
+        Files.writeString(journal, "stale journal");
+
+        database.deleteDatabaseFile();
+
+        assertFalse(Files.exists(dbPath));
+        assertFalse(Files.exists(wal));
+        assertFalse(Files.exists(shm));
+        assertFalse(Files.exists(journal));
+
+        Database recreated = new Database(dbPath);
+        recreated.init();
+        assertTrue(Files.exists(dbPath));
+        recreated.close();
+    }
 
     @Test
     void v6RestartPreservesIntentionalEqualRows() throws Exception {

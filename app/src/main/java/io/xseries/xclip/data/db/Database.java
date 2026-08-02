@@ -75,17 +75,12 @@ public final class Database {
             // modern JDBC auto-loads; ignore
         }
 
-        try (Connection c = DriverManager.getConnection(jdbcUrl);
-             Statement st = c.createStatement()) {
+        try (Connection c = DriverManager.getConnection(jdbcUrl)) {
+            SqliteConnectionConfig.configureDatabase(c);
 
-            // --- PRAGMA: must be first ---
-            st.execute("PRAGMA journal_mode=WAL;");
-            st.execute("PRAGMA synchronous=NORMAL;");
-            st.execute("PRAGMA foreign_keys=ON;");
-            st.execute("PRAGMA temp_store=MEMORY;");
-            st.execute("PRAGMA busy_timeout=3000;");
-
-            applyBaseSchema(st);
+            try (Statement st = c.createStatement()) {
+                applyBaseSchema(st);
+            }
             migrateToLatest(c);
 
         } catch (Exception e) {
@@ -361,22 +356,43 @@ public final class Database {
     }
 
     /**
-     * Deletes the database file from disk.
+     * Deletes the complete SQLite file set from disk.
      *
-     * Notes:
-     * - Calls close() first (idempotent).
-     * - Since the app uses per-operation connections, there is no single Connection to close here.
-     * - Deletion can still fail on Windows if some other process/thread holds the DB file open.
-     *   In that case we throw, so caller can show a proper UI message.
+     * DAO-owned connections must be closed by their owners before this method is
+     * called. WAL, shared-memory, and rollback-journal sidecars are removed
+     * explicitly so "Clear all data" cannot leave user-owned database artifacts.
      */
     public void deleteDatabaseFile() {
         close();
 
-        try {
-            Files.deleteIfExists(dbPath);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to delete database file: " + dbPath, e);
+        RuntimeException failure = null;
+        for (Path file : databaseFilesForDeletion()) {
+            try {
+                Files.deleteIfExists(file);
+            } catch (Exception error) {
+                RuntimeException next = new RuntimeException(
+                        "Failed to delete database file: " + file,
+                        error
+                );
+                if (failure == null) failure = next;
+                else failure.addSuppressed(next);
+            }
         }
+
+        if (failure != null) throw failure;
+    }
+
+    private List<Path> databaseFilesForDeletion() {
+        String fileName = dbPath.getFileName().toString();
+        Path parent = dbPath.getParent();
+        if (parent == null) parent = Path.of(".");
+
+        return List.of(
+                parent.resolve(fileName + "-wal"),
+                parent.resolve(fileName + "-shm"),
+                parent.resolve(fileName + "-journal"),
+                dbPath
+        );
     }
 
     private static String loadResourceText(String path) {

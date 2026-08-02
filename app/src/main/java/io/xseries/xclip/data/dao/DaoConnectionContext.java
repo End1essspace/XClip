@@ -5,25 +5,33 @@
  */
 package io.xseries.xclip.data.dao;
 
+import io.xseries.xclip.data.db.SqliteConnectionConfig;
+
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Shared connection and transaction lifecycle for SQLite DAO implementations.
  *
- * Every DAO owns its own context, preserving the existing one-connection-per-
- * thread-and-DAO semantics. SQL ownership remains inside each DAO while this
- * class guarantees rollback, auto-commit restoration, and unusable-connection
- * eviction for every multi-statement write transaction.
+ * Every DAO owns its own context, preserving one connection per thread and DAO.
+ * The context also tracks every opened connection so terminal DAO shutdown can
+ * release worker-owned connections before database files are deleted.
  */
 final class DaoConnectionContext {
 
     private final String jdbcUrl;
     private final ConnectionFactory connectionFactory;
     private final ThreadLocal<Connection> threadConnection = new ThreadLocal<>();
+    private final Set<Connection> activeConnections = ConcurrentHashMap.newKeySet();
+    private final AtomicBoolean closed = new AtomicBoolean(false);
+    private final Object lifecycleLock = new Object();
 
     DaoConnectionContext(String jdbcUrl) {
         this(jdbcUrl, () -> DriverManager.getConnection(jdbcUrl));
@@ -41,6 +49,10 @@ final class DaoConnectionContext {
     }
 
     Connection connection() {
+        if (closed.get()) {
+            throw new IllegalStateException("DAO connection context is closed");
+        }
+
         Connection connection = threadConnection.get();
         try {
             if (connection == null || connection.isClosed()) {
@@ -50,6 +62,7 @@ final class DaoConnectionContext {
             return connection;
         } catch (Exception error) {
             invalidate(connection);
+            if (error instanceof IllegalStateException state) throw state;
             throw new RuntimeException("Failed to obtain SQLite connection", error);
         }
     }
@@ -113,29 +126,71 @@ final class DaoConnectionContext {
 
     void closeForCurrentThread() {
         Connection connection = threadConnection.get();
-        try {
-            if (connection != null) connection.close();
-        } catch (Exception ignored) {
-        } finally {
+        threadConnection.remove();
+        closeTracked(connection);
+    }
+
+    /**
+     * Closes every currently tracked connection without terminally closing the DAO.
+     *
+     * Threads that still hold a closed ThreadLocal value will transparently open
+     * a replacement connection on their next DAO operation. This supports a safe
+     * retry when user-data deletion fails because another process owns a file.
+     */
+    void releaseAllConnections() {
+        synchronized (lifecycleLock) {
             threadConnection.remove();
+            closeActiveConnections();
+        }
+    }
+
+    /**
+     * Terminally closes every connection opened by this DAO context.
+     *
+     * After this method returns, the context cannot open replacement connections.
+     */
+    void closeAll() {
+        synchronized (lifecycleLock) {
+            if (!closed.compareAndSet(false, true)) return;
+
+            threadConnection.remove();
+            closeActiveConnections();
+        }
+    }
+
+    private void closeActiveConnections() {
+        List<Connection> snapshot = new ArrayList<>(activeConnections);
+        for (Connection connection : snapshot) {
+            closeTracked(connection);
         }
     }
 
     private Connection openConnection() {
-        Connection connection = null;
-        try {
-            connection = connectionFactory.open();
-            try (Statement statement = connection.createStatement()) {
-                statement.execute("PRAGMA foreign_keys=ON;");
-                statement.execute("PRAGMA busy_timeout=3000;");
+        synchronized (lifecycleLock) {
+            if (closed.get()) {
+                throw new IllegalStateException("DAO connection context is closed");
             }
-            return connection;
-        } catch (Exception error) {
-            closeQuietly(connection);
-            throw new RuntimeException(
-                    "Failed to open SQLite connection: " + jdbcUrl,
-                    error
-            );
+
+            Connection connection = null;
+            try {
+                connection = connectionFactory.open();
+                SqliteConnectionConfig.configureWorkingConnection(connection);
+
+                if (closed.get()) {
+                    closeQuietly(connection);
+                    throw new IllegalStateException("DAO connection context is closed");
+                }
+
+                activeConnections.add(connection);
+                return connection;
+            } catch (Exception error) {
+                closeQuietly(connection);
+                if (error instanceof IllegalStateException state) throw state;
+                throw new RuntimeException(
+                        "Failed to open SQLite connection: " + jdbcUrl,
+                        error
+                );
+            }
         }
     }
 
@@ -146,6 +201,12 @@ final class DaoConnectionContext {
         if (current == connection) {
             threadConnection.remove();
         }
+        closeTracked(connection);
+    }
+
+    private void closeTracked(Connection connection) {
+        if (connection == null) return;
+        activeConnections.remove(connection);
         closeQuietly(connection);
     }
 

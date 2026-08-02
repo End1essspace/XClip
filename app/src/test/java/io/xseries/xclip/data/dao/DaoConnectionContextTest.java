@@ -16,6 +16,8 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -40,6 +42,8 @@ class DaoConnectionContextTest {
         try {
             assertSame(first, context.connection());
             assertEquals(1, pragmaInt(first, "foreign_keys"));
+            assertEquals(1, pragmaInt(first, "synchronous"));
+            assertEquals(2, pragmaInt(first, "temp_store"));
             assertEquals(3_000, pragmaInt(first, "busy_timeout"));
         } finally {
             context.closeForCurrentThread();
@@ -52,6 +56,8 @@ class DaoConnectionContextTest {
             assertNotSame(first, reopened);
             assertFalse(reopened.isClosed());
             assertEquals(1, pragmaInt(reopened, "foreign_keys"));
+            assertEquals(1, pragmaInt(reopened, "synchronous"));
+            assertEquals(2, pragmaInt(reopened, "temp_store"));
             assertEquals(3_000, pragmaInt(reopened, "busy_timeout"));
         } finally {
             context.closeForCurrentThread();
@@ -151,6 +157,52 @@ class DaoConnectionContextTest {
             assertEquals(2, opened.get());
         } finally {
             context.closeForCurrentThread();
+        }
+    }
+
+
+
+
+
+    @Test
+    void releaseAllConnectionsClosesTrackedConnectionsButAllowsReopen() throws Exception {
+        String jdbcUrl = "jdbc:sqlite:" + tempDir.resolve("release-all.db").toAbsolutePath();
+        DaoConnectionContext context = new DaoConnectionContext(jdbcUrl);
+
+        Connection first = context.connection();
+        context.releaseAllConnections();
+
+        assertTrue(first.isClosed());
+
+        Connection reopened = context.connection();
+        try {
+            assertNotSame(first, reopened);
+            assertFalse(reopened.isClosed());
+        } finally {
+            context.closeAll();
+        }
+    }
+
+    @Test
+    void closeAllClosesConnectionsOwnedByMultipleThreadsAndPreventsReopen() throws Exception {
+        String jdbcUrl = "jdbc:sqlite:" + tempDir.resolve("close-all.db").toAbsolutePath();
+        DaoConnectionContext context = new DaoConnectionContext(jdbcUrl);
+        ExecutorService worker = Executors.newSingleThreadExecutor();
+
+        Connection workerConnection = worker.submit(context::connection).get();
+        Connection mainConnection = context.connection();
+
+        try {
+            assertNotSame(workerConnection, mainConnection);
+
+            context.closeAll();
+
+            assertTrue(workerConnection.isClosed());
+            assertTrue(mainConnection.isClosed());
+            assertThrows(IllegalStateException.class, context::connection);
+        } finally {
+            worker.shutdownNow();
+            context.closeAll();
         }
     }
 

@@ -1,4 +1,3 @@
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -36,6 +35,8 @@ public final class XClipApp extends Application {
     private final AtomicBoolean shutdownOnce = new AtomicBoolean(false);
 
     private Database db;
+    private ClipEntryDao clipEntryDao;
+    private TagDao tagDao;
     private WatcherController watcherController;
     private PopupWindow popup;
     private TrayController tray;
@@ -65,11 +66,11 @@ public final class XClipApp extends Application {
         db.init();
 
         // --- services ---
-        ClipEntryDao dao = new ClipEntryDao(db.jdbcUrl());
-        TagDao tagDao = new TagDao(db.jdbcUrl());
-        ClipService clipService = new ClipService(dao);
+        this.clipEntryDao = new ClipEntryDao(db.jdbcUrl());
+        this.tagDao = new TagDao(db.jdbcUrl());
+        ClipService clipService = new ClipService(clipEntryDao);
         clipService.applyConfig(config);
-        this.historyCleanupService = new HistoryCleanupService(dao);
+        this.historyCleanupService = new HistoryCleanupService(clipEntryDao);
         historyCleanupService.applyConfig(config);
 
         ClipboardAccess clipboard = new ClipboardAccess();
@@ -91,11 +92,15 @@ public final class XClipApp extends Application {
         );
 
         // data ownership service (needs instance Database)
-        DataOwnershipService dataOwnershipService = new DataOwnershipService(db);
+        DataOwnershipService dataOwnershipService = new DataOwnershipService(
+                db,
+                tagDao::releaseConnections,
+                clipEntryDao::releaseConnections
+        );
 
         final Runnable[] openSettingsRef = new Runnable[1];
 
-        this.popup = new PopupWindow(dao, tagDao, clipboard, clipService, () -> {
+        this.popup = new PopupWindow(clipEntryDao, tagDao, clipboard, clipService, () -> {
             Runnable r = openSettingsRef[0];
             if (r != null) r.run();
         }, tray::togglePaused, pasteService);
@@ -190,6 +195,20 @@ public final class XClipApp extends Application {
             if (tray != null) {
                 tray.shutdown();
                 tray = null;
+            }
+        } catch (Exception ignored) {}
+
+        try {
+            if (tagDao != null) {
+                tagDao.close();
+                tagDao = null;
+            }
+        } catch (Exception ignored) {}
+
+        try {
+            if (clipEntryDao != null) {
+                clipEntryDao.close();
+                clipEntryDao = null;
             }
         } catch (Exception ignored) {}
 

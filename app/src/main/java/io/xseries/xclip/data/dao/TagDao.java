@@ -1,4 +1,3 @@
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
@@ -33,7 +32,7 @@ import java.util.Set;
  * - replacing a clip's tags is atomic;
  * - clip/tag deletion relies on ON DELETE CASCADE.
  */
-public final class TagDao {
+public final class TagDao implements AutoCloseable {
 
     public static final int MAX_TAG_NAME_LENGTH = TagNamePolicy.MAX_NAME_LENGTH;
 
@@ -461,6 +460,15 @@ public final class TagDao {
 
     public void closeForCurrentThread() {
         connections.closeForCurrentThread();
+    }
+
+    public void releaseConnections() {
+        connections.releaseAllConnections();
+    }
+
+    @Override
+    public void close() {
+        connections.closeAll();
     }
 
     private ClipTag findByNormalizedName(Connection c, String normalizedName) throws SQLException {
