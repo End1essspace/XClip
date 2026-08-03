@@ -1,4 +1,5 @@
 
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)
@@ -44,6 +45,23 @@ class ClipboardWatcherLifecycleTest {
         worker.join(2_000);
         assertFalse(worker.isAlive());
     }
+    @Test
+    void resumeRecoveryRecreatesEnabledWatcherAndReleasesOldWorker() {
+        AtomicInteger cleanupCount = new AtomicInteger();
+        WatcherController controller = new WatcherController(
+                new ClipboardAccess(),
+                ignored -> {},
+                () -> false,
+                ignored -> true,
+                cleanupCount::incrementAndGet
+        );
+
+        controller.enable();
+        controller.recoverAfterSystemResume();
+        controller.close();
+
+        assertEquals(2, cleanupCount.get());
+        assertFalse(controller.isEnabled());
+    }
+
 }
-
-

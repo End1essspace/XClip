@@ -30,6 +30,9 @@ import io.xseries.xclip.ui.settings.DuplicateSettingsModel;
 import io.xseries.xclip.ui.settings.SettingsPage;
 import io.xseries.xclip.ui.settings.SettingsResponsivePolicy;
 import io.xseries.xclip.validation.LargeDataValidationPolicy;
+import io.xseries.xclip.system.SingleInstanceGuard;
+import io.xseries.xclip.system.lifecycle.WindowsLifecycleCoordinator;
+import io.xseries.xclip.system.lifecycle.WindowsLifecycleStateMachine;
 import io.xseries.xclip.system.tray.HotkeyRegistrationStatus;
 import org.junit.jupiter.api.Test;
 
@@ -50,7 +53,7 @@ class UiContractFreezeTest {
     void frozenContractMatchesRuntimeConstantsAndEnums() throws Exception {
         Properties contract = loadContract();
 
-        assertEquals("17", contract.getProperty("contract.version"));
+        assertEquals("18", contract.getProperty("contract.version"));
         assertEquals("1.3.0", contract.getProperty("product.version"));
         assertEquals(Config.MIN_WINDOW_W, intValue(contract, "window.minWidth"));
         assertEquals(Config.MIN_WINDOW_H, intValue(contract, "window.minHeight"));
@@ -525,6 +528,103 @@ class UiContractFreezeTest {
         assertEquals(
                 "M7_LARGE_DATA_GATE",
                 required(contract, "performance.regressionGate")
+        );
+        assertEquals(
+                WindowsLifecycleCoordinator.HEARTBEAT_INTERVAL_SECONDS,
+                longValue(contract, "lifecycle.heartbeatSeconds")
+        );
+        assertEquals(
+                WindowsLifecycleStateMachine.DEFAULT_RESUME_GAP_MILLIS,
+                longValue(contract, "lifecycle.resumeGapMillis")
+        );
+        assertEquals(
+                SingleInstanceGuard.DEFAULT_PORT,
+                intValue(contract, "lifecycle.singleInstancePort")
+        );
+        assertEquals(
+                "VISIBLE_ERROR_AND_ABORT",
+                required(contract, "lifecycle.portConflict")
+        );
+        assertEquals(
+                HistoryCleanupService.EXIT_CLEANUP_TIMEOUT_MILLIS,
+                longValue(contract, "lifecycle.exitCleanupTimeoutMillis")
+        );
+        assertEquals(
+                "SWITCHABLE_INPUT_DESKTOP",
+                required(contract, "lifecycle.sessionProbe")
+        );
+        assertEquals(
+                "SHELL_PROCESS_ID",
+                required(contract, "lifecycle.explorerProbe")
+        );
+        assertEquals(
+                List.of("BOUNDS", "SCALE", "DPI"),
+                values(contract, "lifecycle.displayProbe")
+        );
+        assertEquals(
+                "RESTART_WITH_CLIPBOARD_SNAPSHOT",
+                required(contract, "lifecycle.watcherResume")
+        );
+        assertEquals(
+                List.of(
+                        "LOCK",
+                        "UNLOCK",
+                        "RESUME",
+                        "DISPLAY_CHANGE",
+                        "EXPLORER_RESTART"
+                ),
+                values(contract, "lifecycle.directPasteBoundary")
+        );
+        assertEquals(
+                "IDEMPOTENT_REINSTALL",
+                required(contract, "lifecycle.trayRecovery")
+        );
+        assertEquals(
+                "RESTART_UNLESS_CONFLICT",
+                required(contract, "lifecycle.hotkeyRecovery")
+        );
+        assertEquals(
+                "LOOPBACK_ACKNOWLEDGED",
+                required(contract, "lifecycle.singleInstance")
+        );
+        assertEquals(
+                "REPAIR_STALE_CURRENT_LAUNCHER",
+                required(contract, "lifecycle.autostart")
+        );
+        assertEquals(
+                "1322455b-12c4-4363-b896-12cd27ac3e3d",
+                required(contract, "lifecycle.msiUpgradeUuid")
+        );
+        assertEquals(
+                "OUTSIDE_INSTALL_DIRECTORY",
+                required(contract, "lifecycle.userData")
+        );
+        assertEquals(
+                List.of(
+                        "CLEAN_START",
+                        "AUTOSTART",
+                        "START_MINIMIZED",
+                        "TRAY",
+                        "SECONDARY_LAUNCH",
+                        "EXPLORER_RESTART",
+                        "SLEEP_RESUME",
+                        "LOCK_UNLOCK",
+                        "DISPLAY_TOPOLOGY",
+                        "MONITOR_DISCONNECT",
+                        "DPI_CHANGE",
+                        "LOGOFF",
+                        "SHUTDOWN",
+                        "HOTKEY_CONFLICT",
+                        "STALE_AUTOSTART",
+                        "MSI_UPGRADE",
+                        "UNINSTALL",
+                        "REINSTALL"
+                ),
+                values(contract, "lifecycle.validationMatrix")
+        );
+        assertEquals(
+                "M8_WINDOWS_LIFECYCLE_GATE",
+                required(contract, "lifecycle.regressionGate")
         );
         assertEquals(
                 List.of(

@@ -1,4 +1,5 @@
 
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)
@@ -86,6 +87,13 @@ public final class TrayController {
             new AtomicReference<>(HotkeyRegistrationStatus.NOT_STARTED);
     private final CopyOnWriteArrayList<Consumer<HotkeyRegistrationStatus>>
             hotkeyStatusListeners = new CopyOnWriteArrayList<>();
+    private static final long HOTKEY_RECOVERY_COOLDOWN_MILLIS = 30_000L;
+    private final Object trayLifecycleLock = new Object();
+    private final AtomicBoolean shuttingDown = new AtomicBoolean(false);
+    private volatile Runnable onOpen = () -> {};
+    private volatile Runnable onHotkeyOpen = () -> {};
+    private volatile Runnable onExit = () -> {};
+    private volatile long lastHotkeyRecoveryMillis;
 
     public HotkeyRegistrationStatus hotkeyStatus() {
         return hotkeyStatus.get();
@@ -100,42 +108,125 @@ public final class TrayController {
     }
 
     public void install(Runnable onOpen, Runnable onHotkeyOpen, Runnable onExit) {
+        this.onOpen = onOpen != null ? onOpen : () -> {};
+        this.onHotkeyOpen = onHotkeyOpen != null ? onHotkeyOpen : () -> {};
+        this.onExit = onExit != null ? onExit : () -> {};
+        shuttingDown.set(false);
+        ensureRuntimeHealthy();
+    }
+
+    /**
+     * Idempotently repairs a missing tray icon or stopped hotkey thread.
+     */
+    public void ensureRuntimeHealthy() {
+        if (shuttingDown.get()) return;
         if (!SystemTray.isSupported()) {
             updateHotkeyStatus(HotkeyRegistrationStatus.UNSUPPORTED);
             return;
         }
-        if (trayIcon != null) return;
 
-        EventQueue.invokeLater(() -> {
+        EventQueue.invokeLater(() -> ensureTrayIconInstalled(false));
+        ensureGlobalHotkeyRunning();
+    }
+
+    /**
+     * Forces shell-owned surfaces to be registered again after Explorer restart,
+     * suspend/resume, or session unlock.
+     */
+    public void recoverAfterShellOrResume() {
+        if (shuttingDown.get() || !SystemTray.isSupported()) return;
+
+        EventQueue.invokeLater(() -> ensureTrayIconInstalled(true));
+
+        if (hotkeyStatus.get() != HotkeyRegistrationStatus.CONFLICT
+                && stopGlobalHotkey()) {
+            startGlobalHotkey(onHotkeyOpen);
+        }
+    }
+
+    public boolean isTrayIconPresent() {
+        if (!SystemTray.isSupported()) return false;
+        TrayIcon current = trayIcon;
+        if (current == null) return false;
+        try {
+            for (TrayIcon icon : SystemTray.getSystemTray().getTrayIcons()) {
+                if (icon == current) return true;
+            }
+        } catch (Throwable ignored) {
+        }
+        return false;
+    }
+
+    private void ensureTrayIconInstalled(boolean forceReinstall) {
+        if (shuttingDown.get() || !SystemTray.isSupported()) return;
+
+        synchronized (trayLifecycleLock) {
             try {
-                SystemTray tray = SystemTray.getSystemTray();
+                SystemTray systemTray = SystemTray.getSystemTray();
+                if (trayIcon == null) {
+                    trayIcon = createTrayIcon();
+                }
 
-                Image img = loadBestTrayImage(paused.get());
-
-                trayIcon = new TrayIcon(img, "XClip " + io.xseries.xclip.AppVersion.VERSION);
-                trayIcon.setImageAutoSize(true);
-
-                // Left click / default action
-                trayIcon.addActionListener(e -> Platform.runLater(onOpen));
-
-                // Right click menu
-                trayIcon.addMouseListener(new MouseAdapter() {
-                    @Override
-                    public void mouseReleased(MouseEvent e) {
-                        maybeShowTrayMenu(e, onOpen, onExit);
+                boolean present = false;
+                for (TrayIcon icon : systemTray.getTrayIcons()) {
+                    if (icon == trayIcon) {
+                        present = true;
+                        break;
                     }
-                });
+                }
 
-                tray.add(trayIcon);
+                if (forceReinstall && present) {
+                    systemTray.remove(trayIcon);
+                    present = false;
+                }
+                if (!present) {
+                    systemTray.add(trayIcon);
+                }
 
-                updateIcon(paused.get());
-                startGlobalHotkey(onHotkeyOpen);
-
-            } catch (Exception ex) {
+                trayIcon.setImage(loadBestTrayImage(paused.get()));
+                String base = "XClip " + io.xseries.xclip.AppVersion.VERSION;
+                trayIcon.setToolTip(paused.get() ? base + " (paused)" : base);
+            } catch (Throwable failure) {
                 updateHotkeyStatus(HotkeyRegistrationStatus.FAILED);
-                ex.printStackTrace();
+            }
+        }
+    }
+
+    private TrayIcon createTrayIcon() {
+        TrayIcon icon = new TrayIcon(
+                loadBestTrayImage(paused.get()),
+                "XClip " + io.xseries.xclip.AppVersion.VERSION
+        );
+        icon.setImageAutoSize(true);
+        icon.addActionListener(event -> Platform.runLater(onOpen));
+        icon.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseReleased(MouseEvent event) {
+                maybeShowTrayMenu(event, TrayController.this.onOpen, TrayController.this.onExit);
             }
         });
+        return icon;
+    }
+
+    private void ensureGlobalHotkeyRunning() {
+        if (shuttingDown.get()) return;
+        HotkeyRegistrationStatus status = hotkeyStatus.get();
+        if (status == HotkeyRegistrationStatus.CONFLICT
+                || status == HotkeyRegistrationStatus.UNSUPPORTED
+                || status == HotkeyRegistrationStatus.REGISTERING) {
+            return;
+        }
+        Thread currentThread = hotkeyThread;
+        if (currentThread != null && currentThread.isAlive()) return;
+
+        long now = System.currentTimeMillis();
+        if ((status == HotkeyRegistrationStatus.FAILED
+                || status == HotkeyRegistrationStatus.STOPPED)
+                && now - lastHotkeyRecoveryMillis < HOTKEY_RECOVERY_COOLDOWN_MILLIS) {
+            return;
+        }
+        lastHotkeyRecoveryMillis = now;
+        startGlobalHotkey(onHotkeyOpen);
     }
 
     private void maybeShowTrayMenu(MouseEvent e, Runnable onOpen, Runnable onExit) {
@@ -436,9 +527,14 @@ public final class TrayController {
     }
 
     public void shutdown() {
+        if (!shuttingDown.compareAndSet(false, true)) return;
+
         stopGlobalHotkey();
         hideTrayMenu();
         removeTrayIcon();
+        onOpen = () -> {};
+        onHotkeyOpen = () -> {};
+        onExit = () -> {};
 
         EventQueue.invokeLater(() -> {
             try {
@@ -473,12 +569,16 @@ public final class TrayController {
 
     private void removeTrayIcon() {
         EventQueue.invokeLater(() -> {
-            try {
-                if (trayIcon != null) {
-                    SystemTray.getSystemTray().remove(trayIcon);
+            synchronized (trayLifecycleLock) {
+                try {
+                    if (trayIcon != null && SystemTray.isSupported()) {
+                        SystemTray.getSystemTray().remove(trayIcon);
+                    }
+                } catch (Exception ignored) {
+                } finally {
                     trayIcon = null;
                 }
-            } catch (Exception ignored) {}
+            }
         });
     }
 
@@ -553,12 +653,16 @@ public final class TrayController {
     // -------------------------
     // Hotkey logic (Windows)
     // -------------------------
-    private void startGlobalHotkey(Runnable onOpen) {
+    private synchronized void startGlobalHotkey(Runnable onOpen) {
+        if (shuttingDown.get()) return;
         if (!isWindows()) {
             updateHotkeyStatus(HotkeyRegistrationStatus.UNSUPPORTED);
             return;
         }
-        if (hotkeyRunning) return;
+        if (hotkeyRunning
+                || (hotkeyThread != null && hotkeyThread.isAlive())) {
+            return;
+        }
 
         hotkeyRunning = true;
         updateHotkeyStatus(HotkeyRegistrationStatus.REGISTERING);
@@ -628,7 +732,7 @@ public final class TrayController {
         hotkeyThread.start();
     }
 
-    private void stopGlobalHotkey() {
+    private synchronized boolean stopGlobalHotkey() {
         hotkeyRunning = false;
 
         try {
@@ -646,9 +750,14 @@ public final class TrayController {
         Thread thread = hotkeyThread;
         if (thread != null) {
             try {
-                thread.join(250);
+                thread.join(1_000L);
             } catch (InterruptedException ignored) {
                 Thread.currentThread().interrupt();
+                return false;
+            }
+            if (thread.isAlive()) {
+                updateHotkeyStatus(HotkeyRegistrationStatus.FAILED);
+                return false;
             }
             hotkeyThread = null;
         }
@@ -658,6 +767,7 @@ public final class TrayController {
                 || current == HotkeyRegistrationStatus.REGISTERING) {
             updateHotkeyStatus(HotkeyRegistrationStatus.STOPPED);
         }
+        return true;
     }
 
     private void updateHotkeyStatus(HotkeyRegistrationStatus next) {

@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)
@@ -937,6 +938,7 @@ public final class SettingsWindow {
             case SUCCESS -> "success";
             case SKIPPED -> "skipped";
             case FAILED -> "failed";
+            case TIMED_OUT -> "timed out";
             case NOT_RUN -> "not run";
         };
         String text = "Last cleanup: " + result + " • " + status.deletedCount()
@@ -1985,4 +1987,3 @@ public final class SettingsWindow {
 
 
 }
-

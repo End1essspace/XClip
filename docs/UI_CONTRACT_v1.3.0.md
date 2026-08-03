@@ -1,12 +1,12 @@
 
 # XClip UI Contract v1.3.0
 
-**Status:** Frozen R11 baseline, deliberately extended by Milestones 2.2–2.4, 3.2–3.3, 4.3, 5.1–5.3, M6.1–M6.5, and M7.2
-**Scope:** Popup, custom window chrome, modal surfaces, Settings styling, privacy controls, keyboard workflow, responsive behavior, database maintenance/recovery, and packaged UI resources.
+**Status:** Frozen R11 baseline, deliberately extended by Milestones 2.2–2.4, 3.2–3.3, 4.3, 5.1–5.3, M6.1–M6.5, M7.2–M7.3, and M8
+**Scope:** Popup, custom window chrome, modal surfaces, Settings styling, privacy controls, keyboard workflow, responsive behavior, database maintenance/recovery, large-data validation, Windows lifecycle recovery, and packaged UI resources.
 
 This document is the human-readable counterpart of `/ui/ui-contract-v1.3.0.properties`. Any intentional contract change must update both files and the `UiContractFreezeTest` expectations in the same reviewed milestone.
 
-**Contract revision:** 17
+**Contract revision:** 18
 **Registered Lucide UI icons:** 30
 
 ## 1. Product invariants
@@ -589,3 +589,53 @@ config, or SQLite schema versions.
   - `scripts/run_m7_large_data_validation.ps1`
 - Product version remains `1.3.0`, config schema remains `5`, SQLite schema
   remains `6`, and UI contract revision is `17`.
+
+## 24. Windows packaged lifecycle — contract revision 18
+
+### Session and suspend recovery
+
+- A two-second daemon heartbeat observes Windows session availability, Explorer
+  shell identity, display bounds, scale, and DPI.
+- A heartbeat gap of at least ten seconds is treated as suspend/resume.
+- Lock, unlock, resume, display topology change, and Explorer restart clear the
+  captured Direct Paste target before any later paste attempt.
+- An enabled clipboard watcher is recreated after unlock/resume and snapshots
+  the current clipboard before polling resumes.
+
+### Tray, hotkey, and single-instance contract
+
+- Tray installation is idempotent and owns at most one `TrayIcon` reference.
+- Explorer/session recovery forces shell surface reinstallation.
+- Ctrl+Shift+V is restarted after recovery unless Windows reports `CONFLICT`.
+- Single-instance ownership uses loopback port `32145` and requires the explicit
+  `XCLIP_OK` acknowledgement before a secondary process exits.
+- An unrelated port owner opens a visible startup error and aborts launch; it is
+  never accepted as a false primary.
+
+### Window, shutdown, and autostart contract
+
+- Display changes reuse the frozen visible-screen recovery policy; valid
+  negative-coordinate windows remain valid and fully off-screen windows recover.
+- Shutdown is idempotent and closes lifecycle monitor, watcher, popup workers,
+  bounded exit cleanup, tray/hotkey, primary socket, DAOs, and database.
+- Clear-RECENT-on-exit has a hard 3,000 ms operation deadline and reports
+  `TIMED_OUT` rather than blocking shutdown indefinitely.
+- Enabled HKCU Run registration is compared against the current launcher and a
+  stale path is repaired.
+
+### Packaged validation
+
+- The MSI upgrade UUID remains
+  `1322455b-12c4-4363-b896-12cd27ac3e3d`.
+- XClip remains a per-user install and user data remains outside the install
+  directory under `%USERPROFILE%\.xclip`.
+- The canonical packaged matrix contains 18 clean-start, shell/session,
+  topology, shutdown, autostart, upgrade, uninstall, and reinstall cases.
+- Automated release task: `m8WindowsLifecycleGate`.
+- Canonical assets:
+  - `docs/M8_WINDOWS_LIFECYCLE.md`
+  - `docs/M8_WINDOWS_LIFECYCLE_MATRIX.csv`
+  - `scripts/start_m8_windows_lifecycle_validation.ps1`
+  - `scripts/validate_m8_windows_lifecycle_evidence.ps1`
+- Product version remains `1.3.0`, config schema remains `5`, SQLite schema
+  remains `6`, and UI contract revision is `18`.

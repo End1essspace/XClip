@@ -1,4 +1,5 @@
 
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)
@@ -19,10 +20,12 @@ import io.xseries.xclip.system.DataOwnershipService;
 import io.xseries.xclip.system.clipboard.ClipboardAccess;
 import io.xseries.xclip.system.clipboard.WatcherController;
 import io.xseries.xclip.system.tray.TrayController;
+import io.xseries.xclip.system.lifecycle.WindowsLifecycleCoordinator;
 import io.xseries.xclip.system.privacy.ClipboardPrivacyGate;
 import io.xseries.xclip.system.privacy.ForegroundApplicationResolver;
 import io.xseries.xclip.ui.PopupWindow;
 import io.xseries.xclip.ui.SettingsWindow;
+import io.xseries.xclip.ui.UiDialogs;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.stage.Stage;
@@ -42,16 +45,36 @@ public final class XClipApp extends Application {
     private PopupWindow popup;
     private TrayController tray;
     private HistoryCleanupService historyCleanupService;
+    private SingleInstanceGuard singleInstanceGuard;
+    private WindowsLifecycleCoordinator lifecycleCoordinator;
+    private Thread shutdownHook;
 
     @Override
     public void start(Stage unusedStage) {
         Platform.setImplicitExit(false);
-        if (!SingleInstanceGuard.tryBecomePrimary(() -> {
+        SingleInstanceGuard.Acquisition acquisition = SingleInstanceGuard.acquire(() -> {
             if (popup != null) popup.showOrFocus();
-        })) {
+        });
+        if (!acquisition.primary()) {
+            if (acquisition.status()
+                    == SingleInstanceGuard.AcquireStatus.PORT_CONFLICT) {
+                System.err.println(
+                        "XClip single-instance port is owned by an unrelated process."
+                );
+                UiDialogs.showError(
+                        unusedStage,
+                        "XClip startup",
+                        "XClip could not start",
+                        "Local activation port 32145 is already used by another "
+                                + "application. Close the conflicting application "
+                                + "and start XClip again."
+                );
+            }
             Platform.exit();
             return;
         }
+        this.singleInstanceGuard = acquisition.guard();
+        installShutdownHook();
 
         // --- paths + config ---
         ConfigService configService = new ConfigService(AppPaths.configPath());
@@ -145,9 +168,25 @@ public final class XClipApp extends Application {
         if (config.watcherEnabled()) watcherController.enable();
         else watcherController.disable();
 
+        this.lifecycleCoordinator = new WindowsLifecycleCoordinator(
+                watcherController,
+                tray,
+                popup
+        );
+        lifecycleCoordinator.start();
+
         // optional: show on start if not minimized
         if (!config.startMinimized()) {
             Platform.runLater(popup::showOrFocus);
+        }
+    }
+
+    private void installShutdownHook() {
+        shutdownHook = new Thread(this::shutdownInternal, "xclip-jvm-shutdown");
+        try {
+            Runtime.getRuntime().addShutdownHook(shutdownHook);
+        } catch (IllegalStateException ignored) {
+            // JVM shutdown already started.
         }
     }
 
@@ -173,6 +212,13 @@ public final class XClipApp extends Application {
         if (!shutdownOnce.compareAndSet(false, true)) return;
 
         try {
+            if (lifecycleCoordinator != null) {
+                lifecycleCoordinator.close();
+                lifecycleCoordinator = null;
+            }
+        } catch (Exception ignored) {}
+
+        try {
             if (watcherController != null) {
                 watcherController.close();
                 watcherController = null;
@@ -181,7 +227,9 @@ public final class XClipApp extends Application {
 
         try {
             if (popup != null) {
-                popup.shutdown();
+                if (Platform.isFxApplicationThread()) {
+                    popup.shutdown();
+                }
                 popup = null;
             }
         } catch (Exception ignored) {}
@@ -197,6 +245,13 @@ public final class XClipApp extends Application {
             if (tray != null) {
                 tray.shutdown();
                 tray = null;
+            }
+        } catch (Exception ignored) {}
+
+        try {
+            if (singleInstanceGuard != null) {
+                singleInstanceGuard.close();
+                singleInstanceGuard = null;
             }
         } catch (Exception ignored) {}
 

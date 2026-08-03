@@ -7,10 +7,10 @@
 **Технологический стек:** Java 17, JavaFX 21, SQLite, Gradle, JNA, Windows 10/11
 **Текущая версия схемы БД:** 6
 **Текущая версия config schema:** 5
-**Текущая ревизия UI contract:** 17
+**Текущая ревизия UI contract:** 18
 **Основная ветка:** `main`
-**Текущая точка:** C1–C8, M6.1–M6.5 и M7.2–M7.3 завершены; следующий этап — M8
-**Следующий основной milestone:** M8 — Windows Lifecycle Hardening
+**Текущая точка:** M8 runtime hardening реализован; требуется packaged MSI и 18-case lifecycle evidence
+**Следующий основной milestone:** закрытие M8 packaged evidence, затем M9
 
 ---
 
@@ -108,7 +108,7 @@ XClip — локальный Windows clipboard manager с persistent history, п
 | Repository Cleanup C1–C3 | ✅ Завершено |
 | M6 — Settings Redesign | ✅ Завершено |
 | M7 — Data/Performance Hardening | ✅ M7.2–M7.3 завершены |
-| M8 — Windows Lifecycle Hardening | ⬜ Не начат формально |
+| M8 — Windows Lifecycle Hardening | 🟨 Runtime готов, packaged evidence pending |
 | M9 — Documentation/Packaging/Release | ⬜ Не начат |
 
 ## 3.2. Оценка готовности
@@ -120,7 +120,7 @@ Tags и Advanced Search:             ~100%
 Duplicate и Privacy Controls:       ~100%
 Repository hygiene:                 ~100%
 Settings architecture:              ~100%
-Data/Performance Hardening:         ~100%
+Data/Performance Hardening:          ~75%
 Windows Lifecycle Hardening:         ~45%
 Packaging/Release Readiness:         ~65%
 
@@ -1120,15 +1120,7 @@ About
 - future-schema rejection before mutation;
 - interrupted partial migration recovery.
 
-M7 closure:
-
-- database maintenance and recovery gate завершён;
-- deterministic large-data performance matrix добавлена;
-- startup/open/search/cleanup latency evidence формируется автоматически;
-- memory and database-size evidence формируется автоматически;
-- rapid churn and JavaFX queue-stall validation входят в release gate.
-
-Завершённая foundation:
+Текущая foundation:
 
 - SQLite WAL;
 - busy timeout;
@@ -1141,18 +1133,14 @@ M7 closure:
 
 ## 12.1. M7.1 — DAO lifecycle
 
-**Статус:** ✅ фактически закрыто фазами C4–C8
-
-Завершено:
-
 - audit `ThreadLocal<Connection>`;
 - explicit connection ownership;
 - close all worker-thread connections;
 - transaction boundary review;
-- busy/locked handling через единый SQLite configuration;
+- busy/locked retry policy;
 - shutdown ordering;
-- защита от DB reopening после data deletion;
-- batch operations для large selections и retention;
+- avoid DB reopening after data deletion;
+- batch operations for large selections;
 - dense pin-order maintenance review.
 
 ## 12.2. M7.2 — Database maintenance
@@ -1244,7 +1232,7 @@ Acceptance budgets cover:
 
 # 13. M8 — Windows Lifecycle Hardening
 
-**Статус:** ⬜ не начат формально
+**Статус:** 🟨 runtime hardening и automated gate реализованы; packaged evidence pending
 
 R2/R11 уже покрывают часть window behavior, но M8 должен проверить packaged production lifecycle.
 
@@ -1281,6 +1269,35 @@ R2/R11 уже покрывают часть window behavior, но M8 долже�
 - autostart points to the current executable;
 - upgrade preserves user data;
 - uninstall behavior is documented and verified.
+
+## 13.3. Реализованный hardening
+
+- acknowledged loopback single-instance protocol;
+- explicit primary socket shutdown;
+- Explorer shell PID recovery;
+- idempotent tray reinstall and hotkey restart;
+- sleep/resume heartbeat recovery;
+- Windows lock/unlock input-desktop probe;
+- watcher restart with fresh clipboard snapshot;
+- Direct Paste target invalidation across lifecycle boundaries;
+- display bounds/scale/DPI topology fingerprint;
+- visible-screen recovery on topology changes;
+- bounded three-second clear-on-exit operation;
+- JVM shutdown hook and ordered backend shutdown;
+- stale HKCU Run launcher repair;
+- fixed MSI upgrade UUID/per-user/data-location contract;
+- 18-case packaged evidence workflow.
+
+## 13.4. Remaining M8 close gate
+
+M8 закрывается только после:
+
+- `m8WindowsLifecycleGate` PASS;
+- packaged MSI built successfully;
+- all 18 manual cases marked PASS;
+- evidence validator creates `PASS.txt`;
+- build and diff checks pass;
+- Git gate completed.
 
 ---
 
@@ -1466,9 +1483,9 @@ M7   Data and Performance Hardening
      M7.2 Database maintenance               ✅
      M7.3 Large-data validation              ✅
 
-M8   Windows Lifecycle Hardening             ⬜ NEXT
+M8   Windows Lifecycle Hardening             🟨 VALIDATION
 
-M9   Documentation, Packaging and Final Release
+M9   Documentation, Packaging and Final Release ⬜ BLOCKED BY M8 EVIDENCE
 ```
 
 ---
@@ -1486,15 +1503,16 @@ Application version:
 v1.3.0
 
 Config / SQLite / UI contract:
-5 / 6 / 17
+5 / 6 / 18
 
-Следующий milestone:
-M8 — Windows Lifecycle Hardening
+Текущий milestone:
+M8 — packaged Windows lifecycle validation
 ```
 
-M7 полностью закрыт. Следующая работа проверяет packaged Windows lifecycle:
-tray, secondary launch, Explorer restart, sleep/resume, lock/unlock, display/DPI
-changes, shutdown/logoff, autostart, MSI upgrade, uninstall и reinstall.
+Runtime hardening и automated gate M8 реализованы. До перехода к M9 требуется
+реальный MSI и 18-case evidence: tray, secondary launch, Explorer restart,
+sleep/resume, lock/unlock, display/DPI, shutdown/logoff, autostart, upgrade,
+uninstall и reinstall.
 
 ---
 
@@ -1513,11 +1531,13 @@ Final automated baseline audit C8          ✅
 Settings Redesign M6.1–M6.5                ✅
 Database maintenance M7.2                  ✅
 Large-data validation M7.3                 ✅
-UI contract revision 17                    ✅
+UI contract revision 18                    ✅
 
-Windows Lifecycle Hardening                ⬜ NEXT
-Documentation / Packaging / Release        ⬜
+Windows Lifecycle runtime hardening        ✅
+Windows Lifecycle packaged evidence        🟨 CURRENT
+Documentation / Packaging / Release        ⬜ BLOCKED
 ```
 
-Data and Performance Hardening M7 полностью закрыт. Следующая рабочая точка —
-**M8: packaged Windows lifecycle, recovery, topology changes and upgrade/uninstall evidence**.
+Data and Performance Hardening M7 полностью закрыт. M8 code и automated gate
+реализованы; текущая рабочая точка — **packaged Windows lifecycle evidence**.
+После 18-case PASS можно переходить к M9.

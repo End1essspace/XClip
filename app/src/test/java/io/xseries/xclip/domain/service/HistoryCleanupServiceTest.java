@@ -1,4 +1,5 @@
 
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)
@@ -16,6 +17,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
 import java.time.Clock;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -239,6 +241,46 @@ class HistoryCleanupServiceTest {
         }
     }
 
+    @Test
+    void clearOnExitHasHardTimeout() {
+        try (Fixture fixture = fixture()) {
+            ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(1);
+            HistoryCleanupService service = new HistoryCleanupService(
+                    fixture.dao,
+                    Clock.systemUTC(),
+                    executor,
+                    () -> {
+                        long deadline = System.nanoTime()
+                                + java.util.concurrent.TimeUnit.SECONDS.toNanos(1);
+                        while (System.nanoTime() < deadline) {
+                            try {
+                                Thread.sleep(25L);
+                            } catch (InterruptedException ignored) {
+                                // Simulate a native/database call that does not stop immediately.
+                            }
+                        }
+                        return 0;
+                    }
+            );
+            service.applyPolicy(new HistoryRetentionPolicy(
+                    false,
+                    HistoryRetentionPolicy.DEFAULT_RECENT_MAX_AGE_DAYS,
+                    Map.of(),
+                    true
+            ));
+
+            long started = System.nanoTime();
+            HistoryCleanupService.CleanupStatus status =
+                    service.shutdownAndClearOnExit(Duration.ofMillis(75L));
+            long elapsedMillis = java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(
+                    System.nanoTime() - started
+            );
+
+            assertEquals(HistoryCleanupService.CleanupOutcome.TIMED_OUT, status.outcome());
+            assertTrue(elapsedMillis < 750L, "exit cleanup exceeded its hard bound");
+        }
+    }
+
     private Fixture fixture() {
         Database database = new Database(tempDir.resolve("xclip.db"));
         database.init();
@@ -286,4 +328,3 @@ class HistoryCleanupServiceTest {
         }
     }
 }
-

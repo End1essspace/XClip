@@ -1,4 +1,5 @@
 
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)
@@ -1713,6 +1714,25 @@ public final class PopupWindow {
         searchField.requestFocus();
         reloadCache.invalidateTotalClipCount();
         reloadNow(searchField.getText());
+    }
+
+    /**
+     * Clears state that cannot safely survive lock, suspend, or display changes.
+     */
+    public void clearLifecycleSensitiveState() {
+        suppressAutoHide = false;
+        autoHideDelay.stop();
+        actionsMenu.hide();
+        quickHelp.hide();
+        pasteService.clearTarget();
+    }
+
+    /**
+     * Revalidates popup geometry after monitor/DPI topology changes.
+     */
+    public void recoverForCurrentDisplayTopology() {
+        clearLifecycleSensitiveState();
+        recoverWindowForCurrentTopology();
     }
 
     private void openSettings() {

@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)
@@ -73,16 +74,7 @@ public final class WatcherController implements AutoCloseable {
         synchronized (lock) {
             if (enabled.get()) return;
 
-            ClipboardWatcher w = new ClipboardWatcher(
-                    access,
-                    onText,
-                    isPaused,
-                    isCaptureAllowed,
-                    onWorkerStopped
-            );
-            w.start();
-
-            watcher = w;
+            watcher = createAndStartWatcher();
             enabled.set(true);
         }
     }
@@ -102,6 +94,37 @@ public final class WatcherController implements AutoCloseable {
                 enabled.set(false);
             }
         }
+    }
+
+
+    /**
+     * Recreates the watcher after suspend/resume or session unlock.
+     *
+     * Restarting establishes a fresh clipboard snapshot, so clipboard changes
+     * that occurred while Windows was unavailable are not ingested later.
+     */
+    public void recoverAfterSystemResume() {
+        synchronized (lock) {
+            if (!enabled.get()) return;
+
+            try {
+                if (watcher != null) watcher.close();
+            } catch (Exception ignored) {
+            }
+            watcher = createAndStartWatcher();
+        }
+    }
+
+    private ClipboardWatcher createAndStartWatcher() {
+        ClipboardWatcher next = new ClipboardWatcher(
+                access,
+                onText,
+                isPaused,
+                isCaptureAllowed,
+                onWorkerStopped
+        );
+        next.start();
+        return next;
     }
 
     @Override

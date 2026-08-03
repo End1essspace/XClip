@@ -1,5 +1,6 @@
 
 
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)
@@ -13,28 +14,34 @@ import io.xseries.xclip.domain.model.ClipContentType;
 import io.xseries.xclip.domain.retention.HistoryRetentionPolicy;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.IntSupplier;
 
 /**
  * Executes explicit retention policy against unpinned clipboard history.
  *
  * Age cleanup runs at startup, after Settings Apply, on manual request, and on
- * a bounded six-hour cadence. Clear-on-exit is synchronous so the application
- * cannot terminate before the requested destructive action completes.
+ * a bounded six-hour cadence. Clear-on-exit runs with a hard deadline so a
+ * blocked database operation cannot hold Windows logoff or shutdown indefinitely.
  */
 public final class HistoryCleanupService implements AutoCloseable {
 
     public static final long PERIODIC_INTERVAL_HOURS = 6L;
+    public static final long EXIT_CLEANUP_TIMEOUT_MILLIS = 3_000L;
     static final int RETENTION_SCAN_BATCH_SIZE = 512;
 
     private static final long DISABLED_CUTOFF = -1L;
@@ -42,6 +49,7 @@ public final class HistoryCleanupService implements AutoCloseable {
     private final ClipEntryDao dao;
     private final Clock clock;
     private final ScheduledExecutorService executor;
+    private final IntSupplier clearRecentAction;
     private final Object cleanupLock = new Object();
     private final AtomicReference<HistoryRetentionPolicy> policy =
             new AtomicReference<>(HistoryRetentionPolicy.defaults());
@@ -62,9 +70,22 @@ public final class HistoryCleanupService implements AutoCloseable {
             Clock clock,
             ScheduledExecutorService executor
     ) {
+        this(dao, clock, executor, dao::deleteAllNonFavorites);
+    }
+
+    HistoryCleanupService(
+            ClipEntryDao dao,
+            Clock clock,
+            ScheduledExecutorService executor,
+            IntSupplier clearRecentAction
+    ) {
         this.dao = Objects.requireNonNull(dao, "dao");
         this.clock = Objects.requireNonNull(clock, "clock");
         this.executor = Objects.requireNonNull(executor, "executor");
+        this.clearRecentAction = Objects.requireNonNull(
+                clearRecentAction,
+                "clearRecentAction"
+        );
     }
 
     public void applyConfig(Config config) {
@@ -145,7 +166,7 @@ public final class HistoryCleanupService implements AutoCloseable {
         synchronized (cleanupLock) {
             if (maintenancePaused.get()) return status.get();
             try {
-                int deleted = dao.deleteAllNonFavorites();
+                int deleted = clearRecentAction.getAsInt();
                 return publish(new CleanupStatus(
                         nowMillis,
                         CleanupTrigger.MANUAL_CLEAR_RECENT,
@@ -251,36 +272,96 @@ public final class HistoryCleanupService implements AutoCloseable {
     }
 
     /**
-     * Stops periodic work and applies the explicit clear-on-exit policy.
+     * Stops periodic work and applies clear-on-exit within a hard deadline.
      */
     public CleanupStatus shutdownAndClearOnExit() {
-        close();
-        synchronized (cleanupLock) {
-            long now = clock.millis();
-            HistoryRetentionPolicy snapshot = policy.get();
-            if (!snapshot.clearRecentOnExit()) {
-                return publish(new CleanupStatus(
-                        now,
-                        CleanupTrigger.EXIT,
-                        CleanupOutcome.SKIPPED,
-                        0,
-                        "Clear on exit is disabled"
-                ));
-            }
+        return shutdownAndClearOnExit(
+                Duration.ofMillis(EXIT_CLEANUP_TIMEOUT_MILLIS)
+        );
+    }
 
+    public CleanupStatus shutdownAndClearOnExit(Duration timeout) {
+        close();
+
+        long now = clock.millis();
+        HistoryRetentionPolicy snapshot = policy.get();
+        if (!snapshot.clearRecentOnExit()) {
+            return publish(new CleanupStatus(
+                    now,
+                    CleanupTrigger.EXIT,
+                    CleanupOutcome.SKIPPED,
+                    0,
+                    "Clear on exit is disabled"
+            ));
+        }
+
+        long timeoutMillis = Math.max(
+                1L,
+                Objects.requireNonNull(timeout, "timeout").toMillis()
+        );
+        ExecutorService exitExecutor = Executors.newSingleThreadExecutor(runnable -> {
+            Thread thread = new Thread(runnable, "xclip-exit-cleanup");
+            thread.setDaemon(true);
+            return thread;
+        });
+        Future<CleanupStatus> future = exitExecutor.submit(
+                () -> performClearOnExit(now)
+        );
+        try {
+            return future.get(timeoutMillis, TimeUnit.MILLISECONDS);
+        } catch (TimeoutException timedOut) {
+            future.cancel(true);
+            return publish(new CleanupStatus(
+                    clock.millis(),
+                    CleanupTrigger.EXIT,
+                    CleanupOutcome.TIMED_OUT,
+                    0,
+                    "Clear on exit exceeded " + timeoutMillis + " ms"
+            ));
+        } catch (InterruptedException interrupted) {
+            future.cancel(true);
+            Thread.currentThread().interrupt();
+            return publish(new CleanupStatus(
+                    clock.millis(),
+                    CleanupTrigger.EXIT,
+                    CleanupOutcome.TIMED_OUT,
+                    0,
+                    "Clear on exit was interrupted"
+            ));
+        } catch (Exception failure) {
+            Throwable cause = failure.getCause() == null
+                    ? failure
+                    : failure.getCause();
+            return publish(failedStatus(
+                    clock.millis(),
+                    CleanupTrigger.EXIT,
+                    cause
+            ));
+        } finally {
+            exitExecutor.shutdownNow();
+        }
+    }
+
+    private CleanupStatus performClearOnExit(long startedAt) {
+        synchronized (cleanupLock) {
             try {
-                int deleted = dao.deleteAllNonFavorites();
+                int deleted = clearRecentAction.getAsInt();
                 return publish(new CleanupStatus(
-                        now,
+                        startedAt,
                         CleanupTrigger.EXIT,
                         CleanupOutcome.SUCCESS,
                         deleted,
                         deleted == 0
                                 ? "No RECENT clips to clear"
-                                : "Cleared " + deleted + " RECENT clip" + (deleted == 1 ? "" : "s")
+                                : "Cleared " + deleted + " RECENT clip"
+                                + (deleted == 1 ? "" : "s")
                 ));
             } catch (Throwable failure) {
-                return publish(failedStatus(now, CleanupTrigger.EXIT, failure));
+                return publish(failedStatus(
+                        clock.millis(),
+                        CleanupTrigger.EXIT,
+                        failure
+                ));
             } finally {
                 dao.closeForCurrentThread();
             }
@@ -436,7 +517,8 @@ public final class HistoryCleanupService implements AutoCloseable {
         NOT_RUN,
         SUCCESS,
         SKIPPED,
-        FAILED
+        FAILED,
+        TIMED_OUT
     }
 
     public record CleanupStatus(
@@ -469,4 +551,3 @@ public final class HistoryCleanupService implements AutoCloseable {
         }
     }
 }
-

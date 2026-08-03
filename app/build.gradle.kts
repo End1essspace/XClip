@@ -507,8 +507,11 @@ val verifyM7LargeDataAssets = tasks.register(
         val contract = Properties().apply {
             contractFile.inputStream().use { stream -> load(stream) }
         }
-        if (contract.getProperty("contract.version") != "17") {
-            throw GradleException("M7.3 requires UI contract revision 17")
+        val contractRevision = contract.getProperty("contract.version")
+            ?.toIntOrNull()
+            ?: throw GradleException("Invalid UI contract revision")
+        if (contractRevision < 17) {
+            throw GradleException("M7.3 requires UI contract revision 17 or newer")
         }
         if (contract.getProperty("performance.datasets")
                 != "1000|10000|50000") {
@@ -523,7 +526,7 @@ val verifyM7LargeDataAssets = tasks.register(
             throw GradleException("Missing M7.3 evidence contract")
         }
 
-        println("M7_LARGE_DATA_ASSETS_OK: cases=18 contract=17")
+        println("M7_LARGE_DATA_ASSETS_OK: cases=18 contract=$contractRevision")
     }
 }
 
@@ -599,6 +602,158 @@ val m7LargeDataGate = tasks.register("m7LargeDataGate") {
                 "pinned/tags/duplicates, cleanup, churn, heap, DB size, " +
                 "and JavaFX responsiveness passed"
         )
+    }
+}
+
+val verifyM8WindowsLifecycleAssets = tasks.register(
+    "verifyM8WindowsLifecycleAssets"
+) {
+    group = "verification"
+    description = "Verifies the frozen M8 Windows lifecycle contract and 18-case packaged matrix."
+
+    doLast {
+        val validation = rootProject.file("docs/M8_WINDOWS_LIFECYCLE.md")
+        val matrix = rootProject.file("docs/M8_WINDOWS_LIFECYCLE_MATRIX.csv")
+        val starter = rootProject.file("scripts/start_m8_windows_lifecycle_validation.ps1")
+        val validator = rootProject.file("scripts/validate_m8_windows_lifecycle_evidence.ps1")
+        val contractFile = file(
+            "src/main/resources/ui/ui-contract-v1.3.0.properties"
+        )
+
+        for (required in listOf(validation, matrix, starter, validator, contractFile)) {
+            if (!required.isFile || required.length() <= 0L) {
+                throw GradleException(
+                    "Missing or empty M8 lifecycle asset: ${required.absolutePath}"
+                )
+            }
+        }
+
+        val matrixLines = matrix.readLines(Charsets.UTF_8)
+            .filter { it.isNotBlank() }
+        if (matrixLines.size != 19) {
+            throw GradleException(
+                "M8 lifecycle matrix must contain one header plus 18 cases, " +
+                    "found ${matrixLines.size} lines"
+            )
+        }
+        val ids = matrixLines.drop(1).map { line ->
+            line.substringBefore(',').trim().removeSurrounding("\"")
+        }
+        val expectedIds = (1..18).map { index -> "M8-%03d".format(index) }
+        if (ids != expectedIds) {
+            throw GradleException(
+                "M8 lifecycle IDs are missing, duplicated, or out of order: $ids"
+            )
+        }
+
+        val contract = Properties().apply {
+            contractFile.inputStream().use { stream -> load(stream) }
+        }
+        val revision = contract.getProperty("contract.version")
+            ?.toIntOrNull()
+            ?: throw GradleException("Invalid UI contract revision")
+        if (revision < 18) {
+            throw GradleException("M8 requires UI contract revision 18 or newer")
+        }
+        if (contract.getProperty("lifecycle.regressionGate")
+                != "M8_WINDOWS_LIFECYCLE_GATE") {
+            throw GradleException("Missing M8 lifecycle regression gate contract")
+        }
+        if (contract.getProperty("lifecycle.singleInstance")
+                != "LOOPBACK_ACKNOWLEDGED") {
+            throw GradleException("Missing acknowledged single-instance contract")
+        }
+        if (contract.getProperty("lifecycle.exitCleanupTimeoutMillis")
+                != "3000") {
+            throw GradleException("Missing bounded exit-cleanup contract")
+        }
+
+        val buildScript = file("build.gradle.kts").readText(Charsets.UTF_8)
+        val upgradeAssignment = Regex(
+            """val\s+upgradeUuid\s*=\s*"1322455b-12c4-4363-b896-12cd27ac3e3d"""
+        )
+        if (!upgradeAssignment.containsMatchIn(buildScript)
+                || !buildScript.contains(
+                    "\"--win-upgrade-uuid\", upgradeUuid"
+                )
+                || !buildScript.contains("\"--win-per-user-install\"")) {
+            throw GradleException(
+                "MSI upgrade UUID or per-user install contract changed"
+            )
+        }
+
+        println("M8_WINDOWS_LIFECYCLE_ASSETS_OK: cases=18 contract=$revision")
+    }
+}
+
+tasks.named("check") {
+    dependsOn(verifyM8WindowsLifecycleAssets)
+}
+
+val m8WindowsLifecycleGate = tasks.register("m8WindowsLifecycleGate") {
+    group = "verification"
+    description = "Runs all prior gates plus M8 Windows runtime lifecycle hardening checks."
+    dependsOn(m7LargeDataGate, verifyM8WindowsLifecycleAssets)
+
+    doLast {
+        println(
+            "M8_WINDOWS_LIFECYCLE_GATE_OK: single instance, watcher recovery, " +
+                "tray/hotkey self-healing, bounded shutdown, autostart repair, " +
+                "display/session policy, packaging contract, and prior gates passed"
+        )
+    }
+}
+
+val validateM8WindowsLifecycleEvidence = tasks.register(
+    "validateM8WindowsLifecycleEvidence"
+) {
+    group = "verification"
+    description = "Validates a completed 18-case packaged M8 evidence directory (-Pm8EvidenceDir=...)."
+
+    doLast {
+        if (!OperatingSystem.current().isWindows) {
+            throw GradleException(
+                "M8 packaged lifecycle evidence validation is Windows-only."
+            )
+        }
+
+        val rawDirectory = providers.gradleProperty("m8EvidenceDir").orNull
+            ?: throw GradleException(
+                "Provide -Pm8EvidenceDir=<completed M8 evidence directory>"
+            )
+        val directory = file(rawDirectory).absoluteFile
+        val validator = rootProject.file(
+            "scripts/validate_m8_windows_lifecycle_evidence.ps1"
+        )
+
+        val process = ProcessBuilder(
+            "powershell.exe",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            validator.absolutePath,
+            "-EvidenceDirectory",
+            directory.absolutePath
+        ).redirectErrorStream(true).start()
+
+        val output = process.inputStream.bufferedReader().use { it.readText() }
+        val exitCode = process.waitFor()
+        if (output.isNotBlank()) println(output.trim())
+        if (exitCode != 0) {
+            throw GradleException(
+                "M8 evidence validator failed with exit code $exitCode"
+            )
+        }
+
+        val pass = File(directory, "PASS.txt")
+        if (!pass.isFile || pass.length() <= 0L) {
+            throw GradleException(
+                "M8 validator completed without PASS.txt: ${pass.absolutePath}"
+            )
+        }
+
+        println("M8_WINDOWS_LIFECYCLE_EVIDENCE_OK: ${directory.absolutePath}")
     }
 }
 
