@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)
@@ -28,6 +29,7 @@ import io.xseries.xclip.ui.popup.TagEditorModel;
 import io.xseries.xclip.ui.settings.DuplicateSettingsModel;
 import io.xseries.xclip.ui.settings.SettingsPage;
 import io.xseries.xclip.ui.settings.SettingsResponsivePolicy;
+import io.xseries.xclip.validation.LargeDataValidationPolicy;
 import io.xseries.xclip.system.tray.HotkeyRegistrationStatus;
 import org.junit.jupiter.api.Test;
 
@@ -48,7 +50,7 @@ class UiContractFreezeTest {
     void frozenContractMatchesRuntimeConstantsAndEnums() throws Exception {
         Properties contract = loadContract();
 
-        assertEquals("16", contract.getProperty("contract.version"));
+        assertEquals("17", contract.getProperty("contract.version"));
         assertEquals("1.3.0", contract.getProperty("product.version"));
         assertEquals(Config.MIN_WINDOW_W, intValue(contract, "window.minWidth"));
         assertEquals(Config.MIN_WINDOW_H, intValue(contract, "window.minHeight"));
@@ -407,6 +409,124 @@ class UiContractFreezeTest {
                 required(contract, "database.regressionGate")
         );
         assertEquals(
+                LargeDataValidationPolicy.DATASET_SIZES.stream()
+                        .map(String::valueOf)
+                        .toList(),
+                values(contract, "performance.datasets")
+        );
+        assertEquals(
+                LargeDataValidationPolicy.LARGE_CLIP_CHARACTERS,
+                intValue(contract, "performance.largeClipCharacters")
+        );
+        assertEquals(
+                LargeDataValidationPolicy.MANY_PINNED_COUNT,
+                intValue(contract, "performance.manyPinnedCount")
+        );
+        assertEquals(
+                LargeDataValidationPolicy.MANY_TAGS_COUNT,
+                intValue(contract, "performance.manyTagsCount")
+        );
+        assertEquals(
+                LargeDataValidationPolicy.DUPLICATE_CANDIDATE_COUNT,
+                intValue(contract, "performance.duplicateCandidateCount")
+        );
+        assertEquals(
+                LargeDataValidationPolicy.RETENTION_ELIGIBLE_COUNT,
+                intValue(contract, "performance.retentionEligibleCount")
+        );
+        assertEquals(
+                LargeDataValidationPolicy.RAPID_SEARCH_CHURN_ITERATIONS,
+                intValue(contract, "performance.searchChurnIterations")
+        );
+        assertEquals(
+                LargeDataValidationPolicy.POPUP_RESULT_LIMIT,
+                intValue(contract, "performance.popupResultLimit")
+        );
+        assertEquals(
+                LargeDataValidationPolicy.MAX_HEAP_MIB,
+                longValue(contract, "performance.maxHeapMiB")
+        );
+        assertEquals(
+                LargeDataValidationPolicy.MAX_USED_HEAP_MIB,
+                longValue(contract, "performance.maxUsedHeapMiB")
+        );
+        assertEquals(
+                LargeDataValidationPolicy.MAX_DATABASE_MIB,
+                longValue(contract, "performance.maxDatabaseMiB")
+        );
+        assertEquals(
+                List.of(
+                        LargeDataValidationPolicy.STARTUP_1K_P95_MAX_MILLIS,
+                        LargeDataValidationPolicy.STARTUP_10K_P95_MAX_MILLIS,
+                        LargeDataValidationPolicy.STARTUP_50K_P95_MAX_MILLIS
+                ).stream().map(String::valueOf).toList(),
+                values(contract, "performance.startupP95Millis")
+        );
+        assertEquals(
+                LargeDataValidationPolicy.POPUP_PIPELINE_P95_MAX_MILLIS,
+                longValue(contract, "performance.popupPipelineP95Millis")
+        );
+        assertEquals(
+                LargeDataValidationPolicy.POPUP_FX_MATERIALIZATION_P95_MAX_MILLIS,
+                longValue(contract, "performance.popupFxMaterializationP95Millis")
+        );
+        assertEquals(
+                LargeDataValidationPolicy.POPUP_OPEN_COMPOSITE_P95_MAX_MILLIS,
+                longValue(contract, "performance.popupOpenCompositeP95Millis")
+        );
+        assertEquals(
+                LargeDataValidationPolicy.SEARCH_P95_MAX_MILLIS,
+                longValue(contract, "performance.searchP95Millis")
+        );
+        assertEquals(
+                LargeDataValidationPolicy.TAG_SEARCH_P95_MAX_MILLIS,
+                longValue(contract, "performance.tagSearchP95Millis")
+        );
+        assertEquals(
+                LargeDataValidationPolicy.TYPE_FILTER_P95_MAX_MILLIS,
+                longValue(contract, "performance.typeFilterP95Millis")
+        );
+        assertEquals(
+                LargeDataValidationPolicy.DUPLICATE_LOOKUP_P95_MAX_MILLIS,
+                longValue(contract, "performance.duplicateLookupP95Millis")
+        );
+        assertEquals(
+                LargeDataValidationPolicy.ROW_BUILD_P95_MAX_MILLIS,
+                longValue(contract, "performance.rowBuildP95Millis")
+        );
+        assertEquals(
+                LargeDataValidationPolicy.LARGE_CLIP_POLICY_MAX_MILLIS,
+                longValue(contract, "performance.largeClipPolicyMillis")
+        );
+        assertEquals(
+                LargeDataValidationPolicy.RETENTION_CLEANUP_MAX_MILLIS,
+                longValue(contract, "performance.retentionCleanupMillis")
+        );
+        assertEquals(
+                LargeDataValidationPolicy.SEARCH_CHURN_TOTAL_MAX_MILLIS,
+                longValue(contract, "performance.searchChurnTotalMillis")
+        );
+        assertEquals(
+                LargeDataValidationPolicy.FX_QUEUE_P95_MAX_MILLIS,
+                longValue(contract, "performance.fxQueueP95Millis")
+        );
+        assertEquals(
+                LargeDataValidationPolicy.FX_QUEUE_MAX_STALL_MILLIS,
+                longValue(contract, "performance.fxMaxStallMillis")
+        );
+        assertEquals(
+                List.of(
+                        "SUMMARY_JSON",
+                        "METRICS_CSV",
+                        "ENVIRONMENT_PROPERTIES"
+                ),
+                values(contract, "performance.evidence")
+        );
+        assertEquals(
+                "M7_LARGE_DATA_GATE",
+                required(contract, "performance.regressionGate")
+        );
+        assertEquals(
                 List.of(
                         "VERSION",
                         "AUTHOR",
@@ -536,4 +656,3 @@ class UiContractFreezeTest {
         return value;
     }
 }
-

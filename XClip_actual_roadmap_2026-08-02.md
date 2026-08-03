@@ -1,3 +1,4 @@
+
 # XClip — актуальный полный roadmap разработки
 
 **Статус документа:** единый актуальный рабочий roadmap
@@ -6,10 +7,10 @@
 **Технологический стек:** Java 17, JavaFX 21, SQLite, Gradle, JNA, Windows 10/11
 **Текущая версия схемы БД:** 6
 **Текущая версия config schema:** 5
-**Текущая ревизия UI contract:** 16
+**Текущая ревизия UI contract:** 17
 **Основная ветка:** `main`
-**Текущая точка:** C1–C8, M6.1–M6.5 и M7.2 завершены; следующий этап — M7.3
-**Следующий основной milestone:** M7.3 — Large-data validation
+**Текущая точка:** C1–C8, M6.1–M6.5 и M7.2–M7.3 завершены; следующий этап — M8
+**Следующий основной milestone:** M8 — Windows Lifecycle Hardening
 
 ---
 
@@ -106,7 +107,7 @@ XClip — локальный Windows clipboard manager с persistent history, п
 | Privacy 5.3 — Retention and Cleanup | ✅ Завершено |
 | Repository Cleanup C1–C3 | ✅ Завершено |
 | M6 — Settings Redesign | ✅ Завершено |
-| M7 — Data/Performance Hardening | 🟡 M7.2 завершён; M7.3 следующий |
+| M7 — Data/Performance Hardening | ✅ M7.2–M7.3 завершены |
 | M8 — Windows Lifecycle Hardening | ⬜ Не начат формально |
 | M9 — Documentation/Packaging/Release | ⬜ Не начат |
 
@@ -119,7 +120,7 @@ Tags и Advanced Search:             ~100%
 Duplicate и Privacy Controls:       ~100%
 Repository hygiene:                 ~100%
 Settings architecture:              ~100%
-Data/Performance Hardening:          ~75%
+Data/Performance Hardening:         ~100%
 Windows Lifecycle Hardening:         ~45%
 Packaging/Release Readiness:         ~65%
 
@@ -1100,7 +1101,7 @@ About
 
 # 12. M7 — Data and Performance Hardening
 
-**Статус:** 🟡 M7.2 завершён; M7.3 следующий
+**Статус:** ✅ M7.2–M7.3 завершены
 
 Уже завершено:
 
@@ -1119,14 +1120,15 @@ About
 - future-schema rejection before mutation;
 - interrupted partial migration recovery.
 
-Остаётся в M7:
+M7 closure:
 
-- полноценная large-data performance matrix;
-- startup/open/search/cleanup latency evidence;
-- memory and database-size evidence;
-- rapid churn and no-JavaFX-stall validation.
+- database maintenance and recovery gate завершён;
+- deterministic large-data performance matrix добавлена;
+- startup/open/search/cleanup latency evidence формируется автоматически;
+- memory and database-size evidence формируется автоматически;
+- rapid churn and JavaFX queue-stall validation входят в release gate.
 
-Текущая foundation:
+Завершённая foundation:
 
 - SQLite WAL;
 - busy timeout;
@@ -1139,14 +1141,18 @@ About
 
 ## 12.1. M7.1 — DAO lifecycle
 
+**Статус:** ✅ фактически закрыто фазами C4–C8
+
+Завершено:
+
 - audit `ThreadLocal<Connection>`;
 - explicit connection ownership;
 - close all worker-thread connections;
 - transaction boundary review;
-- busy/locked retry policy;
+- busy/locked handling через единый SQLite configuration;
 - shutdown ordering;
-- avoid DB reopening after data deletion;
-- batch operations for large selections;
+- защита от DB reopening после data deletion;
+- batch operations для large selections и retention;
 - dense pin-order maintenance review.
 
 ## 12.2. M7.2 — Database maintenance
@@ -1183,30 +1189,56 @@ Canonical evidence:
 
 ## 12.3. M7.3 — Large-data validation
 
-Test matrix:
+**Статус:** ✅ реализовано; canonical gate и evidence pipeline добавлены
 
-```text
-1 000 clips
-10 000 clips
-50 000 clips
-500 000-character clip
-many PINNED
-many tags
-many duplicate candidates
-retention cleanup batches
-rapid search/filter churn
-```
+Реализовано:
 
-Metrics:
+- deterministic isolated fixtures на `1 000`, `10 000` и `50 000` clips;
+- отдельный 500 000-character clip;
+- 1 000 PINNED с dense zero-based `pin_order`;
+- 256 tags с deterministic assignments;
+- 2 000 indexed duplicate candidates;
+- 25 000 retention-eligible RECENT clips;
+- production-equivalent popup data pipeline с bounded 200-row result;
+- startup median/p95 measurements;
+- cold popup pipeline p95;
+- text, tag и derived-type search p95;
+- 120-request rapid search/filter churn;
+- repeated immutable row-build ordering check;
+- deterministic JavaFX `ListView` scroll sequence;
+- actual `HistoryCleanupService` cleanup on a copied 50k fixture;
+- complete-run peak heap sampling under `-Xmx768m`;
+- main SQLite file-size evidence;
+- continuous JavaFX queue p95/max-stall probe;
+- machine-readable `summary.json`, `metrics.csv` и
+  `environment.properties`;
+- explicit `m7LargeDataValidation` and aggregate `m7LargeDataGate`;
+- normal `test`, `check` и `build` не запускают heavy 50k workload;
+- UI contract revision 17;
+- 18-case frozen matrix and dedicated documentation.
 
-- startup time;
-- popup open time;
-- search latency;
-- scroll stability;
-- cleanup duration;
-- memory profile;
+Canonical evidence:
+
+- `LargeDataValidationPolicy`;
+- `LargeDataValidationMain`;
+- `LargeDataValidationPolicyTest`;
+- `docs/M7_LARGE_DATA_VALIDATION.md`;
+- `docs/M7_LARGE_DATA_MATRIX.csv`;
+- `scripts/run_m7_large_data_validation.ps1`;
+- runtime evidence under `app/build/reports/m7-large-data/`.
+
+Acceptance budgets cover:
+
+- startup;
+- popup preparation;
+- text/tag/type search;
+- duplicate lookup;
+- row build and scroll stability;
+- retention cleanup;
+- rapid churn;
+- peak heap;
 - DB size;
-- no JavaFX thread stalls.
+- JavaFX p95 queue delay and maximum stall.
 
 ---
 
@@ -1430,11 +1462,11 @@ M6   Settings Redesign
      M6.4 Data/About/Shortcuts pages         ✅
      M6.5 Responsive/accessibility gate      ✅
 
-M7   Remaining Data and Performance Hardening
+M7   Data and Performance Hardening
      M7.2 Database maintenance               ✅
-     M7.3 Large-data validation              ⬜ NEXT
+     M7.3 Large-data validation              ✅
 
-M8   Windows Lifecycle Hardening
+M8   Windows Lifecycle Hardening             ⬜ NEXT
 
 M9   Documentation, Packaging and Final Release
 ```
@@ -1448,19 +1480,21 @@ M9   Documentation, Packaging and Final Release
 Repository Cleanup and Hardening C1–C8
 M6.1–M6.5 — Settings architecture, draft lifecycle, product pages и final gate
 M7.2 — Database maintenance, backup/restore и migration recovery
+M7.3 — deterministic large-data, latency, memory, DB-size и JavaFX-stall gate
 
 Application version:
 v1.3.0
 
 Config / SQLite / UI contract:
-5 / 6 / 16
+5 / 6 / 17
 
 Следующий milestone:
-M7.3 — Large-data validation
+M8 — Windows Lifecycle Hardening
 ```
 
-Для M7.3 потребуется deterministic large-data fixture generation, latency and
-memory measurements, rapid query/filter churn и evidence отсутствия JavaFX stalls.
+M7 полностью закрыт. Следующая работа проверяет packaged Windows lifecycle:
+tray, secondary launch, Explorer restart, sleep/resume, lock/unlock, display/DPI
+changes, shutdown/logoff, autostart, MSI upgrade, uninstall и reinstall.
 
 ---
 
@@ -1478,12 +1512,12 @@ Test/build stabilization C7                ✅
 Final automated baseline audit C8          ✅
 Settings Redesign M6.1–M6.5                ✅
 Database maintenance M7.2                  ✅
-UI contract revision 16                    ✅
+Large-data validation M7.3                 ✅
+UI contract revision 17                    ✅
 
-Large-data validation M7.3                 ⬜ NEXT
-Windows Lifecycle Hardening                ⬜
+Windows Lifecycle Hardening                ⬜ NEXT
 Documentation / Packaging / Release        ⬜
 ```
 
-Database maintenance M7.2 закрыт. Следующая рабочая точка —
-**M7.3: large-data validation, latency, memory, database size and no-FX-stall evidence**.
+Data and Performance Hardening M7 полностью закрыт. Следующая рабочая точка —
+**M8: packaged Windows lifecycle, recovery, topology changes and upgrade/uninstall evidence**.

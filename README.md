@@ -1,4 +1,5 @@
 
+
 [ENG]
 
 📋 **XClip**
@@ -158,6 +159,8 @@ gradlew clean packageMsi
 - [Feature validation history](docs/FEATURE_VALIDATION_HISTORY_v1.3.0.md)
 - [Responsive and performance validation](docs/R10_VALIDATION.md)
 - [Full regression and UI freeze](docs/R11_REGRESSION_UI_FREEZE.md)
+- [Database maintenance and recovery](docs/M7_DATABASE_MAINTENANCE.md)
+- [Large-data validation](docs/M7_LARGE_DATA_VALIDATION.md)
 
 
 🖥 **System Requirements**
@@ -354,6 +357,8 @@ gradlew clean packageMsi
 - [История feature validation](docs/FEATURE_VALIDATION_HISTORY_v1.3.0.md)
 - [Responsive и performance validation](docs/R10_VALIDATION.md)
 - [Full regression и UI freeze](docs/R11_REGRESSION_UI_FREEZE.md)
+- [Обслуживание и восстановление базы данных](docs/M7_DATABASE_MAINTENANCE.md)
+- [Проверка на больших объёмах данных](docs/M7_LARGE_DATA_VALIDATION.md)
 
 
 🖥 **Системные требования**

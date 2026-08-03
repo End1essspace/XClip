@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)
@@ -44,7 +45,7 @@ public final class AboutSettingsPage {
                         infoRow("Author", AboutSettingsContent.AUTHOR),
                         infoRow("License", AboutSettingsContent.LICENSE),
                         infoRow("Data model", "Local SQLite + config.json"),
-                        infoRow("UI contract", "v1.3.0 revision 16")
+                        infoRow("UI contract", "v1.3.0 revision 17")
                 )
         );
 
@@ -118,4 +119,3 @@ public final class AboutSettingsPage {
         return button;
     }
 }
-

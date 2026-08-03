@@ -1,3 +1,4 @@
+
 import java.io.File
 import java.util.Locale
 import java.util.Properties
@@ -419,8 +420,11 @@ val verifyM7DatabaseRegressionAssets = tasks.register(
         val contract = Properties().apply {
             contractFile.inputStream().use { stream -> load(stream) }
         }
-        if (contract.getProperty("contract.version") != "16") {
-            throw GradleException("M7.2 requires UI contract revision 16")
+        val contractRevision = contract.getProperty("contract.version")
+            ?.toIntOrNull()
+            ?: throw GradleException("Invalid UI contract revision")
+        if (contractRevision < 16) {
+            throw GradleException("M7.2 requires UI contract revision 16 or newer")
         }
         if (contract.getProperty("database.regressionGate")
                 != "M7_DATABASE_GATE") {
@@ -435,7 +439,7 @@ val verifyM7DatabaseRegressionAssets = tasks.register(
             )
         }
 
-        println("M7_DATABASE_ASSETS_OK: cases=20 contract=16")
+        println("M7_DATABASE_ASSETS_OK: cases=20 contract=$contractRevision")
     }
 }
 
@@ -452,6 +456,148 @@ val m7DatabaseGate = tasks.register("m7DatabaseGate") {
         println(
             "M7_DATABASE_GATE_OK: migrations, integrity, checkpoint, " +
                 "vacuum, backup, restore, and full regression checks passed"
+        )
+    }
+}
+
+
+val verifyM7LargeDataAssets = tasks.register(
+    "verifyM7LargeDataAssets"
+) {
+    group = "verification"
+    description = "Verifies the frozen M7.3 large-data contract and 18-case matrix."
+
+    doLast {
+        val validation = rootProject.file("docs/M7_LARGE_DATA_VALIDATION.md")
+        val matrix = rootProject.file("docs/M7_LARGE_DATA_MATRIX.csv")
+        val runner = rootProject.file("scripts/run_m7_large_data_validation.ps1")
+        val contractFile = file(
+            "src/main/resources/ui/ui-contract-v1.3.0.properties"
+        )
+
+        for (required in listOf(validation, matrix, runner, contractFile)) {
+            if (!required.isFile || required.length() <= 0L) {
+                throw GradleException(
+                    "Missing or empty M7.3 large-data asset: ${required.absolutePath}"
+                )
+            }
+        }
+
+        val matrixLines = matrix.readLines(Charsets.UTF_8)
+            .filter { it.isNotBlank() }
+        if (matrixLines.size != 19) {
+            throw GradleException(
+                "M7.3 large-data matrix must contain one header plus 18 cases, " +
+                    "found ${matrixLines.size} lines"
+            )
+        }
+
+        val ids = matrixLines.drop(1).map { line ->
+            line.substringBefore(',').trim().removeSurrounding("\"")
+        }
+        val expectedIds = (1..18).map { index ->
+            "M7L-%03d".format(index)
+        }
+        if (ids != expectedIds) {
+            throw GradleException(
+                "M7.3 large-data IDs are missing, duplicated, or out of order: $ids"
+            )
+        }
+
+        val contract = Properties().apply {
+            contractFile.inputStream().use { stream -> load(stream) }
+        }
+        if (contract.getProperty("contract.version") != "17") {
+            throw GradleException("M7.3 requires UI contract revision 17")
+        }
+        if (contract.getProperty("performance.datasets")
+                != "1000|10000|50000") {
+            throw GradleException("Missing M7.3 dataset contract")
+        }
+        if (contract.getProperty("performance.regressionGate")
+                != "M7_LARGE_DATA_GATE") {
+            throw GradleException("Missing M7.3 large-data gate contract")
+        }
+        if (contract.getProperty("performance.evidence")
+                != "SUMMARY_JSON|METRICS_CSV|ENVIRONMENT_PROPERTIES") {
+            throw GradleException("Missing M7.3 evidence contract")
+        }
+
+        println("M7_LARGE_DATA_ASSETS_OK: cases=18 contract=17")
+    }
+}
+
+tasks.named("check") {
+    dependsOn(verifyM7LargeDataAssets)
+}
+
+val m7LargeDataReportDirectory = layout.buildDirectory.dir(
+    "reports/m7-large-data"
+)
+
+val m7LargeDataValidation = tasks.register<JavaExec>(
+    "m7LargeDataValidation"
+) {
+    group = "verification"
+    description = "Runs the isolated 1k/10k/50k M7.3 latency, memory, and JavaFX-stall matrix."
+
+    dependsOn(tasks.named("testClasses"), verifyM7LargeDataAssets)
+    mustRunAfter(m7DatabaseGate)
+
+    classpath = sourceSets["test"].runtimeClasspath
+    mainClass.set(
+        "io.xseries.xclip.validation.LargeDataValidationMain"
+    )
+    args(m7LargeDataReportDirectory.get().asFile.absolutePath)
+
+    jvmArgs(
+        "-Xms128m",
+        "-Xmx768m",
+        "-Xss512k",
+        "-Dfile.encoding=UTF-8"
+    )
+
+    doFirst {
+        if (!OperatingSystem.current().isWindows) {
+            throw GradleException(
+                "M7.3 JavaFX responsiveness validation must run on Windows."
+            )
+        }
+    }
+
+    doLast {
+        val report = m7LargeDataReportDirectory.get().asFile
+        val summary = File(report, "summary.json")
+        val metrics = File(report, "metrics.csv")
+        val environment = File(report, "environment.properties")
+        val pass = File(report, "PASS.txt")
+
+        for (required in listOf(summary, metrics, environment, pass)) {
+            if (!required.isFile || required.length() <= 0L) {
+                throw GradleException(
+                    "Missing M7.3 runtime evidence: ${required.absolutePath}"
+                )
+            }
+        }
+        println("M7_LARGE_DATA_EVIDENCE_OK: ${report.absolutePath}")
+    }
+}
+
+val m7LargeDataGate = tasks.register("m7LargeDataGate") {
+    group = "verification"
+    description = "Runs the complete M7.2 baseline and the explicit M7.3 large-data release gate."
+
+    dependsOn(
+        m7DatabaseGate,
+        verifyM7LargeDataAssets,
+        m7LargeDataValidation
+    )
+
+    doLast {
+        println(
+            "M7_LARGE_DATA_GATE_OK: 1k/10k/50k datasets, large clip, " +
+                "pinned/tags/duplicates, cleanup, churn, heap, DB size, " +
+                "and JavaFX responsiveness passed"
         )
     }
 }
@@ -722,4 +868,3 @@ tasks.register("packageMsi") {
         println("MSI_PACKAGE_OK: ${installers.maxBy { it.lastModified() }.absolutePath}")
     }
 }
-

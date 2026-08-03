@@ -1,3 +1,4 @@
+
 # XClip UI Contract v1.3.0
 
 **Status:** Frozen R11 baseline, deliberately extended by Milestones 2.2–2.4, 3.2–3.3, 4.3, 5.1–5.3, M6.1–M6.5, and M7.2
@@ -5,7 +6,7 @@
 
 This document is the human-readable counterpart of `/ui/ui-contract-v1.3.0.properties`. Any intentional contract change must update both files and the `UiContractFreezeTest` expectations in the same reviewed milestone.
 
-**Contract revision:** 16
+**Contract revision:** 17
 **Registered Lucide UI icons:** 30
 
 ## 1. Product invariants
@@ -543,3 +544,48 @@ config, or SQLite schema versions.
   - `docs/M7_DATABASE_REGRESSION_MATRIX.csv`
 - Product version remains `1.3.0`, config schema remains `5`, SQLite schema
   remains `6`, and UI contract revision is `16`.
+
+## 23. Large-data validation and responsiveness — contract revision 17
+
+### Deterministic matrix
+
+- Canonical persisted clip counts are `1,000`, `10,000`, and `50,000`.
+- The edge-value matrix includes one 500,000-character clip, 1,000 PINNED
+  clips, 256 tags, 2,000 duplicate candidates, and 25,000 retention-eligible
+  RECENT clips.
+- Fixture generation is deterministic and uses only temporary databases.
+- The user's `%USERPROFILE%\\.xclip` directory is never opened by the harness.
+
+### Bounded runtime contract
+
+- The heavy matrix runs only through the explicit `m7LargeDataValidation` task.
+- Normal `test`, `check`, and `build` do not execute the 50,000-row workload.
+- The validation JVM is bounded to `-Xmx768m`.
+- Popup preparation remains bounded to 200 visible clips.
+- Derived type filtering remains bounded by the existing candidate scan policy.
+- Peak used heap, main database size, startup, popup, search, duplicate lookup,
+  retention, churn, and row-build latency have frozen conservative budgets.
+
+### JavaFX responsiveness contract
+
+- Database generation, DAO queries, classification, row preparation, and
+  retention cleanup execute outside the JavaFX Application Thread.
+- A JavaFX queue probe remains active throughout the complete matrix.
+- Canonical hard limits are 250 ms p95 queue delay and 1,000 ms maximum stall.
+- A deterministic `ListView` selection/scroll sequence validates stable bounded
+  rows without constructing a 50,000-node UI tree.
+
+### Evidence and gate
+
+- Canonical runtime evidence is:
+  - `summary.json`
+  - `metrics.csv`
+  - `environment.properties`
+- The explicit release task is `m7LargeDataGate`.
+- `m7LargeDataGate` includes the complete M7.2/M6/C8 regression chain.
+- Canonical static assets are:
+  - `docs/M7_LARGE_DATA_VALIDATION.md`
+  - `docs/M7_LARGE_DATA_MATRIX.csv`
+  - `scripts/run_m7_large_data_validation.ps1`
+- Product version remains `1.3.0`, config schema remains `5`, SQLite schema
+  remains `6`, and UI contract revision is `17`.

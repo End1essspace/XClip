@@ -1,0 +1,19 @@
+case_id,scenario,dataset,measurement,acceptance
+M7L-001,Deterministic fixture generation,1000 clips,fixture build time and row count,Completes within frozen budget and creates exactly 1000 clips
+M7L-002,Deterministic fixture generation,10000 clips,fixture build time and row count,Completes within frozen budget and creates exactly 10000 clips
+M7L-003,Deterministic fixture generation,50000 clips,fixture build time and row count,Completes within frozen budget and creates exactly 50000 clips
+M7L-004,Database startup,1000 clips,p95 Database.init latency,At or below 1500 ms
+M7L-005,Database startup,10000 clips,p95 Database.init latency,At or below 2500 ms
+M7L-006,Database startup,50000 clips,p95 Database.init latency,At or below 5000 ms
+M7L-007,Database size,50000 clips,main SQLite file size,At or below 512 MiB after checkpoint
+M7L-008,Large clipboard value,500000 characters,fingerprint classification and bounded preview,At or below 500 ms and preview remains bounded
+M7L-009,Pinned ordering,1000 PINNED clips,count and dense pin_order,Exactly 1000 clips with zero-based dense order
+M7L-010,Tag scale,256 tags,tag library and visible assignment loading,Exactly 256 tags and bounded popup assignment loading
+M7L-011,Duplicate scale,2000 candidates,indexed duplicate lookup p95,Exactly 2000 candidates and at or below 1500 ms
+M7L-012,Cold popup open composite,50000 clips,p95 data pipeline JavaFX materialization and combined latency,Pipeline at or below 1000 ms JavaFX at or below 500 ms composite at or below 1500 ms with exactly 200 visible clips
+M7L-013,Text search,50000 clips,p95 unique-token search,At or below 1500 ms
+M7L-014,Tag and type filters,50000 clips,p95 tag operator and bounded derived-type scan,Tag at or below 2000 ms and type at or below 2000 ms
+M7L-015,Scroll and row stability,200 visible clips,repeated row build and JavaFX ListView scroll sequence,Stable clip order no exception row p95 at or below 250 ms
+M7L-016,Retention cleanup,25000 eligible RECENT clips,total duration and remaining count,Deletes exactly 25000 within 20000 ms and preserves the other 25000
+M7L-017,Rapid search and filter churn,120 requests,total production-equivalent pipeline duration,Completes within 45000 ms and every result remains bounded
+M7L-018,Runtime resource and UI responsiveness,complete matrix,peak heap and JavaFX queue delay,Peak used heap at or below 700 MiB p95 at or below 250 ms max stall at or below 1000 ms
