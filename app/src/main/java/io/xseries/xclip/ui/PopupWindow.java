@@ -118,6 +118,7 @@ public final class PopupWindow {
 
     private final Stage stage;
     private final WindowChromeController windowChrome;
+    private final BorderPane root = new BorderPane();
     private final TextField searchField = new TextField();
     private SearchAssistBar searchAssistBar;
     private List<ClipTag> searchSuggestionTags = List.of();
@@ -554,7 +555,7 @@ public final class PopupWindow {
         );
         this.actionBar = actions;
 
-        BorderPane root = new BorderPane();
+        root.setFocusTraversable(true);
         root.getStyleClass().add("popup-root");
 
         VBox shellHeader = new VBox(popupTitleBar, popupHeader);
@@ -1708,10 +1709,13 @@ public final class PopupWindow {
             recoverWindowForCurrentTopology();
         }
 
+        clearSelection();
+
         stage.toFront();
         stage.requestFocus();
 
-        searchField.requestFocus();
+        root.requestFocus();
+        Platform.runLater(root::requestFocus);
         reloadCache.invalidateTotalClipCount();
         reloadNow(searchField.getText());
     }
@@ -1975,13 +1979,9 @@ public final class PopupWindow {
                     }
                 }
 
-                // if nothing restored -> select first clip
+                // Keep the popup neutral when no user selection can be restored.
                 if (!restoredAny) {
-                    int firstClip = findFirstClipIndex();
-                    if (firstClip >= 0) {
-                        selectAndReveal(firstClip);
-                        selectionAnchorIndex = firstClip;
-                    }
+                    selectionAnchorIndex = -1;
                 }
 
                 // finally: always show top context
@@ -2933,3 +2933,4 @@ public final class PopupWindow {
         updateSelectionUi();
     }
 }
+

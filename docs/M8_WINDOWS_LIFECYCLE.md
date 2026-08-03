@@ -1,5 +1,9 @@
 # XClip M8 — Windows Lifecycle Hardening
 
+Implementation status: runtime hardening and automated assets implemented
+Release status: packaged MSI and 18-case manual evidence pending
+Closure rule: this document does not mark M8 complete until validated `PASS.txt` exists
+
 Version: 1.3.0
 Config schema: 5
 SQLite schema: 6

@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)
@@ -136,6 +137,32 @@ class UiStylesResourceTest {
             assertTrue(css.contains(".settings-page-host"));
             assertTrue(css.contains(".settings-page-scroll"));
             assertTrue(css.contains(".settings-window-control.close"));
+        }
+    }
+
+    @Test
+    void popupComboBoxDropdownThemeIsPackaged() throws Exception {
+        try (InputStream stream = UiStyles.class.getResourceAsStream("/ui/popup.css")) {
+            assertNotNull(stream);
+            String css = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+
+            assertTrue(css.contains(".combo-box-popup > .list-view"));
+            assertTrue(css.contains(".combo-box-popup > .list-view:focused"));
+            assertTrue(css.contains(".combo-box-popup > .list-view .list-cell:filled:hover"));
+            assertTrue(css.contains(".combo-box-popup > .list-view .list-cell:filled:selected"));
+            assertTrue(css.contains("-fx-background-color: #0C1828"));
+            assertTrue(css.contains("-fx-background-color: #17365F"));
+        }
+    }
+
+    @Test
+    void windowControlsExposeFocusRingOnlyForKeyboardNavigation() throws Exception {
+        try (InputStream stream = UiStyles.class.getResourceAsStream("/ui/popup.css")) {
+            assertNotNull(stream);
+            String css = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+
+            assertTrue(css.contains(".popup-root .window-control-button:focus-visible"));
+            assertFalse(css.contains(".popup-root .window-control-button:focused"));
         }
     }
 

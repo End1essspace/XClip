@@ -3,7 +3,34 @@
 All notable changes to this project will be documented in this file.
 
 
-## [Unreleased] — Privacy, retention, and duplicate behavior preferences
+## [Unreleased] — v1.3.0 feature expansion, hardening, and release preparation
+
+### Release status
+
+* Runtime implementation and automated validation assets are present through M8.
+* Final packaged MSI validation, the 18-case Windows lifecycle evidence set, checksums, tag, and public release remain pending manual verification.
+* Documentation synchronization adds English/Russian user guides, a staged manual-validation plan, and draft release notes without claiming final release approval.
+* The repository still declares application version `1.3.0`; final tagging must resolve the existing historical `[1.3.0]` changelog entry and keep build metadata, tag, and artifacts consistent.
+
+### Added — Settings, data, scale, and lifecycle
+
+* Added a nine-page Settings architecture with draft-state tracking, Apply/Cancel, scoped reset, inline validation, persistent navigation, and compact/standard/wide responsive layouts.
+* Added dedicated Shortcuts, Data, and About pages with global-hotkey status, local data paths, license/privacy information, and asynchronous maintenance actions.
+* Added SQLite status, `PRAGMA integrity_check`, explicit WAL checkpoint, `VACUUM`, `PRAGMA optimize`, and reclaimable-space reporting.
+* Added versioned `.xclip-backup` creation through `VACUUM INTO`, strict archive/schema/config/integrity validation, staged restore, rollback protection, and exit-after-restore behavior.
+* Added transactional migration rollback/retry behavior and future-schema rejection before mutation.
+* Added an explicit 1k/10k/50k large-data harness with a 500k-character clip, 1,000 PINNED entries, 256 tags, 2,000 duplicate candidates, 25,000 retention deletions, JavaFX responsiveness evidence, and bounded heap/SQLite budgets.
+* Added acknowledged single-instance activation, explicit unrelated-port failure, Explorer tray/hotkey recovery, sleep/resume and lock/unlock watcher recovery, display/DPI recovery, stale autostart repair, and ordered bounded shutdown.
+* Added M6 Settings, M7 database, M7 large-data, and M8 Windows lifecycle validation assets and gates.
+* Added complete English and Russian user guides, a manual validation plan, and draft release notes.
+
+### Changed — Release documentation
+
+* Updated README to describe Direct Paste, search operators, tags, Settings, database maintenance, backup/restore, Windows lifecycle recovery, local data, and current validation status.
+* Updated the roadmap to separate documentation completion from deferred manual MSI/lifecycle validation and final packaging.
+* Expanded consolidated validation history through M8 while preserving the frozen R10/R11/UI-contract evidence.
+* Marked packaged upgrade, uninstall, reinstall, checksums, screenshots, tag, and GitHub Release as release-gated rather than completed.
+
 
 ### Added
 

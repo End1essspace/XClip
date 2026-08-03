@@ -1,10 +1,10 @@
 # XClip v1.3.0 — Feature Validation History
 
-**Document role:** compact historical summary of completed feature validation  
-**Current application version:** v1.3.0  
-**Current SQLite schema:** 6  
-**Current config schema:** 5  
-**Current UI contract revision:** 11  
+**Document role:** compact historical summary of completed feature validation
+**Current application version:** v1.3.0
+**Current SQLite schema:** 6
+**Current config schema:** 5
+**Current UI contract revision:** 11
 
 This document replaces the individual milestone validation plans for M2.2 through
 M5.3. It preserves the validated contracts and the important release-gate
@@ -335,7 +335,75 @@ Validated contract:
 
 ---
 
-## 7. Preserved release assets
+## 7. Settings, database, scale, and lifecycle validation
+
+### M6 — Settings
+
+The Settings redesign is documented by:
+
+```text
+docs/M6_SETTINGS_VALIDATION.md
+docs/M6_SETTINGS_REGRESSION_MATRIX.csv
+```
+
+Validated contracts include:
+
+- nine canonical pages;
+- draft/baseline lifecycle;
+- Apply, Cancel, and scoped reset;
+- inline validation and first-error navigation;
+- compact/standard/wide responsive modes;
+- keyboard navigation, accessible names, and visible focus;
+- asynchronous data operations;
+- frozen Settings regression gate.
+
+### M7.2 — Database maintenance
+
+Canonical assets:
+
+```text
+docs/M7_DATABASE_MAINTENANCE.md
+docs/M7_DATABASE_REGRESSION_MATRIX.csv
+```
+
+The documented contract covers status, integrity check, WAL checkpoint, optimize,
+backup format 1, strict restore validation, rollback protection, transactional
+migration, retry after initialization failure, and future-schema rejection.
+
+### M7.3 — Large data
+
+Canonical assets:
+
+```text
+docs/M7_LARGE_DATA_VALIDATION.md
+docs/M7_LARGE_DATA_MATRIX.csv
+```
+
+The explicit harness records correctness and performance evidence for 1k, 10k,
+and 50k histories, a 500k-character value, PINNED/tag/duplicate pressure,
+retention deletion, search churn, JavaFX responsiveness, heap, and SQLite size.
+
+Budgets are release limits. They are not public performance claims; actual
+machine results must be retained with the release evidence.
+
+### M8 — Windows lifecycle
+
+Canonical assets:
+
+```text
+docs/M8_WINDOWS_LIFECYCLE.md
+docs/M8_WINDOWS_LIFECYCLE_MATRIX.csv
+scripts/start_m8_windows_lifecycle_validation.ps1
+scripts/validate_m8_windows_lifecycle_evidence.ps1
+```
+
+Runtime hardening and automated policy checks are implemented. Formal M8 closure
+still requires a real MSI and all 18 packaged cases marked PASS with validated
+evidence. Documentation must not describe M8 as fully released before that gate.
+
+---
+
+## 8. Preserved release assets
 
 The following files remain separate because they are current executable or
 frozen release assets rather than milestone-specific historical checklists:
@@ -346,6 +414,10 @@ docs/R11_REGRESSION_UI_FREEZE.md
 docs/R11_REGRESSION_MATRIX.csv
 docs/R11_SCREENSHOT_SET.csv
 docs/UI_CONTRACT_v1.3.0.md
+docs/M6_SETTINGS_VALIDATION.md
+docs/M7_DATABASE_MAINTENANCE.md
+docs/M7_LARGE_DATA_VALIDATION.md
+docs/M8_WINDOWS_LIFECYCLE.md
 scripts/run_r11_automated_gate.ps1
 scripts/start_r11_manual_validation.ps1
 scripts/validate_r11_evidence.ps1
@@ -356,7 +428,7 @@ renamed without a deliberate UI-contract change.
 
 ---
 
-## 8. Consolidated source set
+## 9. Consolidated source set
 
 This document replaces:
 

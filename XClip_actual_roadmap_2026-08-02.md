@@ -1,4 +1,3 @@
-
 # XClip — актуальный полный roadmap разработки
 
 **Статус документа:** единый актуальный рабочий roadmap
@@ -9,8 +8,8 @@
 **Текущая версия config schema:** 5
 **Текущая ревизия UI contract:** 18
 **Основная ветка:** `main`
-**Текущая точка:** M8 runtime hardening реализован; требуется packaged MSI и 18-case lifecycle evidence
-**Следующий основной milestone:** закрытие M8 packaged evidence, затем M9
+**Текущая точка:** M9.1 documentation refresh подготовлен; M8 packaged evidence и release operations отложены до ручной проверки
+**Следующий основной milestone:** ручная проверка продукта и M8 evidence; затем M9 packaging/release
 
 ---
 
@@ -1303,39 +1302,46 @@ M8 закрывается только после:
 
 # 14. M9 — Documentation, Packaging and Release
 
-**Статус:** ⬜ не начат
+**Статус:** 🟨 документационная часть подготовлена; packaging/release отложены
 
 ## 14.1. Documentation refresh
 
-**Статус:** 🟡 foundation partially completed during C3.1
+**Статус:** 🟨 подготовлено; ожидает review и Git gate
 
-Уже выполнено:
+В документационном этапе обновляются только Markdown-файлы. Код, Gradle tasks,
+MSI, screenshots, checksums, tag и GitHub Release не изменяются.
 
-- README ENG/RUS documentation index;
-- consolidated feature validation history;
-- preservation of R10/R11/UI contract release evidence.
+Подготовлено:
 
-Остаётся обновить перед release:
+- полностью синхронизированный README ENG/RUS;
+- user guide ENG;
+- user guide RUS;
+- consolidated feature validation history through M8;
+- M8 status wording без ложного packaged PASS;
+- manual validation plan для последующего выполнения;
+- draft release notes с явной пометкой DRAFT;
+- roadmap с разделением documentation/manual/package/release phases;
+- CHANGELOG для M6–M8 и documentation phase.
 
-- README ENG/RUS;
-- CHANGELOG;
-- screenshots;
-- shortcuts;
-- Direct Paste;
-- content types;
-- filters;
-- Tags;
-- Advanced Search;
-- Duplicate Preferences;
-- excluded applications;
-- sensitive-content rules;
-- retention and cleanup;
-- data location;
-- build/MSI;
-- Lucide attribution;
-- GPL obligations;
-- privacy statement.
+Отложено до ручной проверки:
 
+- финальные screenshots установленной сборки;
+- замена DRAFT release notes на final;
+- clean-clone proof;
+- final MSI build;
+- install/upgrade/uninstall/reinstall evidence;
+- checksums;
+- tag;
+- GitHub Release.
+
+Важное ограничение:
+
+- build metadata остаётся `1.3.0`;
+- config schema остаётся `5`;
+- SQLite schema остаётся `6`;
+- UI contract остаётся `18`;
+- backup format остаётся `1`;
+- documentation-only patch не меняет runtime contract.
 ## 14.2. Automated release checks
 
 ```powershell
@@ -1483,9 +1489,11 @@ M7   Data and Performance Hardening
      M7.2 Database maintenance               ✅
      M7.3 Large-data validation              ✅
 
-M8   Windows Lifecycle Hardening             🟨 VALIDATION
+M8   Windows Lifecycle Hardening             🟨 MANUAL PACKAGED EVIDENCE PENDING
 
-M9   Documentation, Packaging and Final Release ⬜ BLOCKED BY M8 EVIDENCE
+M9   Documentation refresh                     🟨 PREPARED / REVIEW PENDING
+     Manual product validation                 ⬜ NEXT USER PHASE
+     Packaging and final release               ⬜ BLOCKED UNTIL VALIDATION
 ```
 
 ---
@@ -1493,29 +1501,39 @@ M9   Documentation, Packaging and Final Release ⬜ BLOCKED BY M8 EVIDENCE
 # 18. Текущая точка продолжения
 
 ```text
-Последние завершённые фазы:
-Repository Cleanup and Hardening C1–C8
-M6.1–M6.5 — Settings architecture, draft lifecycle, product pages и final gate
-M7.2 — Database maintenance, backup/restore и migration recovery
-M7.3 — deterministic large-data, latency, memory, DB-size и JavaFX-stall gate
+Current implementation baseline:
+M8 runtime hardening and automated assets are present.
 
-Application version:
-v1.3.0
+Current work:
+M9.1 documentation-only synchronization.
 
-Config / SQLite / UI contract:
-5 / 6 / 18
+Prepared documentation:
+README ENG/RUS
+USER_GUIDE_v1.3.0.md
+USER_GUIDE_v1.3.0_RU.md
+M9_DOCUMENTATION_REFRESH.md
+M9_MANUAL_VALIDATION_PLAN.md
+RELEASE_NOTES_v1.3.0_DRAFT.md
+CHANGELOG and validation-history synchronization
 
-Текущий milestone:
-M8 — packaged Windows lifecycle validation
+Not executed yet:
+full manual product validation
+final M8 packaged evidence
+final MSI verification
+checksums
+tag
+GitHub Release
+
+Next user-controlled phase:
+manual validation of the application, data operations, lifecycle, and MSI.
 ```
 
-Runtime hardening и automated gate M8 реализованы. До перехода к M9 требуется
-реальный MSI и 18-case evidence: tray, secondary launch, Explorer restart,
-sleep/resume, lock/unlock, display/DPI, shutdown/logoff, autostart, upgrade,
-uninstall и reinstall.
+Главное правило:
+
+> Documentation completion не разрешает release. Packaging, tag и GitHub Release
+> выполняются только после ручной проверки и полного M8 evidence PASS.
 
 ---
-
 # 19. Финальный статус roadmap
 
 ```text
@@ -1534,10 +1552,14 @@ Large-data validation M7.3                 ✅
 UI contract revision 18                    ✅
 
 Windows Lifecycle runtime hardening        ✅
-Windows Lifecycle packaged evidence        🟨 CURRENT
-Documentation / Packaging / Release        ⬜ BLOCKED
+Windows Lifecycle packaged evidence        🟨 DEFERRED UNTIL MANUAL VALIDATION
+M9.1 documentation refresh                 🟨 PREPARED / REVIEW PENDING
+Manual product validation                  ⬜ NEXT USER PHASE
+Packaging / tag / GitHub Release           ⬜ BLOCKED UNTIL VALIDATION
 ```
 
-Data and Performance Hardening M7 полностью закрыт. M8 code и automated gate
-реализованы; текущая рабочая точка — **packaged Windows lifecycle evidence**.
-После 18-case PASS можно переходить к M9.
+Data and Performance Hardening M7 полностью закрыт. M8 runtime и automated
+assets реализованы, но packaged evidence ещё не выполнен. Документационная
+часть M9.1 подготовлена отдельно. Следующий этап выбирает пользователь:
+сначала полная ручная проверка, затем M8 evidence и только после этого
+packaging, tag и GitHub Release.
