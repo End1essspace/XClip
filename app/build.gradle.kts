@@ -337,9 +337,12 @@ val verifyM6SettingsRegressionAssets = tasks.register(
         val contract = Properties().apply {
             contractFile.inputStream().use { stream -> load(stream) }
         }
-        if (contract.getProperty("contract.version") != "15") {
+        val contractRevision = contract.getProperty("contract.version")
+            ?.toIntOrNull()
+            ?: throw GradleException("Invalid UI contract revision")
+        if (contractRevision < 15) {
             throw GradleException(
-                "M6.5 requires UI contract revision 15"
+                "M6.5 requires UI contract revision 15 or newer"
             )
         }
         if (contract.getProperty("settings.regressionGate")
@@ -349,7 +352,7 @@ val verifyM6SettingsRegressionAssets = tasks.register(
             )
         }
 
-        println("M6_SETTINGS_ASSETS_OK: cases=24 contract=15")
+        println("M6_SETTINGS_ASSETS_OK: cases=24 contract=$contractRevision")
     }
 }
 
@@ -366,6 +369,89 @@ val m6SettingsGate = tasks.register("m6SettingsGate") {
         println(
             "M6_SETTINGS_GATE_OK: responsive, accessibility, " +
                 "contract, and full regression checks passed"
+        )
+    }
+}
+
+
+val verifyM7DatabaseRegressionAssets = tasks.register(
+    "verifyM7DatabaseRegressionAssets"
+) {
+    group = "verification"
+    description = "Verifies the M7.2 database-maintenance contract and 20-case matrix."
+
+    doLast {
+        val validation = rootProject.file("docs/M7_DATABASE_MAINTENANCE.md")
+        val matrix = rootProject.file("docs/M7_DATABASE_REGRESSION_MATRIX.csv")
+        val contractFile = file(
+            "src/main/resources/ui/ui-contract-v1.3.0.properties"
+        )
+
+        for (required in listOf(validation, matrix, contractFile)) {
+            if (!required.isFile || required.length() <= 0L) {
+                throw GradleException(
+                    "Missing or empty M7.2 database asset: ${required.absolutePath}"
+                )
+            }
+        }
+
+        val matrixLines = matrix.readLines(Charsets.UTF_8)
+            .filter { it.isNotBlank() }
+        if (matrixLines.size != 21) {
+            throw GradleException(
+                "M7.2 database matrix must contain one header plus 20 cases, " +
+                    "found ${matrixLines.size} lines"
+            )
+        }
+
+        val ids = matrixLines.drop(1).map { line ->
+            line.substringBefore(',').trim().removeSurrounding("\"")
+        }
+        val expectedIds = (1..20).map { index ->
+            "M7-%03d".format(index)
+        }
+        if (ids != expectedIds) {
+            throw GradleException(
+                "M7.2 database regression IDs are missing, duplicated, or out of order: $ids"
+            )
+        }
+
+        val contract = Properties().apply {
+            contractFile.inputStream().use { stream -> load(stream) }
+        }
+        if (contract.getProperty("contract.version") != "16") {
+            throw GradleException("M7.2 requires UI contract revision 16")
+        }
+        if (contract.getProperty("database.regressionGate")
+                != "M7_DATABASE_GATE") {
+            throw GradleException(
+                "Missing M7.2 database regression gate contract"
+            )
+        }
+        if (contract.getProperty("settings.backupRestore")
+                != "VERSIONED_ARCHIVE_VALIDATED_ATOMIC_REPLACE") {
+            throw GradleException(
+                "Missing M7.2 backup/restore contract"
+            )
+        }
+
+        println("M7_DATABASE_ASSETS_OK: cases=20 contract=16")
+    }
+}
+
+tasks.named("check") {
+    dependsOn(verifyM7DatabaseRegressionAssets)
+}
+
+val m7DatabaseGate = tasks.register("m7DatabaseGate") {
+    group = "verification"
+    description = "Runs the M6 baseline plus M7.2 database maintenance regression gate."
+    dependsOn(m6SettingsGate, verifyM7DatabaseRegressionAssets)
+
+    doLast {
+        println(
+            "M7_DATABASE_GATE_OK: migrations, integrity, checkpoint, " +
+                "vacuum, backup, restore, and full regression checks passed"
         )
     }
 }
@@ -636,3 +722,4 @@ tasks.register("packageMsi") {
         println("MSI_PACKAGE_OK: ${installers.maxBy { it.lastModified() }.absolutePath}")
     }
 }
+

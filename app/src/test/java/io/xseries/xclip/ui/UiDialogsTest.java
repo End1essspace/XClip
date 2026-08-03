@@ -1,4 +1,3 @@
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)
@@ -7,6 +6,8 @@
 package io.xseries.xclip.ui;
 
 import org.junit.jupiter.api.Test;
+
+import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -57,4 +58,31 @@ class UiDialogsTest {
         assertTrue(copy.body().contains("settings"));
     }
 
+
+    @Test
+    void optimizeDatabaseCopyExplainsExclusiveMaintenance() {
+        UiDialogs.DialogCopy copy = UiDialogs.optimizeDatabaseCopy();
+
+        assertEquals("Optimize the local database now?", copy.heading());
+        assertEquals("Optimize database", copy.actionLabel());
+        assertTrue(copy.body().contains("checkpoint the WAL"));
+        assertTrue(copy.body().contains("VACUUM"));
+    }
+
+    @Test
+    void restoreBackupCopyExplainsReplacementAndExit() {
+        UiDialogs.DialogCopy copy = UiDialogs.restoreBackupCopy(
+                Path.of("backup.xclip-backup"),
+                "DB schema 6 · config schema 5"
+        );
+
+        assertEquals("Replace local history and settings?", copy.heading());
+        assertEquals("Restore backup", copy.actionLabel());
+        assertTrue(copy.body().contains("DB schema 6"));
+        assertTrue(copy.body().contains("PINNED clips"));
+        assertTrue(copy.body().contains("exits"));
+    }
+
 }
+
+

@@ -1,15 +1,15 @@
 # XClip — актуальный полный roadmap разработки
 
 **Статус документа:** единый актуальный рабочий roadmap
-**Дата актуализации:** 2026-08-02
+**Дата актуализации:** 2026-08-03
 **Текущая версия приложения:** v1.3.0
 **Технологический стек:** Java 17, JavaFX 21, SQLite, Gradle, JNA, Windows 10/11
 **Текущая версия схемы БД:** 6
 **Текущая версия config schema:** 5
-**Текущая ревизия UI contract:** 15
+**Текущая ревизия UI contract:** 16
 **Основная ветка:** `main`
-**Текущая точка:** C1–C8 и M6.1–M6.5 завершены; следующий этап — M7.2
-**Следующий основной milestone:** M7.2 — Database maintenance
+**Текущая точка:** C1–C8, M6.1–M6.5 и M7.2 завершены; следующий этап — M7.3
+**Следующий основной milestone:** M7.3 — Large-data validation
 
 ---
 
@@ -28,7 +28,7 @@
 - Duplicate Preferences;
 - Privacy Controls;
 - Retention and Cleanup;
-- следующий Settings Redesign;
+- завершённый Settings Redesign;
 - Data/Performance Hardening;
 - Windows Lifecycle Hardening;
 - documentation, packaging и final release preparation.
@@ -106,7 +106,7 @@ XClip — локальный Windows clipboard manager с persistent history, п
 | Privacy 5.3 — Retention and Cleanup | ✅ Завершено |
 | Repository Cleanup C1–C3 | ✅ Завершено |
 | M6 — Settings Redesign | ✅ Завершено |
-| M7 — Data/Performance Hardening | ⬜ Не начат формально |
+| M7 — Data/Performance Hardening | 🟡 M7.2 завершён; M7.3 следующий |
 | M8 — Windows Lifecycle Hardening | ⬜ Не начат формально |
 | M9 — Documentation/Packaging/Release | ⬜ Не начат |
 
@@ -119,16 +119,16 @@ Tags и Advanced Search:             ~100%
 Duplicate и Privacy Controls:       ~100%
 Repository hygiene:                 ~100%
 Settings architecture:              ~100%
-Data/Performance Hardening:          ~40%
+Data/Performance Hardening:          ~75%
 Windows Lifecycle Hardening:         ~45%
-Packaging/Release Readiness:         ~55%
+Packaging/Release Readiness:         ~65%
 
-Полный расширенный roadmap:          ~87–89%
+Полный расширенный roadmap:          ~91–93%
 ```
 
 XClip уже является функционально зрелым clipboard manager с очищенным production-кодом,
-ресурсами и validation-документацией. Основная оставшаяся работа относится к
-Settings architecture, hardening, Windows lifecycle и final release gate.
+ресурсами и validation-документацией. Основная оставшаяся работа относится к large-data validation, Windows lifecycle
+hardening и final release gate.
 
 ---
 
@@ -955,7 +955,7 @@ Application version остаётся v1.3.0. Config / SQLite / UI contract:
 - добавлены accessible navigation/page names, keyboard validation action и visible focus;
 - закрыт 24-case Settings regression gate через `m6SettingsGate`.
 
-**Следующая подзадача:** M7.2 — database maintenance.
+**Следующая подзадача:** M7.3 — large-data validation.
 
 ## 11.2. Целевая навигация
 
@@ -1054,7 +1054,8 @@ About
 - clear RECENT;
 - clear ALL data;
 - cleanup controls;
-- future backup/restore entry points.
+- database status, integrity, checkpoint and optimize controls;
+- versioned backup and validated restore.
 
 ### About
 
@@ -1099,7 +1100,7 @@ About
 
 # 12. M7 — Data and Performance Hardening
 
-**Статус:** 🟡 значительная foundation закрыта фазами C4–C8
+**Статус:** 🟡 M7.2 завершён; M7.3 следующий
 
 Уже завершено:
 
@@ -1108,15 +1109,22 @@ About
 - единые SQLite PRAGMA;
 - popup/search/clipboard/classifier/retention hot-path optimization;
 - large retention batch tests;
-- deterministic repeatable test gate.
+- deterministic repeatable test gate;
+- database status и size diagnostics;
+- `PRAGMA integrity_check`;
+- explicit WAL checkpoint strategy;
+- explicit off-UI-thread vacuum;
+- versioned backup/restore archive;
+- transactional migration rollback/retry;
+- future-schema rejection before mutation;
+- interrupted partial migration recovery.
 
 Остаётся в M7:
 
-- integrity check и checkpoint strategy;
-- database size/status;
-- vacuum policy;
-- backup/restore design;
-- полноценная large-data performance matrix.
+- полноценная large-data performance matrix;
+- startup/open/search/cleanup latency evidence;
+- memory and database-size evidence;
+- rapid churn and no-JavaFX-stall validation.
 
 Текущая foundation:
 
@@ -1143,15 +1151,35 @@ About
 
 ## 12.2. M7.2 — Database maintenance
 
-- `PRAGMA integrity_check`;
-- WAL checkpoint strategy;
-- database size/status UI;
-- vacuum strategy;
-- migration rollback tests;
-- forward-version behavior;
-- interrupted migration recovery;
-- backup/restore design;
-- backup/restore documentation.
+**Статус:** ✅ завершено
+
+Реализовано:
+
+- Settings Data page показывает schema, journal mode, DB/WAL/SHM size и
+  reclaimable-page estimate;
+- full `PRAGMA integrity_check`;
+- explicit `wal_checkpoint(TRUNCATE)` после release DAO connections;
+- explicit `VACUUM` + `PRAGMA optimize` вне JavaFX Application Thread;
+- `.xclip-backup` format version 1;
+- consistent SQLite snapshot через `VACUUM INTO`;
+- manifest + database + normalized config archive;
+- archive entry, size, schema, config и integrity validation;
+- staged restore с rollback-файлами;
+- successful restore завершает приложение для clean runtime reload;
+- base schema и migrations объединены одной SQLite transaction;
+- migration failure откатывает изменения и допускает retry того же `Database`;
+- future `user_version` отклоняется до schema mutation;
+- partial interrupted migration state восстанавливается idempotently;
+- UI contract revision 16;
+- `m7DatabaseGate`;
+- 20-case regression matrix и отдельная maintenance documentation.
+
+Canonical evidence:
+
+- `docs/M7_DATABASE_MAINTENANCE.md`;
+- `docs/M7_DATABASE_REGRESSION_MATRIX.csv`;
+- `DatabaseMaintenanceServiceTest`;
+- расширенный `DatabaseMigrationTest`.
 
 ## 12.3. M7.3 — Large-data validation
 
@@ -1403,8 +1431,8 @@ M6   Settings Redesign
      M6.5 Responsive/accessibility gate      ✅
 
 M7   Remaining Data and Performance Hardening
-     M7.2 Database maintenance               ⬜ NEXT
-     M7.3 Large-data validation
+     M7.2 Database maintenance               ✅
+     M7.3 Large-data validation              ⬜ NEXT
 
 M8   Windows Lifecycle Hardening
 
@@ -1416,24 +1444,23 @@ M9   Documentation, Packaging and Final Release
 # 18. Текущая точка продолжения
 
 ```text
-Последняя завершённая фаза:
+Последние завершённые фазы:
 Repository Cleanup and Hardening C1–C8
-
-Также завершено:
 M6.1–M6.5 — Settings architecture, draft lifecycle, product pages и final gate
+M7.2 — Database maintenance, backup/restore и migration recovery
 
 Application version:
 v1.3.0
 
 Config / SQLite / UI contract:
-5 / 6 / 15
+5 / 6 / 16
 
 Следующий milestone:
-M7.2 — Database maintenance
+M7.3 — Large-data validation
 ```
 
-Для M7.2 потребуется актуальный SQLite maintenance scope: `Database`,
-DAO lifecycle, Data page integration, migration tests и backup/restore design.
+Для M7.3 потребуется deterministic large-data fixture generation, latency and
+memory measurements, rapid query/filter churn и evidence отсутствия JavaFX stalls.
 
 ---
 
@@ -1449,14 +1476,14 @@ Hot-path optimization C5                   ✅
 SQLite lifecycle hardening C6              ✅
 Test/build stabilization C7                ✅
 Final automated baseline audit C8          ✅
-UI contract revision 15                    ✅
-
 Settings Redesign M6.1–M6.5                ✅
-Settings responsive/accessibility gate      ✅
-Remaining DB maintenance / large data      ⬜
+Database maintenance M7.2                  ✅
+UI contract revision 16                    ✅
+
+Large-data validation M7.3                 ⬜ NEXT
 Windows Lifecycle Hardening                ⬜
 Documentation / Packaging / Release        ⬜
 ```
 
-Settings Redesign M6.1–M6.5 закрыт. Следующая рабочая точка —
-**M7.2: database maintenance, integrity, checkpoint, vacuum and backup design**.
+Database maintenance M7.2 закрыт. Следующая рабочая точка —
+**M7.3: large-data validation, latency, memory, database size and no-FX-stall evidence**.

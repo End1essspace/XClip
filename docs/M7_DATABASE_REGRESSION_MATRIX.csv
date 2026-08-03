@@ -1,0 +1,21 @@
+id,area,case,mode,expected
+M7-001,Status,Fresh database status,Automated,"Schema, WAL mode, sizes, and page metrics are readable"
+M7-002,Status,Missing database status,Automated,Missing file is reported without creating a database
+M7-003,Integrity,Healthy database,Automated,PRAGMA integrity_check returns OK
+M7-004,Checkpoint,TRUNCATE checkpoint,Automated,Checkpoint result is exposed and completes without active owners
+M7-005,Vacuum,Explicit optimization,Automated,VACUUM completes and database remains valid
+M7-006,Backup,Canonical extension,Automated,.xclip-backup extension is applied
+M7-007,Backup,Archive entry set,Automated,"Manifest, database, and config are the only root entries"
+M7-008,Backup,Consistent SQLite snapshot,Automated,Snapshot passes integrity_check and preserves history
+M7-009,Backup,Tags and assignments,Automated,Tag relations survive round-trip
+M7-010,Backup,Configuration round-trip,Automated,Saved config values survive round-trip
+M7-011,Restore,Corrupt database entry,Automated,Archive is rejected before live replacement
+M7-012,Restore,Manifest/schema mismatch,Automated,Mismatched metadata is rejected
+M7-013,Restore,Injected installation failure,Automated,Rollback restores the live database and configuration
+M7-014,Restore,Successful terminal restore,Manual,App exits and restored data loads on restart
+M7-015,Migration,Injected pre-commit failure,Automated,All schema changes roll back
+M7-016,Migration,Retry same Database instance,Automated,Second init succeeds after interruption
+M7-017,Migration,Future schema,Automated,Rejected before base-schema mutation
+M7-018,Migration,Partial legacy migration,Automated,Missing columns/indexes/hashes are repaired idempotently
+M7-019,UI lifecycle,Exclusive operation busy state,Manual,"Actions, Apply, and window close remain guarded"
+M7-020,Runtime,Post-maintenance regression,Manual,"Watcher, popup, search, tags, PINNED, and retention remain operational"

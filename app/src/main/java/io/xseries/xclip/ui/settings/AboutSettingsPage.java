@@ -44,7 +44,7 @@ public final class AboutSettingsPage {
                         infoRow("Author", AboutSettingsContent.AUTHOR),
                         infoRow("License", AboutSettingsContent.LICENSE),
                         infoRow("Data model", "Local SQLite + config.json"),
-                        infoRow("UI contract", "v1.3.0 revision 15")
+                        infoRow("UI contract", "v1.3.0 revision 16")
                 )
         );
 
@@ -118,3 +118,4 @@ public final class AboutSettingsPage {
         return button;
     }
 }
+

@@ -1,11 +1,11 @@
 # XClip UI Contract v1.3.0
 
-**Status:** Frozen R11 baseline, deliberately extended by Milestones 2.2–2.4, 3.2–3.3, 4.3, 5.1–5.3, and M6.1–M6.5
-**Scope:** Popup, custom window chrome, modal surfaces, Settings styling, privacy controls, keyboard workflow, responsive behavior, and packaged UI resources.
+**Status:** Frozen R11 baseline, deliberately extended by Milestones 2.2–2.4, 3.2–3.3, 4.3, 5.1–5.3, M6.1–M6.5, and M7.2
+**Scope:** Popup, custom window chrome, modal surfaces, Settings styling, privacy controls, keyboard workflow, responsive behavior, database maintenance/recovery, and packaged UI resources.
 
 This document is the human-readable counterpart of `/ui/ui-contract-v1.3.0.properties`. Any intentional contract change must update both files and the `UiContractFreezeTest` expectations in the same reviewed milestone.
 
-**Contract revision:** 15
+**Contract revision:** 16
 **Registered Lucide UI icons:** 30
 
 ## 1. Product invariants
@@ -419,12 +419,20 @@ pages without changing Config schema 5 or SQLite schema 6.
 - Settings exposes the data-directory, SQLite database, and config paths.
 - Every path is selectable and can be copied; the owned data directory can be
   opened explicitly in Explorer.
+- Database status exposes schema, journal mode, database/WAL/SHM size, and an
+  estimated reclaimable-page size.
+- `PRAGMA integrity_check`, explicit `wal_checkpoint(TRUNCATE)`, and explicit
+  `VACUUM`/`PRAGMA optimize` are available as off-UI-thread actions.
 - Saved retention cleanup and Clear RECENT are separate operations.
 - Clear RECENT preserves PINNED clips, tags, configuration, and retention rules.
+- Backup creates a versioned `.xclip-backup` archive containing a consistent
+  `VACUUM INTO` snapshot, normalized configuration, and manifest.
+- Restore validates archive structure, database/config schemas, and
+  `integrity_check` before replacing live files with rollback protection.
+- Successful restore exits XClip so runtime state is rebuilt from restored data.
 - Clear ALL remains confirmed and removes all XClip-owned local data before exit.
-- Destructive data work runs outside the JavaFX Application Thread.
-- Backup and restore are identified as deferred M7.2 capabilities and are not
-  represented by unsafe placeholder actions.
+- Exclusive database work pauses watcher/cleanup, releases DAO connections, and
+  runs outside the JavaFX Application Thread.
 
 ### About
 
@@ -476,3 +484,62 @@ product-page, responsive, and accessibility work.
   - `docs/M6_SETTINGS_REGRESSION_MATRIX.csv`
 - Config schema remains `5`, SQLite schema remains `6`, and product version
   remains `1.3.0`.
+
+## 22. Database maintenance and recovery — contract revision 16
+
+Milestone M7.2 extends the frozen Settings Data page without changing product,
+config, or SQLite schema versions.
+
+### Diagnostics and explicit maintenance
+
+- Database status is read locally and does not create a missing database.
+- Full `PRAGMA integrity_check` is the canonical integrity operation.
+- WAL checkpoint uses explicit `TRUNCATE` mode after DAO connection release.
+- Database optimization is user initiated, never automatic, and performs
+  checkpoint, `VACUUM`, and `PRAGMA optimize`.
+- Long-running and exclusive operations never execute on the JavaFX Application Thread.
+- Apply, destructive actions, and Settings close remain guarded while an
+  exclusive data operation is active.
+
+### Backup contract
+
+- Backup format version is `1`.
+- The archive extension is `.xclip-backup`.
+- The archive contains exactly:
+  - `manifest.properties`
+  - `xclip.db`
+  - `config.json`
+- SQLite sidecars are never copied.
+- The database entry is produced through `VACUUM INTO`.
+- The manifest freezes product version, creation timestamp, database schema,
+  config schema, and canonical entry names.
+- Unsafe paths, duplicate entries, unknown entries, oversized entries,
+  unsupported schemas, invalid config, and failed integrity checks are rejected.
+
+### Restore contract
+
+- Validation completes before any live file is moved.
+- Current database and config are moved to rollback paths before replacement.
+- Restored files are staged in the owned data directory and moved atomically
+  where the filesystem supports it.
+- Installed database integrity and schema are checked before rollback files are removed.
+- Any installation failure restores the previous database and configuration.
+- A successful restore is terminal and exits XClip.
+
+### Migration contract
+
+- Base-schema application and migration steps share one SQLite transaction.
+- A failed migration rolls back schema/data changes.
+- The in-memory initialization guard resets after failure so the same
+  `Database` instance can retry.
+- A future `PRAGMA user_version` is rejected before base-schema mutation.
+- Partially applied legacy migration states are repaired idempotently.
+
+### Regression gate
+
+- `m7DatabaseGate` includes the complete M6/C8 baseline and M7.2 assets.
+- Canonical assets:
+  - `docs/M7_DATABASE_MAINTENANCE.md`
+  - `docs/M7_DATABASE_REGRESSION_MATRIX.csv`
+- Product version remains `1.3.0`, config schema remains `5`, SQLite schema
+  remains `6`, and UI contract revision is `16`.

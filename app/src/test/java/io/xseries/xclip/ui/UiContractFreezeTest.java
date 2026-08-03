@@ -6,6 +6,8 @@
 package io.xseries.xclip.ui;
 
 import io.xseries.xclip.config.Config;
+import io.xseries.xclip.data.db.Database;
+import io.xseries.xclip.data.db.DatabaseMaintenanceService;
 import io.xseries.xclip.domain.duplicate.DuplicateBehaviorPolicy;
 import io.xseries.xclip.domain.model.ClipContentType;
 import io.xseries.xclip.domain.privacy.ExcludedApplicationPolicy;
@@ -46,7 +48,7 @@ class UiContractFreezeTest {
     void frozenContractMatchesRuntimeConstantsAndEnums() throws Exception {
         Properties contract = loadContract();
 
-        assertEquals("15", contract.getProperty("contract.version"));
+        assertEquals("16", contract.getProperty("contract.version"));
         assertEquals("1.3.0", contract.getProperty("product.version"));
         assertEquals(Config.MIN_WINDOW_W, intValue(contract, "window.minWidth"));
         assertEquals(Config.MIN_WINDOW_H, intValue(contract, "window.minHeight"));
@@ -341,14 +343,69 @@ class UiContractFreezeTest {
                 values(contract, "settings.dataPaths")
         );
         assertEquals(
-                List.of("OPEN_FOLDER", "COPY_PATH", "RUN_RETENTION", "CLEAR_RECENT", "CLEAR_ALL"),
+                List.of(
+                        "OPEN_FOLDER",
+                        "COPY_PATH",
+                        "REFRESH_STATUS",
+                        "INTEGRITY_CHECK",
+                        "RUN_RETENTION",
+                        "CHECKPOINT_WAL",
+                        "OPTIMIZE_DATABASE",
+                        "CREATE_BACKUP",
+                        "RESTORE_BACKUP",
+                        "CLEAR_RECENT",
+                        "CLEAR_ALL"
+                ),
                 values(contract, "settings.dataActions")
         );
         assertEquals(
-                "ASYNC_DESTRUCTIVE",
+                "ASYNC_EXCLUSIVE",
                 required(contract, "settings.dataOperations")
         );
-        assertEquals("DEFERRED_M7_2", required(contract, "settings.backupRestore"));
+        assertEquals(
+                "VERSIONED_ARCHIVE_VALIDATED_ATOMIC_REPLACE",
+                required(contract, "settings.backupRestore")
+        );
+        assertEquals(
+                Database.CURRENT_SCHEMA_VERSION,
+                intValue(contract, "database.schemaVersion")
+        );
+        assertEquals(
+                "PRAGMA_INTEGRITY_CHECK",
+                required(contract, "database.integrityCheck")
+        );
+        assertEquals(
+                "TRUNCATE_EXPLICIT",
+                required(contract, "database.checkpoint")
+        );
+        assertEquals(
+                "EXPLICIT_OFF_UI_THREAD",
+                required(contract, "database.vacuum")
+        );
+        assertEquals(
+                DatabaseMaintenanceService.BACKUP_FORMAT_VERSION,
+                intValue(contract, "database.backupFormat")
+        );
+        assertEquals(
+                List.of("MANIFEST", "DATABASE", "CONFIGURATION"),
+                values(contract, "database.backupEntries")
+        );
+        assertEquals(
+                "VALIDATE_THEN_REPLACE_AND_EXIT",
+                required(contract, "database.restore")
+        );
+        assertEquals(
+                "TRANSACTIONAL_ROLLBACK_RETRY",
+                required(contract, "database.migration")
+        );
+        assertEquals(
+                "REJECT_BEFORE_MUTATION",
+                required(contract, "database.forwardVersion")
+        );
+        assertEquals(
+                "M7_DATABASE_GATE",
+                required(contract, "database.regressionGate")
+        );
         assertEquals(
                 List.of(
                         "VERSION",
@@ -479,3 +536,4 @@ class UiContractFreezeTest {
         return value;
     }
 }
+

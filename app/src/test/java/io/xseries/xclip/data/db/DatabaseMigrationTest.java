@@ -16,15 +16,18 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DatabaseMigrationTest {
@@ -220,6 +223,200 @@ class DatabaseMigrationTest {
         }
     }
 
+
+    @Test
+    void failedMigrationRollsBackAndSameInstanceCanRetry() throws Exception {
+        Path dbPath = tempDir.resolve("rollback-retry.db");
+        String jdbcUrl = "jdbc:sqlite:" + dbPath.toAbsolutePath();
+        createLegacyV3Database(jdbcUrl);
+        insertLegacy(jdbcUrl, "rollback value", "legacy-hash", false, 1_000L);
+
+        AtomicBoolean failOnce = new AtomicBoolean(true);
+        Database database = new Database(
+                dbPath,
+                (connection, fromVersion, toVersion) -> {
+                    if (failOnce.getAndSet(false)) {
+                        throw new SQLException("injected migration interruption");
+                    }
+                }
+        );
+
+        assertThrows(RuntimeException.class, database::init);
+
+        try (Connection connection = DriverManager.getConnection(jdbcUrl)) {
+            assertEquals(3, userVersion(connection));
+            assertEquals(Set.of(
+                    "id",
+                    "content",
+                    "content_norm",
+                    "content_hash",
+                    "is_favorite",
+                    "created_at"
+            ), tableColumns(connection, "clip_entries"));
+            assertFalse(tableExists(connection, "tags"));
+            assertEquals(1, rowCount(connection, "clip_entries"));
+        }
+
+        database.init();
+
+        try (Connection connection = DriverManager.getConnection(jdbcUrl)) {
+            assertEquals(Database.CURRENT_SCHEMA_VERSION, userVersion(connection));
+            assertTrue(tableColumns(connection, "clip_entries")
+                    .contains("content_norm_ci_hash"));
+            assertTrue(tableExists(connection, "tags"));
+            assertEquals(1, rowCount(connection, "clip_entries"));
+        }
+    }
+
+    @Test
+    void futureSchemaIsRejectedBeforeBaseSchemaMutation() throws Exception {
+        Path dbPath = tempDir.resolve("future.db");
+        String jdbcUrl = "jdbc:sqlite:" + dbPath.toAbsolutePath();
+
+        try (Connection connection = DriverManager.getConnection(jdbcUrl);
+             Statement statement = connection.createStatement()) {
+            statement.execute("CREATE TABLE future_marker(value TEXT)");
+            statement.execute("INSERT INTO future_marker(value) VALUES ('keep')");
+            statement.execute("PRAGMA user_version = 99");
+        }
+
+        assertThrows(RuntimeException.class, () -> new Database(dbPath).init());
+
+        try (Connection connection = DriverManager.getConnection(jdbcUrl)) {
+            assertEquals(99, userVersion(connection));
+            assertTrue(tableExists(connection, "future_marker"));
+            assertFalse(tableExists(connection, "clip_entries"));
+            assertEquals(1, rowCount(connection, "future_marker"));
+        }
+    }
+
+    @Test
+    void interruptedPartialMigrationIsRecoveredIdempotently() throws Exception {
+        Path dbPath = tempDir.resolve("partial-v5.db");
+        String jdbcUrl = "jdbc:sqlite:" + dbPath.toAbsolutePath();
+
+        try (Connection connection = DriverManager.getConnection(jdbcUrl);
+             Statement statement = connection.createStatement()) {
+            statement.execute("""
+                    CREATE TABLE clip_entries (
+                      id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+                      content            TEXT    NOT NULL,
+                      content_norm       TEXT    NOT NULL,
+                      content_hash       TEXT    NOT NULL,
+                      content_exact_hash TEXT,
+                      title              TEXT,
+                      is_favorite        INTEGER NOT NULL DEFAULT 0,
+                      pin_order          INTEGER,
+                      created_at         INTEGER NOT NULL,
+                      last_copied_at     INTEGER NOT NULL DEFAULT 0,
+                      use_count          INTEGER NOT NULL DEFAULT 1
+                    )
+                    """);
+            statement.execute("""
+                    INSERT INTO clip_entries(
+                        content, content_norm, content_hash, content_exact_hash,
+                        created_at, last_copied_at
+                    ) VALUES ('partial value', 'partial value', 'legacy', NULL, 1000, 1000)
+                    """);
+            statement.execute("PRAGMA user_version = 5");
+        }
+
+        Database database = new Database(dbPath);
+        database.init();
+        database.close();
+
+        try (Connection connection = DriverManager.getConnection(jdbcUrl)) {
+            assertEquals(Database.CURRENT_SCHEMA_VERSION, userVersion(connection));
+            Set<String> columns = tableColumns(connection, "clip_entries");
+            assertTrue(columns.contains("content_exact_hash"));
+            assertTrue(columns.contains("content_exact_ci_hash"));
+            assertTrue(columns.contains("content_norm_ci_hash"));
+            assertTrue(tableExists(connection, "tags"));
+            assertEquals(1, rowCount(connection, "clip_entries"));
+
+            DuplicateContentKeys keys = DuplicateContentKeys.from("partial value");
+            try (Statement statement = connection.createStatement();
+                 ResultSet result = statement.executeQuery("""
+                         SELECT content_hash, content_exact_hash,
+                                content_exact_ci_hash, content_norm_ci_hash
+                         FROM clip_entries
+                         """)) {
+                assertTrue(result.next());
+                assertEquals(keys.normalizedHash(), result.getString("content_hash"));
+                assertEquals(keys.exactHash(), result.getString("content_exact_hash"));
+                assertEquals(
+                        keys.exactCaseInsensitiveHash(),
+                        result.getString("content_exact_ci_hash")
+                );
+                assertEquals(
+                        keys.normalizedCaseInsensitiveHash(),
+                        result.getString("content_norm_ci_hash")
+                );
+            }
+        }
+
+        new Database(dbPath).init();
+        try (Connection connection = DriverManager.getConnection(jdbcUrl)) {
+            assertEquals(1, rowCount(connection, "clip_entries"));
+            assertEquals(Database.CURRENT_SCHEMA_VERSION, userVersion(connection));
+        }
+    }
+
+    private void createLegacyV3Database(String jdbcUrl) throws Exception {
+        try (Connection connection = DriverManager.getConnection(jdbcUrl);
+             Statement statement = connection.createStatement()) {
+            statement.execute("""
+                    CREATE TABLE clip_entries (
+                      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                      content      TEXT    NOT NULL,
+                      content_norm TEXT    NOT NULL,
+                      content_hash TEXT    NOT NULL,
+                      is_favorite  INTEGER NOT NULL DEFAULT 0,
+                      created_at   INTEGER NOT NULL
+                    )
+                    """);
+            statement.execute("CREATE INDEX idx_clip_hash ON clip_entries(content_hash)");
+            statement.execute("PRAGMA user_version = 3");
+        }
+    }
+
+    private int userVersion(Connection connection) throws Exception {
+        try (Statement statement = connection.createStatement();
+             ResultSet result = statement.executeQuery("PRAGMA user_version")) {
+            assertTrue(result.next());
+            return result.getInt(1);
+        }
+    }
+
+    private boolean tableExists(
+            Connection connection,
+            String tableName
+    ) throws Exception {
+        try (PreparedStatement statement = connection.prepareStatement("""
+                SELECT 1
+                FROM sqlite_master
+                WHERE type = 'table' AND name = ?
+                """)) {
+            statement.setString(1, tableName);
+            try (ResultSet result = statement.executeQuery()) {
+                return result.next();
+            }
+        }
+    }
+
+    private int rowCount(
+            Connection connection,
+            String tableName
+    ) throws Exception {
+        try (Statement statement = connection.createStatement();
+             ResultSet result = statement.executeQuery(
+                     "SELECT COUNT(*) FROM " + tableName
+             )) {
+            assertTrue(result.next());
+            return result.getInt(1);
+        }
+    }
+
     private void insertLegacy(
             String jdbcUrl,
             String content,
@@ -306,3 +503,4 @@ class DatabaseMigrationTest {
         return false;
     }
 }
+

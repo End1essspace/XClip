@@ -42,7 +42,7 @@ public enum SettingsPage {
     ),
     DATA(
             "Data",
-            "Local storage location and destructive data ownership actions."
+            "Local storage, database diagnostics, backup, restore, and ownership actions."
     ),
     ABOUT(
             "About",
@@ -65,3 +65,5 @@ public enum SettingsPage {
         return description;
     }
 }
+
+

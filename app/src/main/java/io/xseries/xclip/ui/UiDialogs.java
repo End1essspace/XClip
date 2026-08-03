@@ -1,5 +1,3 @@
-
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)
@@ -176,6 +174,26 @@ public final class UiDialogs {
         return confirmDanger(owner, copy);
     }
 
+    public static boolean confirmOptimizeDatabase(Stage owner) {
+        return confirmStandard(owner, optimizeDatabaseCopy());
+    }
+
+    public static boolean confirmRestoreBackup(
+            Stage owner,
+            Path backupPath,
+            String backupSummary
+    ) {
+        Objects.requireNonNull(backupPath, "backupPath");
+        String summary = Objects.requireNonNullElse(
+                backupSummary,
+                "Backup metadata unavailable"
+        );
+        return confirmDanger(
+                owner,
+                restoreBackupCopy(backupPath, summary)
+        );
+    }
+
     public static void showError(
             Stage owner,
             String windowTitle,
@@ -236,6 +254,38 @@ public final class UiDialogs {
         );
     }
 
+    static DialogCopy optimizeDatabaseCopy() {
+        return new DialogCopy(
+                "Optimize XClip database",
+                "DATABASE MAINTENANCE",
+                "Optimize the local database now?",
+                "XClip will pause clipboard capture, checkpoint the WAL, run VACUUM, "
+                        + "and refresh SQLite planner statistics. The operation can take "
+                        + "longer on a large history.",
+                "Optimize database"
+        );
+    }
+
+    static DialogCopy restoreBackupCopy(
+            Path backupPath,
+            String backupSummary
+    ) {
+        Objects.requireNonNull(backupPath, "backupPath");
+        String summary = Objects.requireNonNullElse(
+                backupSummary,
+                "Backup metadata unavailable"
+        );
+        return new DialogCopy(
+                "Restore XClip backup",
+                "DESTRUCTIVE ACTION",
+                "Replace local history and settings?",
+                summary + "\n\nBackup: " + backupPath.toAbsolutePath()
+                        + "\n\nCurrent clipboard history, PINNED clips, tags, and "
+                        + "settings will be replaced. XClip exits after a successful restore.",
+                "Restore backup"
+        );
+    }
+
     static DialogCopy clearVisibleCopy(int visibleCount) {
         if (visibleCount <= 0) {
             throw new IllegalArgumentException("visibleCount must be positive");
@@ -260,6 +310,29 @@ public final class UiDialogs {
     }
 
     private static boolean confirmDanger(Stage owner, DialogCopy copy) {
+        return confirm(
+                owner,
+                copy,
+                Tone.DANGER,
+                "dialog-danger-button"
+        );
+    }
+
+    private static boolean confirmStandard(Stage owner, DialogCopy copy) {
+        return confirm(
+                owner,
+                copy,
+                Tone.STANDARD,
+                "dialog-primary-button"
+        );
+    }
+
+    private static boolean confirm(
+            Stage owner,
+            DialogCopy copy,
+            Tone tone,
+            String actionStyleClass
+    ) {
         Objects.requireNonNull(owner, "owner");
         Objects.requireNonNull(copy, "copy");
 
@@ -269,12 +342,12 @@ public final class UiDialogs {
 
         dialog.setTitle(copy.windowTitle());
         dialog.getDialogPane().getButtonTypes().setAll(cancelType, actionType);
-        configure(dialog, owner, Tone.DANGER, "confirmation-dialog");
+        configure(dialog, owner, tone, "confirmation-dialog");
         dialog.getDialogPane().setContent(buildCopyContent(copy));
 
         Node actionNode = dialog.getDialogPane().lookupButton(actionType);
         Node cancelNode = dialog.getDialogPane().lookupButton(cancelType);
-        styleActionButton(actionNode, "dialog-danger-button", false);
+        styleActionButton(actionNode, actionStyleClass, false);
         styleActionButton(cancelNode, "dialog-secondary-button", true);
 
         dialog.setResultConverter(button -> button == actionType);
@@ -366,3 +439,5 @@ public final class UiDialogs {
     }
 
 }
+
+

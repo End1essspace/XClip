@@ -22,8 +22,6 @@ import java.util.Objects;
 import java.util.function.Consumer;
 
 import static io.xseries.xclip.ui.settings.SettingsPageSupport.actionRow;
-import static io.xseries.xclip.ui.settings.SettingsPageSupport.infoRow;
-import static io.xseries.xclip.ui.settings.SettingsPageSupport.informationSection;
 import static io.xseries.xclip.ui.settings.SettingsPageSupport.pageScroll;
 import static io.xseries.xclip.ui.settings.SettingsPageSupport.section;
 
@@ -36,6 +34,12 @@ public final class DataSettingsPage {
             Path databasePath,
             Path configPath,
             Runnable openDataFolder,
+            Runnable refreshDatabaseStatus,
+            Runnable checkDatabaseIntegrity,
+            Runnable checkpointWal,
+            Runnable optimizeDatabase,
+            Runnable createBackup,
+            Runnable restoreBackup,
             Runnable runRetentionCleanup,
             Runnable clearRecent,
             Runnable clearAllData,
@@ -48,6 +52,21 @@ public final class DataSettingsPage {
         Path config = Objects.requireNonNull(configPath, "configPath")
                 .toAbsolutePath();
         Runnable openAction = Objects.requireNonNull(openDataFolder, "openDataFolder");
+        Runnable refreshAction = Objects.requireNonNull(
+                refreshDatabaseStatus,
+                "refreshDatabaseStatus"
+        );
+        Runnable integrityAction = Objects.requireNonNull(
+                checkDatabaseIntegrity,
+                "checkDatabaseIntegrity"
+        );
+        Runnable checkpointAction = Objects.requireNonNull(checkpointWal, "checkpointWal");
+        Runnable optimizeAction = Objects.requireNonNull(
+                optimizeDatabase,
+                "optimizeDatabase"
+        );
+        Runnable backupAction = Objects.requireNonNull(createBackup, "createBackup");
+        Runnable restoreAction = Objects.requireNonNull(restoreBackup, "restoreBackup");
         Runnable cleanupAction = Objects.requireNonNull(
                 runRetentionCleanup,
                 "runRetentionCleanup"
@@ -64,17 +83,49 @@ public final class DataSettingsPage {
                 pathRow("Configuration", config, false, null, status)
         );
 
-        Label cleanupStatus = new Label("Last cleanup: not run yet");
-        cleanupStatus.setWrapText(true);
-        cleanupStatus.setAccessibleText("Data maintenance status");
-        cleanupStatus.getStyleClass().add("settings-cleanup-status");
-
-        Button runCleanup = new Button("Run retention cleanup");
-        runCleanup.setAccessibleHelp(
-                "Apply the currently saved age-based retention rules immediately."
+        Label databaseStatus = statusLabel(
+                "Database status has not been loaded yet.",
+                "Database status"
         );
-        runCleanup.getStyleClass().add("btn-subtle");
-        runCleanup.setOnAction(event -> cleanupAction.run());
+
+        Button refreshStatus = subtleButton(
+                "Refresh status",
+                "Read the current SQLite schema, journal mode, file sizes, and free-page estimate.",
+                refreshAction
+        );
+        Button checkIntegrity = subtleButton(
+                "Check integrity",
+                "Run SQLite PRAGMA integrity_check without changing clipboard data.",
+                integrityAction
+        );
+
+        VBox diagnostics = section(
+                "Database status",
+                "Diagnostics are read locally. Integrity checks and size inspection run off the JavaFX thread.",
+                databaseStatus,
+                actionRow(Pos.CENTER_LEFT, refreshStatus, checkIntegrity)
+        );
+
+        Label cleanupStatus = statusLabel(
+                "Last cleanup: not run yet",
+                "Data maintenance status"
+        );
+
+        Button runCleanup = subtleButton(
+                "Run retention cleanup",
+                "Apply the currently saved age-based retention rules immediately.",
+                cleanupAction
+        );
+        Button checkpointButton = subtleButton(
+                "Checkpoint WAL",
+                "Flush committed WAL frames into the main database and truncate the WAL file.",
+                checkpointAction
+        );
+        Button optimizeButton = subtleButton(
+                "Optimize database",
+                "Checkpoint WAL, run VACUUM, and refresh SQLite planner statistics.",
+                optimizeAction
+        );
 
         Button clearRecentButton = new Button("Clear RECENT history");
         clearRecentButton.setAccessibleHelp(
@@ -83,25 +134,44 @@ public final class DataSettingsPage {
         clearRecentButton.getStyleClass().add("button-danger-subtle");
         clearRecentButton.setOnAction(event -> clearRecentAction.run());
 
-        var maintenanceActions = actionRow(
-                Pos.CENTER_LEFT,
-                runCleanup,
-                clearRecentButton
-        );
-
         VBox maintenance = section(
-                "History maintenance",
-                "Retention cleanup follows the saved History policy. Clear RECENT removes all unpinned clips.",
+                "History and SQLite maintenance",
+                "Retention follows the saved History policy. Checkpoint and optimize are explicit exclusive operations.",
                 cleanupStatus,
-                maintenanceActions
+                actionRow(
+                        Pos.CENTER_LEFT,
+                        runCleanup,
+                        checkpointButton,
+                        optimizeButton,
+                        clearRecentButton
+                )
         );
 
-        VBox backup = informationSection(
+        Label backupStatus = statusLabel(
+                "Backups contain a consistent SQLite snapshot, the currently saved normalized config.json, and a versioned manifest. Save them outside the live XClip data folder.",
+                "Backup and restore status"
+        );
+
+        Button createBackupButton = subtleButton(
+                "Create backup",
+                "Create a portable .xclip-backup archive with the currently saved configuration outside the live data folder without copying WAL sidecars.",
+                backupAction
+        );
+        Button restoreBackupButton = new Button("Restore backup");
+        restoreBackupButton.setAccessibleHelp(
+                "Validate and replace local history and settings from an XClip backup, then exit."
+        );
+        restoreBackupButton.getStyleClass().add("button-danger-subtle");
+        restoreBackupButton.setOnAction(event -> restoreAction.run());
+
+        VBox backup = section(
                 "Backup and restore",
-                "Entry points are reserved for the database-maintenance milestone; no unsafe placeholder action is exposed.",
-                List.of(
-                        infoRow("Backup", "Deferred to M7.2"),
-                        infoRow("Restore", "Deferred to M7.2")
+                "Restore validates the archive, configuration schema, database schema, and integrity before replacing local files.",
+                backupStatus,
+                actionRow(
+                        Pos.CENTER_LEFT,
+                        createBackupButton,
+                        restoreBackupButton
                 )
         );
 
@@ -125,12 +195,45 @@ public final class DataSettingsPage {
         dangerBox.getStyleClass().addAll("settings-section", "danger-box");
 
         return new View(
-                pageScroll(locations, maintenance, backup, dangerBox),
+                pageScroll(locations, diagnostics, maintenance, backup, dangerBox),
+                databaseStatus,
                 cleanupStatus,
-                runCleanup,
-                clearRecentButton,
-                clearData
+                backupStatus,
+                List.of(
+                        refreshStatus,
+                        checkIntegrity,
+                        runCleanup,
+                        checkpointButton,
+                        optimizeButton,
+                        clearRecentButton,
+                        createBackupButton,
+                        restoreBackupButton,
+                        clearData
+                )
         );
+    }
+
+    private static Label statusLabel(
+            String text,
+            String accessibleText
+    ) {
+        Label label = new Label(text);
+        label.setWrapText(true);
+        label.setAccessibleText(accessibleText);
+        label.getStyleClass().add("settings-cleanup-status");
+        return label;
+    }
+
+    private static Button subtleButton(
+            String text,
+            String accessibleHelp,
+            Runnable action
+    ) {
+        Button button = new Button(text);
+        button.setAccessibleHelp(accessibleHelp);
+        button.getStyleClass().add("btn-subtle");
+        button.setOnAction(event -> action.run());
+        return button;
     }
 
     private static HBox pathRow(
@@ -177,27 +280,37 @@ public final class DataSettingsPage {
 
     public record View(
             ScrollPane root,
+            Label databaseStatus,
             Label cleanupStatus,
-            Button runCleanup,
-            Button clearRecent,
-            Button clearAll
+            Label backupStatus,
+            List<Button> maintenanceButtons
     ) {
         public View {
             root = Objects.requireNonNull(root, "root");
+            databaseStatus = Objects.requireNonNull(databaseStatus, "databaseStatus");
             cleanupStatus = Objects.requireNonNull(cleanupStatus, "cleanupStatus");
-            runCleanup = Objects.requireNonNull(runCleanup, "runCleanup");
-            clearRecent = Objects.requireNonNull(clearRecent, "clearRecent");
-            clearAll = Objects.requireNonNull(clearAll, "clearAll");
+            backupStatus = Objects.requireNonNull(backupStatus, "backupStatus");
+            maintenanceButtons = List.copyOf(
+                    Objects.requireNonNull(maintenanceButtons, "maintenanceButtons")
+            );
+        }
+
+        public void updateDatabaseStatus(String text) {
+            databaseStatus.setText(Objects.requireNonNullElse(text, ""));
         }
 
         public void updateCleanupStatus(String text) {
             cleanupStatus.setText(Objects.requireNonNullElse(text, ""));
         }
 
+        public void updateBackupStatus(String text) {
+            backupStatus.setText(Objects.requireNonNullElse(text, ""));
+        }
+
         public void setMaintenanceBusy(boolean busy) {
-            runCleanup.setDisable(busy);
-            clearRecent.setDisable(busy);
-            clearAll.setDisable(busy);
+            for (Button button : maintenanceButtons) {
+                button.setDisable(busy);
+            }
         }
     }
 }

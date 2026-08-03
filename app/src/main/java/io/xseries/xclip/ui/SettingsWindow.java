@@ -26,6 +26,7 @@ import io.xseries.xclip.ui.settings.AboutSettingsPage;
 import io.xseries.xclip.ui.settings.AppearanceSettingsPage;
 import io.xseries.xclip.ui.settings.CaptureSettingsPage;
 import io.xseries.xclip.ui.settings.DataSettingsPage;
+import io.xseries.xclip.ui.settings.DatabaseMaintenanceText;
 import io.xseries.xclip.ui.settings.DuplicateBehaviorSettingsPage;
 import io.xseries.xclip.ui.settings.DuplicateSettingsModel;
 import io.xseries.xclip.ui.settings.DuplicateSettingsModel.WindowPreset;
@@ -67,6 +68,7 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.stage.FileChooser;
 import javafx.stage.Modality;
 import javafx.stage.Screen;
 import javafx.stage.Stage;
@@ -74,14 +76,20 @@ import javafx.stage.StageStyle;
 import javafx.util.Duration;
 import javafx.util.StringConverter;
 
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.EnumMap;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * Product Settings window.
@@ -95,6 +103,9 @@ public final class SettingsWindow {
     private static final double RESIZE_EDGE = 6;
     private static final DateTimeFormatter CLEANUP_TIME_FORMAT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+                    .withZone(ZoneId.systemDefault());
+    private static final DateTimeFormatter BACKUP_FILE_TIME_FORMAT =
+            DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")
                     .withZone(ZoneId.systemDefault());
 
     private final Stage stage;
@@ -510,6 +521,12 @@ public final class SettingsWindow {
                 AppPaths.dbPath(),
                 AppPaths.configPath(),
                 dataOwnershipService::openDataFolder,
+                this::refreshDatabaseStatusFlow,
+                this::checkDatabaseIntegrityFlow,
+                this::checkpointWalFlow,
+                this::optimizeDatabaseFlow,
+                this::createBackupFlow,
+                this::restoreBackupFlow,
                 this::scheduleRetentionCleanup,
                 this::clearRecentFlow,
                 this::clearAllDataFlow,
@@ -739,6 +756,7 @@ public final class SettingsWindow {
         stage.requestFocus();
         selectPage(selectedPage);
         Platform.runLater(this::focusSelectedNavigation);
+        if (!dataOperationRunning.get()) refreshDatabaseStatusFlow();
     }
 
     private void apply() {
@@ -957,6 +975,316 @@ public final class SettingsWindow {
         duplicateCaseSensitivity.setDisable(exact);
         duplicateExactOverrideHint.setManaged(exact);
         duplicateExactOverrideHint.setVisible(exact);
+    }
+
+
+    private void refreshDatabaseStatusFlow() {
+        if (dataOperationRunning.get()) return;
+
+        runDatabaseReadOperation(
+                "Reading database status…",
+                dataOwnershipService::databaseStatus,
+                status -> {
+                    dataPageView.updateDatabaseStatus(
+                            DatabaseMaintenanceText.status(status)
+                    );
+                    showStatus("Database status refreshed");
+                },
+                "Failed to read database status"
+        );
+    }
+
+    private void checkDatabaseIntegrityFlow() {
+        if (dataOperationRunning.get()) {
+            showStatus("Data maintenance is already running");
+            return;
+        }
+
+        runDatabaseReadOperation(
+                "Running integrity_check…",
+                dataOwnershipService::checkDatabaseIntegrity,
+                report -> {
+                    String text = DatabaseMaintenanceText.integrity(report);
+                    dataPageView.updateDatabaseStatus(text);
+                    showStatus(report.ok()
+                            ? "Database integrity OK"
+                            : "Database integrity check failed");
+                },
+                "Failed to check database integrity"
+        );
+    }
+
+    private void checkpointWalFlow() {
+        runExclusiveDatabaseOperation(
+                "Checkpointing SQLite WAL…",
+                dataOwnershipService::checkpointWal,
+                result -> {
+                    dataPageView.updateDatabaseStatus(
+                            DatabaseMaintenanceText.checkpoint(result)
+                    );
+                    showStatus(result.complete()
+                            ? "WAL checkpoint completed"
+                            : "WAL checkpoint is busy");
+                },
+                "Failed to checkpoint SQLite WAL",
+                true
+        );
+    }
+
+    private void optimizeDatabaseFlow() {
+        if (dataOperationRunning.get()) {
+            showStatus("Data maintenance is already running");
+            return;
+        }
+        if (!UiDialogs.confirmOptimizeDatabase(stage)) return;
+
+        runExclusiveDatabaseOperation(
+                "Optimizing database…",
+                dataOwnershipService::optimizeDatabase,
+                result -> {
+                    dataPageView.updateDatabaseStatus(
+                            DatabaseMaintenanceText.vacuum(result)
+                    );
+                    showStatus("Database optimization completed");
+                },
+                "Failed to optimize database",
+                true
+        );
+    }
+
+    private void createBackupFlow() {
+        if (dataOperationRunning.get()) {
+            showStatus("Data maintenance is already running");
+            return;
+        }
+
+        FileChooser chooser = backupFileChooser(false);
+        chooser.setInitialFileName(
+                "XClip-backup-"
+                        + BACKUP_FILE_TIME_FORMAT.format(Instant.now())
+                        + ".xclip-backup"
+        );
+        File selected = chooser.showSaveDialog(stage);
+        if (selected == null) return;
+
+        Path destination = selected.toPath();
+        runExclusiveDatabaseOperation(
+                "Creating XClip backup…",
+                () -> dataOwnershipService.createBackup(
+                        destination,
+                        AppVersion.VERSION
+                ),
+                result -> {
+                    String text = DatabaseMaintenanceText.backup(result);
+                    dataPageView.updateBackupStatus(text);
+                    UiDialogs.showInformation(
+                            stage,
+                            "Backup created",
+                            "XClip backup was created",
+                            text + "\n\n" + result.path().toAbsolutePath()
+                    );
+                    showStatus("Backup created");
+                },
+                "Failed to create backup",
+                true
+        );
+    }
+
+    private void restoreBackupFlow() {
+        if (dataOperationRunning.get()) {
+            showStatus("Data maintenance is already running");
+            return;
+        }
+
+        FileChooser chooser = backupFileChooser(true);
+        File selected = chooser.showOpenDialog(stage);
+        if (selected == null) return;
+        Path source = selected.toPath();
+
+        runDatabaseReadOperation(
+                "Validating XClip backup…",
+                () -> dataOwnershipService.inspectBackup(source),
+                descriptor -> {
+                    String summary = DatabaseMaintenanceText.backupDescriptor(
+                            descriptor
+                    );
+                    dataPageView.updateBackupStatus(summary);
+
+                    if (!UiDialogs.confirmRestoreBackup(
+                            stage,
+                            source,
+                            summary
+                    )) {
+                        showStatus("Restore cancelled");
+                        return;
+                    }
+                    restoreValidatedBackup(source);
+                },
+                "Backup validation failed"
+        );
+    }
+
+    private void restoreValidatedBackup(Path source) {
+        runExclusiveDatabaseOperation(
+                "Restoring XClip backup…",
+                () -> dataOwnershipService.restoreBackup(source),
+                result -> {
+                    String text = DatabaseMaintenanceText.restore(result);
+                    dataPageView.updateBackupStatus(text);
+                    UiDialogs.showInformation(
+                            stage,
+                            "Backup restored",
+                            "Local XClip data was restored",
+                            text + "\n\nXClip will exit now. Restart it to load the restored data."
+                    );
+                    Platform.exit();
+                    System.exit(0);
+                },
+                "Failed to restore backup",
+                false
+        );
+    }
+
+    private FileChooser backupFileChooser(boolean restore) {
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle(restore
+                ? "Restore XClip backup"
+                : "Create XClip backup");
+        chooser.getExtensionFilters().add(
+                new FileChooser.ExtensionFilter(
+                        "XClip backup (*.xclip-backup)",
+                        "*.xclip-backup"
+                )
+        );
+
+        try {
+            Path home = Path.of(System.getProperty("user.home"));
+            if (Files.isDirectory(home)) {
+                chooser.setInitialDirectory(home.toFile());
+            }
+        } catch (Exception ignored) {
+        }
+        return chooser;
+    }
+
+    private <T> void runDatabaseReadOperation(
+            String runningMessage,
+            Supplier<T> operation,
+            Consumer<T> onSuccess,
+            String failureHeading
+    ) {
+        if (dataOperationRunning.get()) {
+            showStatus("Data maintenance is already running");
+            return;
+        }
+
+        setDataMaintenanceBusy(true);
+        showStatus(runningMessage);
+
+        CompletableFuture.supplyAsync(operation)
+                .whenComplete((result, failure) -> Platform.runLater(() -> {
+                    setDataMaintenanceBusy(false);
+                    if (failure != null) {
+                        showDatabaseOperationError(
+                                failureHeading,
+                                unwrapAsyncFailure(failure)
+                        );
+                        return;
+                    }
+                    onSuccess.accept(result);
+                }));
+    }
+
+    private <T> void runExclusiveDatabaseOperation(
+            String runningMessage,
+            Supplier<T> operation,
+            Consumer<T> onSuccess,
+            String failureHeading,
+            boolean resumeOnSuccess
+    ) {
+        if (dataOperationRunning.get()) {
+            showStatus("Data maintenance is already running");
+            return;
+        }
+
+        setDataMaintenanceBusy(true);
+        showStatus(runningMessage);
+
+        CompletableFuture.supplyAsync(() -> {
+            boolean paused = false;
+            try {
+                watcherController.disable();
+                historyCleanupService.pauseForMaintenance();
+                paused = true;
+
+                T result = operation.get();
+                if (resumeOnSuccess) {
+                    resumeRuntimeAfterDatabaseMaintenance();
+                    paused = false;
+                }
+                return result;
+            } catch (Throwable failure) {
+                if (paused) {
+                    try {
+                        resumeRuntimeAfterDatabaseMaintenance();
+                    } catch (Throwable resumeFailure) {
+                        failure.addSuppressed(resumeFailure);
+                    }
+                }
+                throw new CompletionException(failure);
+            }
+        }).whenComplete((result, failure) -> Platform.runLater(() -> {
+            if (failure != null) {
+                setDataMaintenanceBusy(false);
+                showDatabaseOperationError(
+                        failureHeading,
+                        unwrapAsyncFailure(failure)
+                );
+                return;
+            }
+
+            if (resumeOnSuccess) setDataMaintenanceBusy(false);
+            onSuccess.accept(result);
+        }));
+    }
+
+    private void resumeRuntimeAfterDatabaseMaintenance() {
+        historyCleanupService.resumeAfterMaintenance();
+        if (current.watcherEnabled()) watcherController.enable();
+        else watcherController.disable();
+    }
+
+    private void showDatabaseOperationError(
+            String heading,
+            Throwable failure
+    ) {
+        String detail;
+        if (failure == null) {
+            detail = "Unknown database maintenance error";
+        } else if (failure.getMessage() == null
+                || failure.getMessage().isBlank()) {
+            detail = failure.getClass().getSimpleName();
+        } else {
+            detail = failure.getMessage();
+        }
+
+        UiDialogs.showError(
+                stage,
+                "Database maintenance failed",
+                heading,
+                detail
+        );
+        showStatus(heading);
+    }
+
+    private Throwable unwrapAsyncFailure(Throwable failure) {
+        Throwable currentFailure = failure;
+        while ((currentFailure instanceof CompletionException
+                || currentFailure instanceof java.util.concurrent.ExecutionException)
+                && currentFailure.getCause() != null) {
+            currentFailure = currentFailure.getCause();
+        }
+        return currentFailure;
     }
 
     private void setDataMaintenanceBusy(boolean busy) {
@@ -1657,3 +1985,4 @@ public final class SettingsWindow {
 
 
 }
+

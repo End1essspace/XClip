@@ -7,6 +7,15 @@ package io.xseries.xclip.system;
 
 import io.xseries.xclip.config.AppPaths;
 import io.xseries.xclip.data.db.Database;
+import io.xseries.xclip.data.db.DatabaseMaintenanceService;
+import io.xseries.xclip.data.db.DatabaseMaintenanceService.BackupDescriptor;
+import io.xseries.xclip.data.db.DatabaseMaintenanceService.BackupResult;
+import io.xseries.xclip.data.db.DatabaseMaintenanceService.CheckpointMode;
+import io.xseries.xclip.data.db.DatabaseMaintenanceService.CheckpointResult;
+import io.xseries.xclip.data.db.DatabaseMaintenanceService.DatabaseStatus;
+import io.xseries.xclip.data.db.DatabaseMaintenanceService.IntegrityReport;
+import io.xseries.xclip.data.db.DatabaseMaintenanceService.RestoreResult;
+import io.xseries.xclip.data.db.DatabaseMaintenanceService.VacuumResult;
 
 import java.awt.Desktop;
 import java.nio.file.Files;
@@ -16,11 +25,12 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * User-facing ownership actions for XClip's local data.
+ * User-facing ownership and maintenance actions for XClip's local data.
  *
- * DAO connections are released before SQLite files are deleted. The DAO
- * objects remain reusable when deletion fails, allowing Settings to restore
- * the running application and let the user retry after removing the lock.
+ * DAO connections are released before exclusive SQLite operations. DAO objects
+ * remain reusable after checkpoint, vacuum, and backup operations. A successful
+ * restore is followed by application exit so all runtime state is reconstructed
+ * from the restored files on the next launch.
  */
 public final class DataOwnershipService {
 
@@ -28,6 +38,7 @@ public final class DataOwnershipService {
     private final Path dataDir;
     private final Path configPath;
     private final List<Runnable> databaseConnectionReleasers;
+    private final DatabaseMaintenanceService maintenance;
 
     public DataOwnershipService(Database database) {
         this(database, new Runnable[0]);
@@ -61,6 +72,10 @@ public final class DataOwnershipService {
         this.databaseConnectionReleasers = List.copyOf(
                 Objects.requireNonNullElse(databaseConnectionReleasers, List.of())
         );
+        this.maintenance = new DatabaseMaintenanceService(
+                database.dbPath(),
+                configPath
+        );
     }
 
     public void openDataFolder() {
@@ -69,6 +84,41 @@ public final class DataOwnershipService {
             Desktop.getDesktop().open(dataDir.toFile());
         } catch (Exception ignored) {
         }
+    }
+
+    public DatabaseStatus databaseStatus() {
+        return maintenance.inspect();
+    }
+
+    public IntegrityReport checkDatabaseIntegrity() {
+        return maintenance.integrityCheck();
+    }
+
+    public CheckpointResult checkpointWal() {
+        releaseDatabaseConnections();
+        return maintenance.checkpoint(CheckpointMode.TRUNCATE);
+    }
+
+    public VacuumResult optimizeDatabase() {
+        releaseDatabaseConnections();
+        return maintenance.vacuum();
+    }
+
+    public BackupResult createBackup(
+            Path destination,
+            String productVersion
+    ) {
+        releaseDatabaseConnections();
+        return maintenance.createBackup(destination, productVersion);
+    }
+
+    public BackupDescriptor inspectBackup(Path source) {
+        return maintenance.inspectBackup(source);
+    }
+
+    public RestoreResult restoreBackup(Path source) {
+        releaseDatabaseConnections();
+        return maintenance.restoreBackup(source);
     }
 
     public void clearAllData() {

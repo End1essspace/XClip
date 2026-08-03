@@ -26,17 +26,29 @@ import java.util.stream.Collectors;
 
 public final class Database {
 
-    private static final int CURRENT_SCHEMA_VERSION = 6;
+    public static final int CURRENT_SCHEMA_VERSION = 6;
 
     private final Path dbPath;
     private final String jdbcUrl;
+    private final MigrationHook migrationHook;
 
     private final AtomicBoolean initialized = new AtomicBoolean(false);
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
     public Database(Path dbPath) {
-        this.dbPath = dbPath;
+        this(dbPath, (connection, fromVersion, toVersion) -> {});
+    }
+
+    Database(
+            Path dbPath,
+            MigrationHook migrationHook
+    ) {
+        this.dbPath = java.util.Objects.requireNonNull(dbPath, "dbPath");
         this.jdbcUrl = "jdbc:sqlite:" + dbPath.toAbsolutePath();
+        this.migrationHook = java.util.Objects.requireNonNull(
+                migrationHook,
+                "migrationHook"
+        );
     }
 
     public Path dbPath() {
@@ -52,39 +64,90 @@ public final class Database {
      * applies the latest base schema, and migrates existing databases.
      */
     public void init() {
-        if (!initialized.compareAndSet(false, true)) {
-            return; // already initialized
-        }
-
         if (closed.get()) {
-            throw new IllegalStateException("Database is closed and cannot be initialized again.");
+            throw new IllegalStateException(
+                    "Database is closed and cannot be initialized again."
+            );
+        }
+        if (!initialized.compareAndSet(false, true)) {
+            return;
         }
 
+        boolean completed = false;
         try {
-            Files.createDirectories(dbPath.getParent());
-        } catch (Exception e) {
-            throw new RuntimeException(
-                    "Failed to create database directory: " + dbPath.getParent(), e
+            Path parent = dbPath.getParent();
+            if (parent != null) Files.createDirectories(parent);
+
+            try {
+                Class.forName("org.sqlite.JDBC");
+            } catch (ClassNotFoundException ignored) {
+                // Modern JDBC auto-loads the driver.
+            }
+
+            try (Connection connection = DriverManager.getConnection(jdbcUrl)) {
+                SqliteConnectionConfig.configureDatabase(connection);
+                initializeSchema(connection);
+            }
+            completed = true;
+        } catch (Exception error) {
+            throw new RuntimeException("Failed to initialize SQLite database", error);
+        } finally {
+            if (!completed) initialized.set(false);
+        }
+    }
+
+    private void initializeSchema(Connection connection) throws SQLException {
+        int existingVersion = readUserVersion(connection);
+        if (existingVersion > CURRENT_SCHEMA_VERSION) {
+            throw new SQLException(
+                    "Database schema version " + existingVersion
+                            + " is newer than supported version "
+                            + CURRENT_SCHEMA_VERSION
             );
         }
 
-        // Ensure SQLite driver is loaded
+        boolean previousAutoCommit = connection.getAutoCommit();
+        connection.setAutoCommit(false);
+        Throwable primaryFailure = null;
+
         try {
-            Class.forName("org.sqlite.JDBC");
-        } catch (ClassNotFoundException ignored) {
-            // modern JDBC auto-loads; ignore
-        }
-
-        try (Connection c = DriverManager.getConnection(jdbcUrl)) {
-            SqliteConnectionConfig.configureDatabase(c);
-
-            try (Statement st = c.createStatement()) {
-                applyBaseSchema(st);
+            try (Statement statement = connection.createStatement()) {
+                applyBaseSchema(statement);
             }
-            migrateToLatest(c);
+            migrateToLatest(connection, existingVersion);
+            migrationHook.beforeCommit(
+                    connection,
+                    existingVersion,
+                    CURRENT_SCHEMA_VERSION
+            );
+            connection.commit();
+        } catch (Throwable failure) {
+            primaryFailure = failure;
+            try {
+                connection.rollback();
+            } catch (Throwable rollbackFailure) {
+                failure.addSuppressed(rollbackFailure);
+            }
 
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to initialize SQLite database", e);
+            if (failure instanceof SQLException sqlFailure) throw sqlFailure;
+            if (failure instanceof RuntimeException runtime) throw runtime;
+            if (failure instanceof Error error) throw error;
+            throw new SQLException("Database migration failed", failure);
+        } finally {
+            try {
+                connection.setAutoCommit(previousAutoCommit);
+            } catch (Throwable restoreFailure) {
+                if (primaryFailure != null) {
+                    primaryFailure.addSuppressed(restoreFailure);
+                } else if (restoreFailure instanceof SQLException sqlFailure) {
+                    throw sqlFailure;
+                } else {
+                    throw new SQLException(
+                            "Failed to restore database auto-commit",
+                            restoreFailure
+                    );
+                }
+            }
         }
     }
 
@@ -98,158 +161,141 @@ public final class Database {
         }
     }
 
-    private void migrateToLatest(Connection c) throws SQLException {
-        int existingVersion = readUserVersion(c);
-        if (existingVersion > CURRENT_SCHEMA_VERSION) {
-            throw new SQLException(
-                    "Database schema version " + existingVersion
-                            + " is newer than supported version " + CURRENT_SCHEMA_VERSION
-            );
-        }
+    private void migrateToLatest(
+            Connection c,
+            int existingVersion
+    ) throws SQLException {
+        ensureColumn(c, "last_copied_at", "INTEGER NOT NULL DEFAULT 0");
+        ensureColumn(c, "use_count", "INTEGER NOT NULL DEFAULT 1");
+        ensureColumn(c, "title", "TEXT");
+        ensureColumn(c, "pin_order", "INTEGER");
+        ensureColumn(c, "content_exact_hash", "TEXT");
+        ensureColumn(c, "content_exact_ci_hash", "TEXT");
+        ensureColumn(c, "content_norm_ci_hash", "TEXT");
 
-        boolean previousAutoCommit = c.getAutoCommit();
-        c.setAutoCommit(false);
+        try (Statement st = c.createStatement()) {
+            // Existing v1 rows did not have last_copied_at.
+            st.executeUpdate("""
+                    UPDATE clip_entries
+                    SET last_copied_at = created_at
+                    WHERE last_copied_at IS NULL OR last_copied_at <= 0
+                    """);
 
-        try {
-            ensureColumn(c, "last_copied_at", "INTEGER NOT NULL DEFAULT 0");
-            ensureColumn(c, "use_count", "INTEGER NOT NULL DEFAULT 1");
-            ensureColumn(c, "title", "TEXT");
-            ensureColumn(c, "pin_order", "INTEGER");
-            ensureColumn(c, "content_exact_hash", "TEXT");
-            ensureColumn(c, "content_exact_ci_hash", "TEXT");
-            ensureColumn(c, "content_norm_ci_hash", "TEXT");
-
-            try (Statement st = c.createStatement()) {
-                // Existing v1 rows did not have last_copied_at.
+            if (existingVersion < 6) {
+                // Versions through v5 enforced one row per normalized hash.
+                // Keep the best legacy row before removing that uniqueness rule.
                 st.executeUpdate("""
-                        UPDATE clip_entries
-                        SET last_copied_at = created_at
-                        WHERE last_copied_at IS NULL OR last_copied_at <= 0
-                        """);
-
-                if (existingVersion < 6) {
-                    // Versions through v5 enforced one row per normalized hash.
-                    // Keep the best legacy row before removing that uniqueness rule.
-                    st.executeUpdate("""
-                            DELETE FROM clip_entries
-                            WHERE id NOT IN (
-                                SELECT keeper.id
-                                FROM clip_entries AS keeper
-                                WHERE keeper.id = (
-                                    SELECT candidate.id
-                                    FROM clip_entries AS candidate
-                                    WHERE candidate.content_hash = keeper.content_hash
-                                    ORDER BY candidate.is_favorite DESC,
-                                             candidate.last_copied_at DESC,
-                                             candidate.created_at DESC,
-                                             candidate.id DESC
-                                    LIMIT 1
-                                )
+                        DELETE FROM clip_entries
+                        WHERE id NOT IN (
+                            SELECT keeper.id
+                            FROM clip_entries AS keeper
+                            WHERE keeper.id = (
+                                SELECT candidate.id
+                                FROM clip_entries AS candidate
+                                WHERE candidate.content_hash = keeper.content_hash
+                                ORDER BY candidate.is_favorite DESC,
+                                         candidate.last_copied_at DESC,
+                                         candidate.created_at DESC,
+                                         candidate.id DESC
+                                LIMIT 1
                             )
-                            """);
-                }
-
-                if (existingVersion < 4) {
-                    // Preserve the exact pinned order users saw before manual ordering existed:
-                    // newest pinned clip first, then deterministic id fallback.
-                    st.executeUpdate("""
-                            UPDATE clip_entries AS target
-                            SET pin_order = (
-                                SELECT COUNT(*)
-                                FROM clip_entries AS other
-                                WHERE other.is_favorite = 1
-                                  AND (
-                                      other.last_copied_at > target.last_copied_at
-                                      OR (
-                                          other.last_copied_at = target.last_copied_at
-                                          AND other.id > target.id
-                                      )
-                                  )
-                            )
-                            WHERE target.is_favorite = 1
-                            """);
-                    st.executeUpdate("""
-                            UPDATE clip_entries
-                            SET pin_order = NULL
-                            WHERE is_favorite = 0
-                            """);
-                }
-
-                // Remove v5 uniqueness before recalculating hashes. Finite
-                // duplicate windows intentionally permit equal keys in v6.
-                st.execute("DROP INDEX IF EXISTS idx_clip_hash_unique;");
-
-                if (existingVersion < 6 || hasMissingDuplicateHashes(c)) {
-                    backfillDuplicateHashes(c);
-                }
-
-                st.execute("DROP INDEX IF EXISTS idx_clip_hash;");
-                st.execute("DROP INDEX IF EXISTS idx_clip_fav_created;");
-                st.execute("DROP INDEX IF EXISTS idx_clip_fav_last_copied;");
-                st.execute("""
-                        CREATE INDEX IF NOT EXISTS idx_clip_hash
-                        ON clip_entries(content_hash, last_copied_at DESC, id DESC)
-                        """);
-                st.execute("""
-                        CREATE INDEX IF NOT EXISTS idx_clip_exact_hash
-                        ON clip_entries(content_exact_hash, last_copied_at DESC, id DESC)
-                        """);
-                st.execute("""
-                        CREATE INDEX IF NOT EXISTS idx_clip_exact_ci_hash
-                        ON clip_entries(content_exact_ci_hash, last_copied_at DESC, id DESC)
-                        """);
-                st.execute("""
-                        CREATE INDEX IF NOT EXISTS idx_clip_norm_ci_hash
-                        ON clip_entries(content_norm_ci_hash, last_copied_at DESC, id DESC)
-                        """);
-                st.execute("""
-                        CREATE INDEX IF NOT EXISTS idx_clip_pinned_order
-                        ON clip_entries(is_favorite, pin_order, last_copied_at DESC)
-                        """);
-
-                // v5 tag foundation. These statements are intentionally
-                // idempotent because applyBaseSchema also creates them for new DBs.
-                st.execute("""
-                        CREATE TABLE IF NOT EXISTS tags (
-                          id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                          name       TEXT    NOT NULL,
-                          name_norm  TEXT    NOT NULL,
-                          created_at INTEGER NOT NULL,
-                          CONSTRAINT ck_tags_name_length
-                            CHECK (length(name) BETWEEN 1 AND 64),
-                          CONSTRAINT uq_tags_name_norm UNIQUE (name_norm)
                         )
                         """);
-                st.execute("""
-                        CREATE TABLE IF NOT EXISTS clip_tags (
-                          clip_id     INTEGER NOT NULL,
-                          tag_id      INTEGER NOT NULL,
-                          assigned_at INTEGER NOT NULL,
-                          PRIMARY KEY (clip_id, tag_id),
-                          FOREIGN KEY (clip_id)
-                            REFERENCES clip_entries(id) ON DELETE CASCADE,
-                          FOREIGN KEY (tag_id)
-                            REFERENCES tags(id) ON DELETE CASCADE
-                        )
-                        """);
-                st.execute("""
-                        CREATE INDEX IF NOT EXISTS idx_tags_name
-                        ON tags(name COLLATE NOCASE, id)
-                        """);
-                st.execute("""
-                        CREATE INDEX IF NOT EXISTS idx_clip_tags_tag_id
-                        ON clip_tags(tag_id, clip_id)
-                        """);
-
-                st.execute("PRAGMA user_version = " + CURRENT_SCHEMA_VERSION + ";");
             }
 
-            c.commit();
-        } catch (SQLException e) {
-            c.rollback();
-            throw e;
-        } finally {
-            c.setAutoCommit(previousAutoCommit);
+            if (existingVersion < 4) {
+                // Preserve the exact pinned order users saw before manual ordering existed:
+                // newest pinned clip first, then deterministic id fallback.
+                st.executeUpdate("""
+                        UPDATE clip_entries AS target
+                        SET pin_order = (
+                            SELECT COUNT(*)
+                            FROM clip_entries AS other
+                            WHERE other.is_favorite = 1
+                              AND (
+                                  other.last_copied_at > target.last_copied_at
+                                  OR (
+                                      other.last_copied_at = target.last_copied_at
+                                      AND other.id > target.id
+                                  )
+                              )
+                        )
+                        WHERE target.is_favorite = 1
+                        """);
+                st.executeUpdate("""
+                        UPDATE clip_entries
+                        SET pin_order = NULL
+                        WHERE is_favorite = 0
+                        """);
+            }
+
+            // Remove v5 uniqueness before recalculating hashes. Finite
+            // duplicate windows intentionally permit equal keys in v6.
+            st.execute("DROP INDEX IF EXISTS idx_clip_hash_unique;");
+
+            if (existingVersion < 6 || hasMissingDuplicateHashes(c)) {
+                backfillDuplicateHashes(c);
+            }
+
+            st.execute("DROP INDEX IF EXISTS idx_clip_hash;");
+            st.execute("DROP INDEX IF EXISTS idx_clip_fav_created;");
+            st.execute("DROP INDEX IF EXISTS idx_clip_fav_last_copied;");
+            st.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_clip_hash
+                    ON clip_entries(content_hash, last_copied_at DESC, id DESC)
+                    """);
+            st.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_clip_exact_hash
+                    ON clip_entries(content_exact_hash, last_copied_at DESC, id DESC)
+                    """);
+            st.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_clip_exact_ci_hash
+                    ON clip_entries(content_exact_ci_hash, last_copied_at DESC, id DESC)
+                    """);
+            st.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_clip_norm_ci_hash
+                    ON clip_entries(content_norm_ci_hash, last_copied_at DESC, id DESC)
+                    """);
+            st.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_clip_pinned_order
+                    ON clip_entries(is_favorite, pin_order, last_copied_at DESC)
+                    """);
+
+            // v5 tag foundation. These statements are intentionally
+            // idempotent because applyBaseSchema also creates them for new DBs.
+            st.execute("""
+                    CREATE TABLE IF NOT EXISTS tags (
+                      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                      name       TEXT    NOT NULL,
+                      name_norm  TEXT    NOT NULL,
+                      created_at INTEGER NOT NULL,
+                      CONSTRAINT ck_tags_name_length
+                        CHECK (length(name) BETWEEN 1 AND 64),
+                      CONSTRAINT uq_tags_name_norm UNIQUE (name_norm)
+                    )
+                    """);
+            st.execute("""
+                    CREATE TABLE IF NOT EXISTS clip_tags (
+                      clip_id     INTEGER NOT NULL,
+                      tag_id      INTEGER NOT NULL,
+                      assigned_at INTEGER NOT NULL,
+                      PRIMARY KEY (clip_id, tag_id),
+                      FOREIGN KEY (clip_id)
+                        REFERENCES clip_entries(id) ON DELETE CASCADE,
+                      FOREIGN KEY (tag_id)
+                        REFERENCES tags(id) ON DELETE CASCADE
+                    )
+                    """);
+            st.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_tags_name
+                    ON tags(name COLLATE NOCASE, id)
+                    """);
+            st.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_clip_tags_tag_id
+                    ON clip_tags(tag_id, clip_id)
+                    """);
+
+            st.execute("PRAGMA user_version = " + CURRENT_SCHEMA_VERSION + ";");
         }
     }
 
@@ -411,4 +457,15 @@ public final class Database {
             throw new RuntimeException("Failed to load resource: " + path, e);
         }
     }
+
+    @FunctionalInterface
+    interface MigrationHook {
+        void beforeCommit(
+                Connection connection,
+                int fromVersion,
+                int toVersion
+        ) throws Exception;
+    }
+
 }
+

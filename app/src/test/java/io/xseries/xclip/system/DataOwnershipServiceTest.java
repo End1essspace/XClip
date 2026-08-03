@@ -16,7 +16,9 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -61,4 +63,39 @@ class DataOwnershipServiceTest {
             database.close();
         }
     }
+
+    @Test
+    void exclusiveMaintenanceReleasesRegisteredDaoOwners() throws Exception {
+        Path dataDir = tempDir.resolve("maintenance-data");
+        Files.createDirectories(dataDir);
+        Path dbPath = dataDir.resolve("xclip.db");
+        Path configPath = dataDir.resolve("config.json");
+        Path backupPath = tempDir.resolve("maintenance-backup.xclip-backup");
+
+        Database database = new Database(dbPath);
+        database.init();
+        Files.writeString(configPath, "{}");
+
+        AtomicInteger releases = new AtomicInteger();
+        DataOwnershipService service = new DataOwnershipService(
+                database,
+                dataDir,
+                configPath,
+                List.of(releases::incrementAndGet)
+        );
+
+        assertTrue(service.checkpointWal().complete());
+        assertEquals(1, releases.get());
+
+        assertTrue(Files.isRegularFile(
+                service.createBackup(backupPath, "1.3.0").path()
+        ));
+        assertEquals(2, releases.get());
+
+        service.inspectBackup(backupPath);
+        assertEquals(2, releases.get());
+    }
+
 }
+
+
