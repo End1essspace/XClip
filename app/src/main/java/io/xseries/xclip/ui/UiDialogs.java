@@ -2,7 +2,7 @@
 
 /*
  * XClip — Windows Clipboard Manager
- * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
+ * Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)
  * SPDX-License-Identifier: GPL-3.0-only
  */
 package io.xseries.xclip.ui;

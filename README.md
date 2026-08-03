@@ -173,7 +173,7 @@ Current version: **v1.3.0**
 
 👨‍💻 **Author**
 
-**XCON | RX**
+**End1essspace | RX**
 
 Telegram: [@End1essspace](https://t.me/End1essspace)
 
@@ -191,7 +191,7 @@ Selected UI icons are provided by the Lucide project under the ISC License. See 
 
 🧾 **Copyright**
 
-Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
+Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)
 
 ---
 
@@ -369,7 +369,7 @@ gradlew clean packageMsi
 
 👨‍💻 **Автор**
 
-**XCON | RX**
+**End1essspace | RX**
 
 Telegram: [@End1essspace](https://t.me/End1essspace)
 
@@ -387,4 +387,4 @@ XClip распространяется под лицензией GNU General Pub
 
 🧾 **Copyright**
 
-Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
+Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)

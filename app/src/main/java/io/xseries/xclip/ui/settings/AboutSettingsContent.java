@@ -1,6 +1,6 @@
 /*
  * XClip — Windows Clipboard Manager
- * Copyright (C) 2026 Rafael Xudoynazarov (XCON | RX)
+ * Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)
  * SPDX-License-Identifier: GPL-3.0-only
  */
 package io.xseries.xclip.ui.settings;
@@ -13,7 +13,7 @@ import java.util.stream.Collectors;
 /** Stable product metadata used by the Settings About page. */
 public final class AboutSettingsContent {
 
-    public static final String AUTHOR = "XCON | RX";
+    public static final String AUTHOR = "End1essspace | RX";
     public static final String LICENSE = "GNU GPL v3.0";
     public static final String REPOSITORY_URL = "https://github.com/End1essspace/XClip";
     public static final String TELEGRAM_URL = "https://t.me/End1essspace";

@@ -374,7 +374,7 @@ val m6SettingsGate = tasks.register("m6SettingsGate") {
 // Packaging config
 // -------------------------
 val appName = "XClip"
-val vendorName = "XCON X-SERIES"
+val vendorName = "End1essspace X-SERIES"
 val mainClassName = "io.xseries.xclip.XClipApp"
 val iconIco = file("src/main/resources/icons/app.ico")
 
