@@ -1,4 +1,3 @@
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)
@@ -2502,4 +2501,263 @@
 .popup-root .popup-title-bar {
     -fx-border-color: transparent transparent rgba(65, 86, 113, 0.44) transparent;
     -fx-border-width: 0 0 1 0;
+}
+
+/* =========================================================
+   M9.2.8.2 — weighted full-width header hierarchy
+   ========================================================= */
+
+.popup-root .top-bar {
+    -fx-padding: 9 16 9 16;
+}
+
+.popup-root .search-wrap {
+    -fx-min-height: 38px;
+    -fx-pref-height: 38px;
+    -fx-max-height: 38px;
+}
+
+.popup-root .topbar-btn {
+    -fx-min-height: 38px;
+    -fx-pref-height: 38px;
+    -fx-max-height: 38px;
+    -fx-font-size: 12.5px;
+}
+
+.popup-root .pause-button {
+    -fx-min-width: 96px;
+    -fx-pref-width: 96px;
+}
+
+.popup-root .popup-status-group {
+    -fx-min-width: 156px;
+    -fx-pref-width: 156px;
+    -fx-padding: 0 8 0 8;
+    -fx-alignment: center;
+}
+
+.popup-root .topbar-status {
+    -fx-font-size: 12.5px;
+}
+
+.popup-root .clear-history-button {
+    -fx-min-width: 96px;
+    -fx-pref-width: 96px;
+}
+
+.popup-root .topbar-help {
+    -fx-min-width: 92px;
+    -fx-pref-width: 92px;
+}
+
+.popup-root .topbar-settings {
+    -fx-min-width: 116px;
+    -fx-pref-width: 116px;
+}
+
+.popup-root .topbar-labeled-button {
+    -fx-padding: 0 13 0 13;
+}
+
+.popup-root .filter-bar {
+    -fx-padding: 8 16 8 16;
+}
+
+.popup-root .filter-segment {
+    -fx-min-height: 36px;
+    -fx-pref-height: 36px;
+    -fx-max-height: 36px;
+}
+
+.popup-root .filter-toggle {
+    -fx-min-height: 34px;
+    -fx-pref-height: 34px;
+    -fx-max-height: 34px;
+    -fx-font-size: 12.5px;
+    -fx-padding: 6 14 6 14;
+}
+
+.popup-root .filter-type-wrap,
+.popup-root .filter-type-combo,
+.popup-root .filter-tag-wrap,
+.popup-root .filter-tag-combo {
+    -fx-min-height: 36px;
+    -fx-pref-height: 36px;
+    -fx-max-height: 36px;
+    -fx-font-size: 12.5px;
+}
+
+.popup-header.responsive-compact .popup-status-group {
+    -fx-min-width: 0;
+    -fx-pref-width: -1;
+}
+
+.popup-header.responsive-compact .topbar-help,
+.popup-header.responsive-compact .topbar-settings,
+.popup-header.responsive-compact .clear-history-button,
+.popup-header.responsive-compact .pause-button {
+    -fx-min-width: 0;
+    -fx-pref-width: -1;
+}
+
+
+/* =========================================================
+   M9.2.8.3 — balanced filter mirror and header scale
+   ========================================================= */
+
+.popup-root .top-bar {
+    -fx-padding: 10 16 10 16;
+}
+
+.popup-root .search-wrap,
+.popup-root .search-field {
+    -fx-min-height: 40px;
+    -fx-pref-height: 40px;
+    -fx-max-height: 40px;
+}
+
+.popup-root .search-field {
+    -fx-padding: 8 96 8 48;
+    -fx-font-size: 13.5px;
+}
+
+.popup-root .search-leading-icon {
+    -fx-font-size: 18px;
+}
+
+.popup-root .search-shortcut {
+    -fx-font-size: 12px;
+    -fx-padding: 4 9 4 9;
+}
+
+.popup-root .topbar-btn {
+    -fx-min-height: 40px;
+    -fx-pref-height: 40px;
+    -fx-max-height: 40px;
+    -fx-padding: 0 15 0 15;
+    -fx-font-size: 13.5px;
+}
+
+.popup-root .toolbar-glyph {
+    -fx-font-size: 16px;
+}
+
+.popup-root .pause-button {
+    -fx-min-width: 102px;
+    -fx-pref-width: 102px;
+}
+
+.popup-root .popup-status-group {
+    -fx-min-width: 164px;
+    -fx-pref-width: 164px;
+}
+
+.popup-root .topbar-status {
+    -fx-font-size: 13px;
+}
+
+.popup-root .clear-history-button {
+    -fx-min-width: 98px;
+    -fx-pref-width: 98px;
+}
+
+.popup-root .topbar-help {
+    -fx-min-width: 90px;
+    -fx-pref-width: 90px;
+}
+
+.popup-root .topbar-settings {
+    -fx-min-width: 116px;
+    -fx-pref-width: 116px;
+}
+
+.popup-root .topbar-labeled-button {
+    -fx-padding: 0 14 0 14;
+}
+
+.popup-root .filter-bar {
+    -fx-padding: 8 16 10 16;
+}
+
+.popup-root .filter-segment {
+    -fx-min-height: 38px;
+    -fx-pref-height: 38px;
+    -fx-max-height: 38px;
+}
+
+.popup-root .filter-toggle {
+    -fx-min-height: 36px;
+    -fx-pref-height: 36px;
+    -fx-max-height: 36px;
+    -fx-font-size: 13px;
+    -fx-padding: 7 16 7 16;
+}
+
+.popup-root .filter-type-wrap,
+.popup-root .filter-type-combo,
+.popup-root .filter-tag-wrap,
+.popup-root .filter-tag-combo {
+    -fx-min-height: 38px;
+    -fx-pref-height: 38px;
+    -fx-max-height: 38px;
+    -fx-font-size: 13px;
+}
+
+.popup-root .filter-type-combo .list-cell,
+.popup-root .filter-tag-combo .list-cell {
+    -fx-font-size: 13px;
+}
+
+/* =========================================================
+   M9.2.8.4 — header final geometry polish
+   ========================================================= */
+
+/* Search is the flexible center surface; it must reach the status block. */
+.popup-root .search-area,
+.popup-root .search-wrap {
+    -fx-min-width: 0;
+    -fx-pref-width: 0;
+    -fx-max-width: 100000px;
+}
+
+.popup-root .search-field {
+    -fx-font-size: 14px;
+}
+
+.popup-root .topbar-btn {
+    -fx-font-size: 14px;
+}
+
+.popup-root .toolbar-glyph {
+    -fx-font-size: 17px;
+}
+
+.popup-root .topbar-status {
+    -fx-font-size: 13.5px;
+}
+
+.popup-root .filter-toggle,
+.popup-root .filter-type-wrap,
+.popup-root .filter-type-combo,
+.popup-root .filter-tag-wrap,
+.popup-root .filter-tag-combo,
+.popup-root .filter-type-combo .list-cell,
+.popup-root .filter-tag-combo .list-cell {
+    -fx-font-size: 13.5px;
+}
+
+/* Disabled tags remain clearly unavailable without disappearing into the shell. */
+.popup-root .filter-tag-wrap:disabled {
+    -fx-opacity: 1;
+    -fx-background-color: #0C1827;
+    -fx-border-color: #2A3C53;
+}
+
+.popup-root .filter-tag-wrap:disabled .filter-tag-icon {
+    -x-icon-color: #7E93AB;
+}
+
+.popup-root .filter-tag-combo:disabled .list-cell {
+    -fx-opacity: 1;
+    -fx-text-fill: #8FA3BA;
 }

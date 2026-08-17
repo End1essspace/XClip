@@ -1,4 +1,3 @@
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)
@@ -266,6 +265,41 @@ class UiStylesResourceTest {
             assertTrue(css.contains("rgba(65, 86, 113, 0.34)"));
             assertTrue(css.contains(".popup-root .popup-title-bar"));
             assertTrue(css.contains("rgba(65, 86, 113, 0.44)"));
+        }
+    }
+
+    @Test
+    void popupHeaderUsesBalancedMirrorGeometryAndLargerHeaderControls() throws Exception {
+        try (InputStream stream = UiStyles.class.getResourceAsStream("/ui/popup.css")) {
+            assertNotNull(stream);
+            String css = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+
+            assertTrue(css.contains("M9.2.8.3 — balanced filter mirror and header scale"));
+            assertTrue(css.contains(".popup-root .search-wrap,"));
+            assertTrue(css.contains(".popup-root .search-field {\n    -fx-padding: 8 96 8 48;"));
+            assertTrue(css.contains(".popup-root .topbar-help"));
+            assertTrue(css.contains("-fx-pref-width: 90px;"));
+            assertTrue(css.contains(".popup-root .popup-status-group"));
+            assertTrue(css.contains("-fx-pref-width: 164px;"));
+            assertTrue(css.contains(".popup-root .filter-type-wrap,"));
+            assertTrue(css.contains(".popup-root .filter-tag-combo .list-cell"));
+        }
+    }
+
+    @Test
+    void popupHeaderFinalGeometryKeepsSearchFlexibleAndDisabledTagsReadable() throws Exception {
+        try (InputStream stream = UiStyles.class.getResourceAsStream("/ui/popup.css")) {
+            assertNotNull(stream);
+            String css = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+
+            assertTrue(css.contains("M9.2.8.4 — header final geometry polish"));
+            assertTrue(css.contains(".popup-root .search-area,"));
+            assertTrue(css.contains("-fx-max-width: 100000px;"));
+            assertTrue(css.contains("-fx-font-size: 14px;"));
+            assertTrue(css.contains("-fx-font-size: 13.5px;"));
+            assertTrue(css.contains(".popup-root .filter-tag-wrap:disabled"));
+            assertTrue(css.contains("-fx-border-color: #2A3C53;"));
+            assertTrue(css.contains("-fx-text-fill: #8FA3BA;"));
         }
     }
 

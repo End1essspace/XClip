@@ -333,7 +333,7 @@ public final class PopupWindow {
         clearSearchBtn.setVisible(false);
         clearSearchBtn.setManaged(false);
 
-        SvgIcon searchIcon = SvgIcon.of(UiIcon.SEARCH, 16, "search-leading-icon");
+        SvgIcon searchIcon = SvgIcon.of(UiIcon.SEARCH, 18, "search-leading-icon");
         Label searchShortcut = new Label("Ctrl + K");
         searchShortcut.getStyleClass().add("search-shortcut");
         searchShortcut.setMouseTransparent(true);
@@ -397,7 +397,12 @@ public final class PopupWindow {
         });
 
         // Help is a real, scroll-safe popover instead of a long tooltip that can be clipped.
-        Button help = iconButton(UiIcon.CIRCLE_QUESTION_MARK, "Quick help", "topbar-help");
+        Button help = labeledIconButton(
+                UiIcon.CIRCLE_QUESTION_MARK,
+                "Help",
+                "Quick help",
+                "topbar-help"
+        );
         help.addEventFilter(MouseEvent.MOUSE_PRESSED, event -> {
             if (event.getButton() == MouseButton.PRIMARY && quickHelp.isShowing()) {
                 quickHelp.hide();
@@ -407,7 +412,7 @@ public final class PopupWindow {
         help.setOnAction(event -> quickHelp.toggle(help));
 
         Button pauseBtn = new Button("Pause");
-        pauseBtn.setGraphic(SvgIcon.of(UiIcon.PAUSE, 15, "toolbar-icon", "pause-icon"));
+        pauseBtn.setGraphic(SvgIcon.of(UiIcon.PAUSE, 17, "toolbar-icon", "pause-icon"));
         pauseBtn.setContentDisplay(ContentDisplay.LEFT);
         pauseBtn.setFocusTraversable(true);
         pauseBtn.setAccessibleText("Pause clipboard capture");
@@ -416,11 +421,16 @@ public final class PopupWindow {
         pauseBtn.getStyleClass().addAll("topbar-btn", "pause-button");
         this.pauseBtnRef = pauseBtn;
 
-        Button settingsBtn = iconButton(UiIcon.SETTINGS, "Open settings", "topbar-settings");
+        Button settingsBtn = labeledIconButton(
+                UiIcon.SETTINGS,
+                "Settings",
+                "Open settings",
+                "topbar-settings"
+        );
         settingsBtn.setOnAction(e -> openSettings());
 
         Button clearBtn = new Button("Clear");
-        clearBtn.setGraphic(SvgIcon.of(UiIcon.TRASH_2, 15, "toolbar-icon", "clear-icon"));
+        clearBtn.setGraphic(SvgIcon.of(UiIcon.TRASH_2, 17, "toolbar-icon", "clear-icon"));
         clearBtn.setContentDisplay(ContentDisplay.LEFT);
         clearBtn.setFocusTraversable(true);
         clearBtn.setAccessibleText("Clear visible non-pinned clips");
@@ -442,24 +452,37 @@ public final class PopupWindow {
         StackPane.setMargin(clearSearchBtn, new Insets(0, 8, 0, 0));
 
         searchWrap.setMinWidth(0);
-        searchWrap.setPrefWidth(820);
+        searchWrap.setPrefWidth(0);
         searchWrap.setMaxWidth(Double.MAX_VALUE);
 
         VBox searchArea = new VBox(5, searchWrap, searchAssistBar);
         searchArea.setMinWidth(0);
-        searchArea.setPrefWidth(820);
+        searchArea.setPrefWidth(0);
         searchArea.setMaxWidth(Double.MAX_VALUE);
         searchArea.getStyleClass().add("search-area");
         HBox.setHgrow(searchArea, Priority.ALWAYS);
         updateSearchAssist();
 
         HBox statusGroup = new HBox(10, countLabel, selectedLabel);
-        statusGroup.setAlignment(Pos.CENTER_RIGHT);
+        statusGroup.setAlignment(Pos.CENTER);
         statusGroup.getStyleClass().add("popup-status-group");
 
-        HBox controlGroup = new HBox(7, pauseBtn, settingsBtn, help, clearBtn);
-        controlGroup.setAlignment(Pos.CENTER_RIGHT);
-        controlGroup.getStyleClass().add("popup-control-group");
+        HBox headerLeftGroup = new HBox(pauseBtn);
+        headerLeftGroup.setAlignment(Pos.CENTER_LEFT);
+        headerLeftGroup.getStyleClass().add("popup-header-left");
+
+        HBox headerRightGroup = new HBox(
+                10,
+                statusGroup,
+                clearBtn,
+                help,
+                settingsBtn
+        );
+        headerRightGroup.setAlignment(Pos.CENTER_RIGHT);
+        headerRightGroup.getStyleClass().addAll(
+                "popup-header-right",
+                "popup-control-group"
+        );
 
         configureFilterControls();
 
@@ -472,9 +495,9 @@ public final class PopupWindow {
                 resetFiltersBtn
         );
         PopupHeader popupHeader = new PopupHeader(
+                headerLeftGroup,
                 searchArea,
-                statusGroup,
-                controlGroup,
+                headerRightGroup,
                 filterBar
         );
         PopupTitleBar popupTitleBar = new PopupTitleBar(stage, windowChrome);
@@ -1217,14 +1240,20 @@ public final class PopupWindow {
         );
     }
 
-    private Button iconButton(UiIcon icon, String accessibleText, String extraStyleClass) {
-        Button button = new Button();
-        button.setGraphic(SvgIcon.of(icon, 15, "toolbar-icon"));
+    private Button labeledIconButton(
+            UiIcon icon,
+            String label,
+            String accessibleText,
+            String extraStyleClass
+    ) {
+        Button button = new Button(label);
+        button.setGraphic(SvgIcon.of(icon, 17, "toolbar-icon"));
+        button.setContentDisplay(ContentDisplay.LEFT);
         button.setFocusTraversable(true);
         button.setAccessibleText(accessibleText);
         button.setAccessibleHelp(accessibleText + ".");
         button.setTooltip(new Tooltip(accessibleText));
-        button.getStyleClass().addAll("topbar-btn", "topbar-icon-button");
+        button.getStyleClass().addAll("topbar-btn", "topbar-labeled-button");
         if (extraStyleClass != null && !extraStyleClass.isBlank()) {
             button.getStyleClass().add(extraStyleClass);
         }
@@ -1301,7 +1330,7 @@ public final class PopupWindow {
             setFilterState(viewState.scope(), viewState.contentType(), tagId, true);
         });
 
-        resetFiltersBtn.setGraphic(SvgIcon.of(UiIcon.ROTATE_CCW, 13, "filter-icon", "filter-reset-icon"));
+        resetFiltersBtn.setGraphic(SvgIcon.of(UiIcon.ROTATE_CCW, 15, "filter-icon", "filter-reset-icon"));
         resetFiltersBtn.setContentDisplay(ContentDisplay.LEFT);
         resetFiltersBtn.setFocusTraversable(true);
         resetFiltersBtn.setAccessibleText("Reset clipboard filters");
@@ -2975,6 +3004,9 @@ public final class PopupWindow {
         updateSelectionUi();
     }
 }
+
+
+
 
 
 

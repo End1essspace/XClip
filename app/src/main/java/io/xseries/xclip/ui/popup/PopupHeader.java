@@ -1,4 +1,3 @@
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)
@@ -12,40 +11,46 @@ import javafx.scene.Node;
 import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 
 import java.util.Objects;
 
 /**
  * Responsive structural owner of the popup top and filter bars.
+ *
+ * Non-compact layouts use a full-width weighted row:
+ * stable left and right controls keep their usable width while Search owns all
+ * remaining horizontal space. The row therefore remains visually occupied on
+ * FHD/QHD/4K instead of creating large empty anchor zones.
  */
 public final class PopupHeader extends VBox {
 
+    private final Node leftGroup;
     private final Node search;
-    private final Node statusGroup;
-    private final Node controlGroup;
+    private final Node rightGroup;
     private final PopupFilterBar filterBar;
     private final GridPane topBar = new GridPane();
 
     private PopupResponsivePolicy.LayoutMode appliedMode;
 
     public PopupHeader(
+            Node leftGroup,
             Node search,
-            Node statusGroup,
-            Node controlGroup,
+            Node rightGroup,
             PopupFilterBar filterBar
     ) {
+        this.leftGroup = Objects.requireNonNull(leftGroup, "leftGroup");
         this.search = Objects.requireNonNull(search, "search");
-        this.statusGroup = Objects.requireNonNull(statusGroup, "statusGroup");
-        this.controlGroup = Objects.requireNonNull(controlGroup, "controlGroup");
+        this.rightGroup = Objects.requireNonNull(rightGroup, "rightGroup");
         this.filterBar = Objects.requireNonNull(filterBar, "filterBar");
 
         topBar.setAlignment(Pos.CENTER_LEFT);
-        topBar.setHgap(10);
+        topBar.setHgap(12);
         topBar.setVgap(8);
         topBar.setMaxWidth(Double.MAX_VALUE);
         topBar.getStyleClass().add("top-bar");
-        topBar.getChildren().setAll(search, statusGroup, controlGroup);
+        topBar.getChildren().setAll(leftGroup, search, rightGroup);
 
         getChildren().setAll(topBar, filterBar);
         getStyleClass().add("popup-header");
@@ -65,48 +70,67 @@ public final class PopupHeader extends VBox {
         if (mode == appliedMode) return;
         appliedMode = mode;
 
+        PopupLayoutSupport.resetGridConstraints(leftGroup);
         PopupLayoutSupport.resetGridConstraints(search);
-        PopupLayoutSupport.resetGridConstraints(statusGroup);
-        PopupLayoutSupport.resetGridConstraints(controlGroup);
+        PopupLayoutSupport.resetGridConstraints(rightGroup);
         topBar.getColumnConstraints().clear();
 
-        ColumnConstraints flexible = new ColumnConstraints();
-        flexible.setHgrow(Priority.ALWAYS);
-        flexible.setFillWidth(true);
-
-        ColumnConstraints content = new ColumnConstraints();
-        content.setHgrow(Priority.NEVER);
+        if (search instanceof Region searchRegion) {
+            searchRegion.setMinWidth(0);
+            searchRegion.setMaxWidth(Double.MAX_VALUE);
+        }
 
         if (PopupResponsivePolicy.stackHeader(width)) {
-            topBar.getColumnConstraints().setAll(flexible, content, content);
+            ColumnConstraints flexible = new ColumnConstraints();
+            flexible.setHgrow(Priority.ALWAYS);
+            flexible.setFillWidth(true);
+
+            ColumnConstraints right = new ColumnConstraints();
+            right.setHgrow(Priority.NEVER);
+
+            topBar.getColumnConstraints().setAll(flexible, right);
 
             GridPane.setRowIndex(search, 0);
             GridPane.setColumnIndex(search, 0);
-            GridPane.setColumnSpan(search, 3);
+            GridPane.setColumnSpan(search, 2);
             GridPane.setHgrow(search, Priority.ALWAYS);
+            GridPane.setHalignment(search, HPos.CENTER);
 
-            GridPane.setRowIndex(statusGroup, 1);
-            GridPane.setColumnIndex(statusGroup, 0);
-            GridPane.setHalignment(statusGroup, HPos.LEFT);
+            GridPane.setRowIndex(leftGroup, 1);
+            GridPane.setColumnIndex(leftGroup, 0);
+            GridPane.setHalignment(leftGroup, HPos.LEFT);
 
-            GridPane.setRowIndex(controlGroup, 1);
-            GridPane.setColumnIndex(controlGroup, 2);
-            GridPane.setHalignment(controlGroup, HPos.RIGHT);
+            GridPane.setRowIndex(rightGroup, 1);
+            GridPane.setColumnIndex(rightGroup, 1);
+            GridPane.setHalignment(rightGroup, HPos.RIGHT);
         } else {
-            topBar.getColumnConstraints().setAll(flexible, content, content);
+            ColumnConstraints left = new ColumnConstraints();
+            left.setHgrow(Priority.NEVER);
+
+            ColumnConstraints center = new ColumnConstraints();
+            center.setHgrow(Priority.ALWAYS);
+            center.setFillWidth(true);
+
+            ColumnConstraints right = new ColumnConstraints();
+            right.setHgrow(Priority.NEVER);
+
+            topBar.getColumnConstraints().setAll(left, center, right);
+
+            GridPane.setRowIndex(leftGroup, 0);
+            GridPane.setColumnIndex(leftGroup, 0);
+            GridPane.setHalignment(leftGroup, HPos.LEFT);
 
             GridPane.setRowIndex(search, 0);
-            GridPane.setColumnIndex(search, 0);
+            GridPane.setColumnIndex(search, 1);
             GridPane.setHgrow(search, Priority.ALWAYS);
+            GridPane.setHalignment(search, HPos.CENTER);
 
-            GridPane.setRowIndex(statusGroup, 0);
-            GridPane.setColumnIndex(statusGroup, 1);
-            GridPane.setHalignment(statusGroup, HPos.RIGHT);
-
-            GridPane.setRowIndex(controlGroup, 0);
-            GridPane.setColumnIndex(controlGroup, 2);
-            GridPane.setHalignment(controlGroup, HPos.RIGHT);
+            GridPane.setRowIndex(rightGroup, 0);
+            GridPane.setColumnIndex(rightGroup, 2);
+            GridPane.setHalignment(rightGroup, HPos.RIGHT);
         }
+
         PopupLayoutSupport.applyResponsiveClass(this, mode);
     }
 }
+

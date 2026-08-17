@@ -18,6 +18,27 @@ public final class PopupResponsivePolicy {
     public static final double BALANCED_MAX_WIDTH = 1119.0;
     public static final double ROW_TIME_MIN_WIDTH = 700.0;
 
+    /*
+     * The enlarged labeled header needs more room than the old icon-only shell.
+     * Ordinary installations are protected by the 920px functional minimum;
+     * these lower thresholds exist for genuinely constrained logical displays.
+     */
+    public static final double HEADER_STACK_MAX_WIDTH = 879.0;
+    public static final double FILTER_STACK_MAX_WIDTH = 819.0;
+
+    /*
+     * The filter row now mirrors its left and right control masses.
+     * Scope owns one bounded group on the left; the combined type/tag region
+     * matches that width on the right; the remaining monitor width becomes a
+     * single centered breathing track.
+     */
+    public static final double FILTER_GROUP_WIDTH_MIN = 360.0;
+    public static final double FILTER_GROUP_WIDTH_MAX = 480.0;
+    public static final double FILTER_GROUP_WIDTH_FRACTION = 0.31;
+    public static final double FILTER_ROW_HORIZONTAL_PADDING = 32.0;
+    public static final double FILTER_ROW_COLUMN_GAP = 10.0;
+    public static final double FILTER_CONTROL_WIDTH_MIN = 170.0;
+
     public enum LayoutMode {
         COMPACT,
         BALANCED,
@@ -66,15 +87,38 @@ public final class PopupResponsivePolicy {
         };
     }
 
+    public static double mirroredFilterGroupWidth(double width) {
+        if (!Double.isFinite(width) || width <= 0.0) {
+            return FILTER_GROUP_WIDTH_MIN;
+        }
+        double usableWidth = Math.max(0.0, width - FILTER_ROW_HORIZONTAL_PADDING);
+        double candidate = usableWidth * FILTER_GROUP_WIDTH_FRACTION;
+        return clamp(candidate, FILTER_GROUP_WIDTH_MIN, FILTER_GROUP_WIDTH_MAX);
+    }
+
+    public static double mirroredFilterControlWidth(double width) {
+        double candidate = (mirroredFilterGroupWidth(width) - FILTER_ROW_COLUMN_GAP) / 2.0;
+        return Math.max(FILTER_CONTROL_WIDTH_MIN, candidate);
+    }
+
     public static boolean stackHeader(double width) {
-        return layoutMode(width) == LayoutMode.COMPACT;
+        return !Double.isFinite(width)
+                || width <= HEADER_STACK_MAX_WIDTH;
     }
 
     public static boolean stackFilters(double width) {
-        return layoutMode(width) == LayoutMode.COMPACT;
+        return !Double.isFinite(width)
+                || width <= FILTER_STACK_MAX_WIDTH;
+    }
+
+    private static double clamp(double value, double min, double max) {
+        return Math.max(min, Math.min(max, value));
     }
 
     public static boolean stackFooter(double width) {
         return layoutMode(width) == LayoutMode.COMPACT;
     }
 }
+
+
+

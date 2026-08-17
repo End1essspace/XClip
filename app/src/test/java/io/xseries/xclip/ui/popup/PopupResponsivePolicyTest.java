@@ -56,4 +56,36 @@ class PopupResponsivePolicyTest {
                         < PopupResponsivePolicy.rowMetadataWidth(1366)
         );
     }
+
+    @Test
+    void expandedHeaderAndFiltersKeepFunctionalResponsiveThresholds() {
+        assertFalse(PopupResponsivePolicy.stackHeader(920));
+        assertTrue(PopupResponsivePolicy.stackHeader(879));
+        assertFalse(PopupResponsivePolicy.stackFilters(920));
+        assertTrue(PopupResponsivePolicy.stackFilters(819));
+    }
+
+    @Test
+    void mirroredFilterGroupsStayBalancedAndClamped() {
+        assertEquals(360.0, PopupResponsivePolicy.mirroredFilterGroupWidth(920));
+        assertEquals(480.0, PopupResponsivePolicy.mirroredFilterGroupWidth(2560));
+        assertTrue(PopupResponsivePolicy.mirroredFilterGroupWidth(1366) > 360.0);
+        assertTrue(PopupResponsivePolicy.mirroredFilterGroupWidth(1366) < 480.0);
+        assertEquals(
+                PopupResponsivePolicy.mirroredFilterGroupWidth(1366),
+                PopupResponsivePolicy.mirroredFilterControlWidth(1366) * 2.0
+                        + PopupResponsivePolicy.FILTER_ROW_COLUMN_GAP,
+                0.0001
+        );
+    }
+
+    @Test
+    void mirroredFilterGroupUsesProductiveWideCap() {
+        assertEquals(480.0, PopupResponsivePolicy.FILTER_GROUP_WIDTH_MAX);
+        assertEquals(
+                480.0,
+                PopupResponsivePolicy.mirroredFilterGroupWidth(3840)
+        );
+    }
+
 }
