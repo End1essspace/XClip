@@ -1,10 +1,16 @@
 
-# XClip 1.4.0 — Draft Release Notes
+
+# XClip 1.4.0
 
 
-**Status: DRAFT — NOT APPROVED FOR PUBLIC RELEASE**
+**Release date:** 2026-08-17
 
-These notes describe the current implementation baseline. They do not claim that the final MSI, upgrade path, uninstall/reinstall behavior, or all 18 Windows lifecycle cases have passed. Replace this status only after manual validation and final release gates are complete.
+**Validation basis:** post-migration automated tests/build passed; `XClip-1.4.0.msi`
+was built successfully; the installed packaged application passed the release-owner
+smoke check; Gate C was accepted from iterative manual UI validation. The formal
+18-case M8 packaged evidence suite was waived for v1.4.0 and is **not** claimed as
+PASS. Individual unexecuted upgrade/uninstall/reinstall cases are likewise not
+claimed as validated.
 
 ## Highlights
 
@@ -144,22 +150,35 @@ The packaged application includes its Java runtime.
 - Selected Lucide icons: ISC License.
 - See `LICENSE`, `THIRD_PARTY_NOTICES.md`, and packaged license resources.
 
-## Validation still required
+## Release validation
 
-Before these notes can become final:
+Completed/accepted for v1.4.0:
 
-- complete the full manual product checklist;
-- run all automated gates on the release host;
-- build the final MSI;
-- complete all 18 packaged Windows lifecycle cases;
-- validate upgrade, uninstall, and reinstall;
-- verify preserved data and autostart;
-- capture final screenshots;
-- generate checksums;
-- confirm clean clone and clean repository;
-- create and push the release tag;
+- post-migration `clean test` — PASS;
+- full Gradle `build` — PASS;
+- M6/M7/M8 current asset gates — UI contract revision 19;
+- historical R11 gate — 38 cases / 9 screenshots;
+- JAR/runtime/jpackage version — 1.4.0;
+- clean `XClip-1.4.0.msi` build — PASS;
+- installed packaged smoke check — PASS;
+- Gate C manual UI coverage — accepted from iterative validation.
+
+Explicit waiver:
+
+- the formal M8 18-case packaged evidence run was not executed for v1.4.0;
+- no M8 `PASS.txt` is claimed;
+- unexecuted formal upgrade/uninstall/reinstall cases are not represented as PASS.
+
+Publication steps remaining:
+
+- final release commit/push;
+- rebuild the MSI from that release commit;
+- generate SHA-256;
+- create/push tag `v1.4.0`;
 - publish the GitHub Release.
 
-## Known release-documentation constraint
+## Version consistency
 
-The product roadmap, Gradle project version, JAR manifest, jpackage app version, and current machine-readable UI contract are aligned to **v1.4.0**. The historical v1.3.0 R11 contract remains frozen separately. Final MSI validation, checksums, tag, and release artifacts must still be verified before publication.
+Gradle project version, JAR manifest, jpackage app version, MSI filename/version,
+and current machine-readable UI contract are aligned to **v1.4.0** / contract
+revision **19**. Historical v1.3.0 R11 contract assets remain frozen separately.

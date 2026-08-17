@@ -1,4 +1,5 @@
 
+
 # XClip — руководство пользователя
 
 
@@ -325,7 +326,7 @@ Runtime hardening покрывает:
 
 Ожидаемые гарантии: один tray icon, один primary instance, watcher после resume, видимое окно и отсутствие stale Direct Paste target.
 
-Release не считается завершённым, пока реальный MSI не пройдёт 18-case packaged matrix.
+Формальная 18-case packaged matrix остаётся доступной для расширенной Windows lifecycle evidence. Для v1.4.0 release owner waived отдельный полный прогон после успешной clean MSI packaging и installed-app smoke validation; невыполненные кейсы не заявляются как PASS.
 
 ## 17. Локальные файлы
 
@@ -399,13 +400,13 @@ UI contract:   19
 Backup format: 1
 ```
 
-До публичного релиза остаются:
+Текущий статус подготовки v1.4.0:
 
-- полная ручная функциональная проверка;
-- M8 packaged 18-case evidence;
-- clean MSI build и installed-app validation;
-- upgrade/uninstall/reinstall proof;
-- финальные screenshots;
-- checksums;
-- tagged clean commit;
-- final release notes и GitHub Release.
+- automated regression — PASS;
+- Gate C manual UI coverage — принят по итеративным ручным проверкам;
+- clean MSI build — PASS;
+- installed packaged smoke validation — PASS;
+- formal M8 18-case evidence — WAIVED для v1.4.0, не заявляется как PASS;
+- невыполненные formal upgrade/uninstall/reinstall cases — не заявляются как проверенные;
+- финальные screenshots — присутствуют;
+- остаются release commit, свежий MSI checksum, tag и GitHub Release.

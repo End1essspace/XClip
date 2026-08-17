@@ -1,4 +1,5 @@
 
+
 # XClip — User Guide
 
 
@@ -332,7 +333,7 @@ XClip includes runtime recovery for:
 
 Expected guarantees include one tray surface, one primary instance, a restarted watcher after resume, visible window recovery, and no stale Direct Paste target across lifecycle boundaries.
 
-The release is not considered complete until the packaged 18-case matrix is manually validated with a real MSI.
+A formal 18-case packaged lifecycle matrix remains available for extended Windows lifecycle evidence. For v1.4.0, the release owner waived that separate formal run after successful clean MSI packaging and installed-app smoke validation; unexecuted cases are not claimed as PASS.
 
 ## 17. Local files
 
@@ -401,13 +402,13 @@ When XClip is maximized and the vertical scrollbar is visible, the scrollbar thu
 
 The codebase documents application version 1.4.0, config schema 5, SQLite schema 6, UI contract 19, and backup format 1.
 
-Before public release, the project still requires:
+Current v1.4.0 release preparation status:
 
-- full manual functional validation;
-- M8 packaged 18-case evidence;
-- clean MSI build and installed-app validation;
-- upgrade/uninstall/reinstall proof;
-- final screenshots;
-- final checksums;
-- tagged clean commit;
-- final release notes and GitHub Release.
+- automated regression — PASS;
+- Gate C manual UI coverage — accepted from iterative validation;
+- clean MSI build — PASS;
+- installed packaged smoke validation — PASS;
+- formal M8 18-case evidence — WAIVED for v1.4.0; not claimed as PASS;
+- individual unexecuted upgrade/uninstall/reinstall formal cases — not claimed;
+- final screenshots — present;
+- remaining: release commit, fresh MSI checksum, tag, and GitHub Release.

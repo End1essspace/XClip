@@ -1,10 +1,11 @@
 
+
 # Changelog
 
 All notable changes to this project will be documented in this file.
 
 
-## [Unreleased] — v1.4.0 feature expansion, hardening, and release preparation
+## [1.4.0] — 2026-08-17
 
 ### Changed — 2026-08-17 popup polish and Windows edge ergonomics
 
@@ -17,19 +18,21 @@ All notable changes to this project will be documented in this file.
 * Added maximized physical-right-edge scrollbar thumb dragging so the user can acquire the scrollbar at the hard screen edge instead of aiming at a narrow visual strip.
 * Updated the product documentation, current machine-readable UI contract, release notes, and roadmap for the active v1.4.0 development line.
 
-### Validation status — 2026-08-17 UI delta
+### Validation status — 2026-08-17
 
-* Physical top-right Close behavior was manually spot-checked after the fallback change.
-* Physical right-edge scrollbar thumb dragging was manually spot-checked after the fallback change.
-* These spot checks do not replace the final automated regression, installed-MSI, multi-monitor/DPI, or packaged lifecycle release gates.
-
+* Post-migration `clean test --no-daemon` passed.
+* Full `build --no-daemon` passed with M6/M7/M8 assets on UI contract revision 19 and historical R11 regression assets intact.
+* Packaging produced `app-1.4.0.jar`, runtime image `1.4.0`, and `XClip-1.4.0.msi`.
+* The installed packaged application passed the release-owner smoke check.
+* Gate C was accepted from the manual checks performed iteratively throughout the final UI-polish cycle.
+* The formal 18-case M8 packaged evidence suite was waived for v1.4.0; unexecuted cases are not represented as PASS and no `PASS.txt` is claimed.
 
 ### Release status
 
 * Runtime implementation and automated validation assets are present through M8.
-* Final packaged MSI validation, the 18-case Windows lifecycle evidence set, checksums, tag, and public release remain pending manual verification.
-* Documentation synchronization adds English/Russian user guides, a staged manual-validation plan, and draft release notes without claiming final release approval.
-* Aligned Gradle/current JAR-jpackage metadata to v1.4.0 and introduced machine-readable UI contract revision 19 at `ui-contract-v1.4.0.properties`; the historical v1.3.0 R11 contract remains frozen separately.
+* Gradle/JAR/jpackage metadata and machine-readable UI contract revision 19 are aligned to v1.4.0; historical v1.3.0 R11 evidence remains frozen separately.
+* The release candidate has passed automated regression, clean MSI packaging, and installed packaged smoke validation.
+* Remaining publication work is the final release commit, fresh MSI checksum, `v1.4.0` tag, and GitHub Release.
 
 ### Added — Settings, data, scale, and lifecycle
 
@@ -41,14 +44,14 @@ All notable changes to this project will be documented in this file.
 * Added an explicit 1k/10k/50k large-data harness with a 500k-character clip, 1,000 PINNED entries, 256 tags, 2,000 duplicate candidates, 25,000 retention deletions, JavaFX responsiveness evidence, and bounded heap/SQLite budgets.
 * Added acknowledged single-instance activation, explicit unrelated-port failure, Explorer tray/hotkey recovery, sleep/resume and lock/unlock watcher recovery, display/DPI recovery, stale autostart repair, and ordered bounded shutdown.
 * Added M6 Settings, M7 database, M7 large-data, and M8 Windows lifecycle validation assets and gates.
-* Added complete English and Russian user guides, a manual validation plan, and draft release notes.
+* Added complete English and Russian user guides, a manual validation plan, and release notes.
 
 ### Changed — Release documentation
 
 * Updated README to describe Direct Paste, search operators, tags, Settings, database maintenance, backup/restore, Windows lifecycle recovery, local data, and current validation status.
-* Updated the roadmap to separate documentation completion from deferred manual MSI/lifecycle validation and final packaging.
+* Updated the roadmap to record completed automated/MSI validation and the explicit v1.4.0 M8 formal-evidence waiver.
 * Expanded consolidated validation history through M8 while preserving the frozen R10/R11/UI-contract evidence.
-* Marked packaged upgrade, uninstall, reinstall, checksums, screenshots, tag, and GitHub Release as release-gated rather than completed.
+* Kept formal M8 lifecycle evidence available as an optional validation suite without claiming unexecuted upgrade/uninstall/reinstall cases as PASS.
 
 
 ### Added

@@ -1,4 +1,5 @@
 
+
 <p align="center">
   <img src="app/src/main/resources/icons/icon.png" width="96" alt="XClip logo">
 </p>
@@ -22,19 +23,19 @@
 
 # English
 
-Current development version: **v1.4.0**
+Current version: **v1.4.0**
 
 <p align="center">
   <a href="https://github.com/End1essspace/XClip/releases"><strong>Download XClip</strong></a>
   · <a href="docs/USER_GUIDE.md">User guide</a>
-  · <a href="docs/RELEASE_NOTES_v1.4.0_DRAFT.md">Release notes</a>
+  · <a href="docs/RELEASE_NOTES_v1.4.0.md">Release notes</a>
 </p>
 
 <p align="center">
   <img src="docs/screenshots/xclip-popup.png" alt="XClip main popup" width="100%">
 </p>
 
-> **Development status:** XClip **v1.4.0** is the active release line. Gradle, JAR/MSI versioning, and the current machine-readable UI contract are aligned to v1.4.0. The historical R11 v1.3.0 contract remains preserved as frozen evidence. Post-migration automated regression, installed-MSI validation, the packaged 18-case Windows lifecycle evidence set, upgrade/uninstall/reinstall proof, checksums, tag, and public release approval remain open.
+> **Release preparation:** XClip **v1.4.0** is version-aligned across Gradle, JAR/MSI packaging, and UI contract revision 19. Post-migration `clean test` and `build` passed, `XClip-1.4.0.msi` was built successfully, and the installed packaged application passed the release-owner smoke check. Gate C was accepted from the manual checks already performed throughout the final UI-polish cycle. The optional formal 18-case M8 evidence suite was **waived for v1.4.0** and is not claimed as PASS. Remaining publication steps are the final release commit, fresh artifact checksum, `v1.4.0` tag, and GitHub Release.
 
 ## What XClip does
 
@@ -187,7 +188,7 @@ The packaged build uses `jpackage` plus a bundled runtime image.
 | [Validation](docs/VALIDATION.md) | Current regression, manual, packaged, and release gates |
 | [Database & backup](docs/M7_DATABASE_MAINTENANCE.md) | SQLite maintenance, backup, restore, and rollback contract |
 | [Windows lifecycle](docs/M8_WINDOWS_LIFECYCLE.md) | Packaged lifecycle hardening and required evidence |
-| [Draft release notes](docs/RELEASE_NOTES_v1.4.0_DRAFT.md) | Current v1.4.0 release summary |
+| [Draft release notes](docs/RELEASE_NOTES_v1.4.0.md) | Current v1.4.0 release summary |
 
 > Milestone-named M6/M7/M8/R10/R11 documents, CSV matrices, and
 > `UI_CONTRACT_v1.3.0.md` remain in `docs/` as frozen build/release-gate assets.
@@ -196,15 +197,15 @@ The packaged build uses `jpackage` plus a bundled runtime image.
 
 ### README image paths
 
-The README intentionally references these repository assets:
+The README references the packaged application icon and repository screenshots:
 
 ```text
-assets/xclip_app.png
+app/src/main/resources/icons/icon.png
 docs/screenshots/xclip-popup.png
 docs/screenshots/xclip-settings.png
 ```
 
-They are documentation assets only and are not required by the XClip runtime.
+The screenshots are documentation assets only. The icon is also used by the XClip runtime.
 
 ## Author
 
@@ -224,17 +225,17 @@ Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)
 
 # Русский
 
-Текущая версия разработки: **v1.4.0**
+Текущая версия: **v1.4.0**
 
 <p align="center">
   <a href="https://github.com/End1essspace/XClip/releases"><strong>Скачать XClip</strong></a>
   · <a href="docs/USER_GUIDE_RU.md">Руководство</a>
-  · <a href="docs/RELEASE_NOTES_v1.4.0_DRAFT.md">Описание релиза</a>
+  · <a href="docs/RELEASE_NOTES_v1.4.0.md">Описание релиза</a>
 </p>
 
 **XClip** — local-first менеджер буфера обмена для Windows: persistent history, Direct Paste, PINNED, теги, advanced search, privacy/retention и инструменты восстановления данных.
 
-> **Статус разработки:** активная release line — **XClip v1.4.0**. Gradle, JAR/MSI versioning и текущий machine-readable UI contract синхронизированы с v1.4.0. Исторический R11 contract v1.3.0 сохранён отдельно как frozen evidence. До публичного релиза остаются post-migration automated regression, installed-MSI validation, packaged M8 evidence, upgrade/uninstall/reinstall proof, checksums, tag и финальное release approval.
+> **Подготовка релиза:** XClip **v1.4.0** синхронизирован по Gradle, JAR/MSI packaging и UI contract revision 19. Post-migration `clean test` и `build` прошли, `XClip-1.4.0.msi` успешно собран, а установленная packaged-версия прошла smoke check. Gate C принят по ручным проверкам, уже выполненным по ходу финального UI-polish. Формальный M8-набор из 18 кейсов **waived для v1.4.0** и не заявляется как PASS. До публикации остаются final release commit, свежий checksum артефакта, tag `v1.4.0` и GitHub Release.
 
 ## Основные возможности
 
@@ -301,7 +302,7 @@ MSI:
 - [Validation / release gate](docs/VALIDATION.md)
 - [Database & backup](docs/M7_DATABASE_MAINTENANCE.md)
 - [Windows lifecycle](docs/M8_WINDOWS_LIFECYCLE.md)
-- [Draft release notes v1.4.0](docs/RELEASE_NOTES_v1.4.0_DRAFT.md)
+- [Draft release notes v1.4.0](docs/RELEASE_NOTES_v1.4.0.md)
 
 Технические M6/M7/M8/R10/R11 документы, CSV-матрицы и
 `UI_CONTRACT_v1.3.0.md` остаются отдельными frozen build/release-gate assets,

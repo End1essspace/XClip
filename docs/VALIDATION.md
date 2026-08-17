@@ -1,4 +1,5 @@
 
+
 # XClip — Validation and Release Gate
 
 **Development target:** v1.4.0  
@@ -38,15 +39,16 @@ Implemented:
   `X-SERIES` wordmark, Actions-menu readability, maximized top-right Close
   acquisition, and physical-right-edge scrollbar acquisition.
 
-Still required before v1.4.0 release:
+Current v1.4.0 release-validation status:
 
-1. rerun automated regression after the v1.4.0 metadata migration;
-2. confirm JAR/current UI-contract metadata reports v1.4.0 / revision 19;
-3. full manual UI regression;
-4. installed MSI validation;
-5. all 18 M8 packaged lifecycle cases;
-6. upgrade/uninstall/reinstall/data-preservation proof;
-7. final screenshots, checksums, tag, and GitHub Release.
+1. post-migration automated regression — **PASS**;
+2. JAR/current UI-contract metadata v1.4.0 / revision 19 — **PASS**;
+3. Gate C manual UI regression — **accepted from iterative manual validation**;
+4. clean MSI packaging — **PASS**;
+5. installed packaged smoke validation — **PASS**;
+6. formal M8 18-case packaged evidence — **WAIVED for v1.4.0; not executed/not PASS**;
+7. individual upgrade/uninstall/reinstall formal evidence — **not claimed**;
+8. final release commit, fresh MSI checksum, tag, and GitHub Release — **pending**.
 
 ---
 
@@ -374,10 +376,12 @@ scripts/start_m8_windows_lifecycle_validation.ps1
 scripts/validate_m8_windows_lifecycle_evidence.ps1
 ```
 
-Formal M8 closure requires the installed MSI and all 18 cases marked PASS with
-validated evidence.
+Formal M8 evidence closure still requires the installed MSI and all 18 cases
+marked PASS with validated evidence. For v1.4.0, that formal evidence closure was
+explicitly waived by the release owner after successful clean MSI packaging and
+installed-app smoke validation. Therefore no `PASS.txt` or 18/18 claim is made.
 
-The packaged gate must also cover:
+The optional formal packaged suite covers:
 
 - clean install and launch;
 - no external Java requirement;
@@ -406,34 +410,45 @@ The current technical metadata is aligned as follows:
 - historical R11 contract: preserved separately at v1.3.0;
 - JAR manifest and jpackage `--app-version`: derived from `project.version`.
 
-Before this gate is considered closed:
+Gate result: **PASS**.
 
-- rerun `clean test --no-daemon`;
-- rerun `build --no-daemon`;
-- confirm the packaged-resource line points to `app-1.4.0.jar`;
-- commit/push the verified migration;
-- verify MSI metadata/artifact version during packaged Gate D.
+Observed:
+
+- `clean test --no-daemon` -> BUILD SUCCESSFUL;
+- `build --no-daemon` -> BUILD SUCCESSFUL;
+- packaged-resource verification -> `app-1.4.0.jar`;
+- M6/M7/M8 asset gates -> contract revision `19`;
+- historical R11 gate -> 38 cases / 9 screenshots;
+- jpackage -> `--app-version 1.4.0`;
+- MSI -> `XClip-1.4.0.msi`.
 
 ---
 
 ## 12. Final release gate
 
-Release only when all applicable items are true:
+The v1.4.0 validation basis accepted by the release owner is:
 
-- automated tests PASS;
-- build PASS;
-- `git diff --check` PASS;
-- current v1.4.0 manual UI delta PASS;
-- M6/M7/R10/R11 regressions remain green;
-- M7 large-data evidence PASS;
-- all 18 M8 packaged cases PASS;
-- upgrade/uninstall/reinstall proof PASS;
-- README screenshots are final;
-- release notes are final;
-- checksums are generated;
-- version metadata is internally consistent;
-- working tree is clean;
-- release commit and tag are pushed.
+- automated `clean test` PASS;
+- full Gradle `build` PASS;
+- current UI contract revision 19;
+- historical R11 regression assets remain green;
+- Gate C accepted from iterative manual UI validation;
+- clean v1.4.0 MSI packaging PASS;
+- installed packaged smoke check PASS;
+- formal M8 18-case suite waived and not represented as PASS.
 
-Until then, v1.4.0 remains a development/release target rather than a completed
-public release.
+The formal M8 scripts and matrices remain useful for future lifecycle validation,
+but they are not release-blocking for v1.4.0 under this explicit release decision.
+
+Remaining publication checklist:
+
+- `git diff --check`;
+- final release commit/push;
+- rebuild the MSI from the release commit;
+- generate SHA-256 for `XClip-1.4.0.msi`;
+- ensure release notes match the artifact;
+- create and push tag `v1.4.0`;
+- publish the GitHub Release.
+
+Until tag/publication are complete, v1.4.0 is a release candidate rather than a
+published release.

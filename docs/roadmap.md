@@ -1,7 +1,8 @@
 
+
 # XClip — Roadmap
 
-**Статус:** active development roadmap  
+**Статус:** v1.4.0 release candidate / publication stage  
 **Актуализировано:** 2026-08-17  
 **Текущая development/release target:** v1.4.0  
 **Стек:** Java 17, JavaFX 21, SQLite, Gradle, JNA, Windows 10/11  
@@ -11,7 +12,7 @@
 **Backup format:** 1  
 **Основная ветка:** `main`
 
-**Текущая точка:** Gate B pre-migration automated regression прошёл; Gate B.5 metadata migration подготовлен: Gradle/current UI contract/runtime version text переводятся на v1.4.0. Следующий обязательный шаг — повторный `clean test` + `build` после миграции; затем Git gate и полный manual/packaged validation.
+**Текущая точка:** automated regression, v1.4.0 metadata migration, clean MSI packaging и installed packaged smoke check прошли. Gate C принят по уже выполненным итеративным ручным UI-проверкам. Формальный M8 18-case evidence run waived для v1.4.0 и не заявляется как PASS. Остался Gate E: final release commit → fresh MSI/checksum → tag `v1.4.0` → GitHub Release.
 
 ---
 
@@ -65,12 +66,17 @@ XClip — local-first Windows clipboard manager с persistent history, Direct Pa
 | Large-data hardening assets | ✅ Implemented |
 | Windows lifecycle hardening assets | ✅ Implemented |
 | R10/R11 historical regression baseline | ✅ Complete |
-| M9.2 popup polish | ✅ Implemented; fresh release regression pending |
-| Documentation synchronization for v1.4.0 | ✅ Prepared 2026-08-17 |
-| Coordinated 1.4.0 build/UI-contract metadata bump | ⬜ Pending |
-| Installed MSI + M8 18-case evidence | ⬜ Pending |
-| Upgrade/uninstall/reinstall proof | ⬜ Pending |
-| Final screenshots/checksums/tag/release | ⬜ Pending |
+| M9.2 popup polish | ✅ Implemented and manually accepted |
+| Documentation synchronization for v1.4.0 | ✅ Complete |
+| Coordinated 1.4.0 build/UI-contract metadata bump | ✅ Complete |
+| Post-migration clean test/build | ✅ PASS |
+| Clean `XClip-1.4.0.msi` packaging | ✅ PASS |
+| Installed packaged smoke check | ✅ PASS |
+| Gate C dedicated rerun | ✅ Accepted from iterative manual validation |
+| Formal M8 18-case evidence set | ⚪ WAIVED for v1.4.0; not executed/not PASS |
+| Upgrade/uninstall/reinstall formal proof | ⚪ Not claimed; part of waived formal M8 suite |
+| Final screenshots | ✅ Present in repository |
+| Final checksum/tag/GitHub Release | ⬜ Pending |
 
 ---
 
@@ -322,7 +328,7 @@ Explicit validation targets include:
 
 ---
 
-# 9. Windows lifecycle — implementation complete, packaged evidence pending
+# 9. Windows lifecycle — implementation complete; formal packaged evidence waived for v1.4.0
 
 Implemented:
 
@@ -336,7 +342,7 @@ Implemented:
 - ordered/idempotent shutdown;
 - per-user MSI packaging with bundled runtime.
 
-Still required: validated packaged 18-case M8 evidence set.
+For v1.4.0, the release owner waived the separate 18-case packaged evidence run after successful clean MSI packaging and installed-app smoke validation. This is a waiver, not a PASS result; the formal M8 suite remains available for future validation.
 
 ---
 
@@ -344,15 +350,15 @@ Still required: validated packaged 18-case M8 evidence set.
 
 Current documentation is synchronized as of 2026-08-17.
 
-README uses XCC-style product presentation and reserves:
+README uses the packaged application icon and repository screenshots:
 
 ```text
-assets/xclip_app.png
+app/src/main/resources/icons/icon.png
 docs/screenshots/xclip-popup.png
 docs/screenshots/xclip-settings.png
 ```
 
-The actual PNGs are intentionally supplied separately.
+The screenshot assets are present in the repository.
 
 Canonical user/developer docs:
 
@@ -365,7 +371,7 @@ docs/USER_GUIDE_RU.md
 docs/UI_CONTRACT.md
 docs/VALIDATION.md
 docs/M7_DATABASE_MAINTENANCE.md
-docs/RELEASE_NOTES_v1.4.0_DRAFT.md
+docs/RELEASE_NOTES_v1.4.0.md
 ```
 
 Preserved build/release-gate assets:
@@ -391,73 +397,93 @@ documentation entry points.
 
 ---
 
-# 11. Remaining release path
+# 11. Release path status
 
 ## Gate A — documentation review
 
-- review README visual structure and stable docs links;
-- add final logo/screenshots to reserved paths;
-- verify `USER_GUIDE.md` / `USER_GUIDE_RU.md` consistency;
-- verify `roadmap.md`, `UI_CONTRACT.md`, and `VALIDATION.md` agree on the v1.4.0 release line;
-- keep frozen M6/M7/M8/R10/R11 gate assets intact;
-- `git diff --check`.
+Status: ✅ Complete for release preparation.
+
+- stable docs structure is in place;
+- README uses repository-backed image paths;
+- EN/RU guides, roadmap, UI contract, validation, and release notes are synchronized to v1.4.0;
+- frozen M6/M7/M8/R10/R11 assets remain intact.
 
 ## Gate B — automated regression
 
-```powershell
-.\gradlew.bat clean test --no-daemon
-.\gradlew.bat build --no-daemon
+Status: ✅ PASS.
+
+Observed on 2026-08-17:
+
+```text
+clean test --no-daemon -> BUILD SUCCESSFUL
+build --no-daemon      -> BUILD SUCCESSFUL
+M6                      -> contract=19
+M7 Database             -> contract=19
+M7 Large Data assets    -> contract=19
+M8 assets               -> contract=19
+R11                     -> 38 cases / 9 screenshots
 ```
 
-Also run the explicit M7/M8 gates required by the release process.
+## Gate B.5 — coordinated v1.4.0 metadata
 
-## Gate B.5 — coordinated v1.4.0 metadata gate
+Status: ✅ PASS.
 
-Implementation prepared:
+- Gradle project version: `1.4.0`;
+- current machine contract: `ui-contract-v1.4.0.properties`, revision `19`;
+- historical R11 v1.3.0 contract preserved separately;
+- generated JAR: `app-1.4.0.jar`;
+- jpackage app version: `1.4.0`.
 
-- ✅ `app/build.gradle.kts` → `1.4.0`;
-- ✅ current machine-readable contract → `ui-contract-v1.4.0.properties`, revision `19`;
-- ✅ historical R11 v1.3.0 contract retained independently;
-- ✅ `UiContractFreezeTest` and packaged/current milestone gates redirected to the v1.4.0 contract;
-- ✅ current Settings/About version text aligned to v1.4.0;
-- ⬜ rerun `clean test` and `build`;
-- ⬜ confirm generated JAR path reports `app-1.4.0.jar`;
-- ⬜ commit/push this verified metadata migration;
-- ⬜ verify MSI reports `1.4.0` during Gate D.
+## Gate C — manual UI regression
 
-## Gate C — full manual UI regression
+Status: ✅ Accepted from iterative manual validation.
 
-Mandatory new cases:
-
-- QHD 2560×1440 at 125%;
-- centered wordmark;
-- Actions-menu readability;
-- Search Assist overlay geometry;
-- physical top-right Close;
-- restored-window Close safety/cancellation;
-- wide scrollbar hit lane;
-- physical right-edge thumb drag;
-- multi-monitor and system-panel safety.
+A separate redundant rerun was intentionally skipped because the final UI changes
+were checked manually as they were implemented, including the centered branding,
+Actions-menu readability, Search Assist overlay, physical top-right Close,
+restored-window safety, scrollbar hit lane/right-edge drag, empty-state centering,
+footer centering, scaling, maximize/restore, and relevant multi-monitor/system-edge
+safety.
 
 ## Gate D — packaged validation
 
-- clean MSI build;
-- installed launch;
-- no-external-Java host;
-- 18-case M8 lifecycle evidence;
-- upgrade/uninstall/reinstall;
-- data preservation.
+Status: ✅ Accepted for v1.4.0 with an explicit formal-evidence waiver.
+
+Verified:
+
+- clean `XClip-1.4.0.msi` build;
+- bundled runtime image creation/verification;
+- installed packaged application launch;
+- About/version contract check;
+- `Ctrl+Shift+V` popup invocation;
+- clipboard history smoke behavior.
+
+Not claimed:
+
+- the formal M8 `18/18` evidence matrix was not executed;
+- no M8 `PASS.txt` is claimed;
+- individual formal upgrade/uninstall/reinstall lifecycle cases are not claimed as PASS.
+
+Release decision:
+
+- the release owner waived the separate formal 18-case M8 evidence requirement for v1.4.0;
+- M8 scripts/matrix remain available for future formal lifecycle validation.
 
 ## Gate E — release
 
-- final screenshots;
-- checksums;
-- final release notes;
-- clean commit;
-- version/tag consistency;
-- GitHub Release.
+Status: ⬜ In progress.
 
-Release is blocked until all applicable gates are complete.
+Remaining:
+
+1. apply this final release-documentation update;
+2. `git diff --check`;
+3. final release commit and push;
+4. rebuild `XClip-1.4.0.msi` from the release commit;
+5. generate SHA-256;
+6. create/push tag `v1.4.0`;
+7. publish the GitHub Release with final notes and MSI.
+
+No additional M8-001 → M8-018 run is required by the selected v1.4.0 release policy.
 
 ---
 

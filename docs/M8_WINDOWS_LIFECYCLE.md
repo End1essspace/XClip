@@ -1,20 +1,21 @@
 
+
 # XClip M8 — Windows Lifecycle Hardening
 
 > **Version-line status — 2026-08-17:** v1.3.0 is the historical 2026-06-05 release. The active development/release target and Gradle metadata are **v1.4.0**. The current machine-readable UI contract is `ui-contract-v1.4.0.properties` revision 19; the v1.3.0 resource remains frozen only for historical R11 evidence.
 
 
 
-> **Current baseline note — 2026-08-17:** M8 packaged lifecycle evidence is still pending. The new maximized close-corner and right-edge scrollbar fallbacks are popup ergonomics hardening, not substitutes for the required 18-case packaged lifecycle evidence set.
+> **v1.4.0 release decision — 2026-08-17:** clean MSI packaging and installed packaged smoke validation passed. The release owner waived the separate formal 18-case M8 evidence run for v1.4.0. This waiver does not mark unexecuted cases PASS and does not create or imply `PASS.txt`.
 
 Implementation status: runtime hardening and automated assets implemented
-Release status: packaged MSI and 18-case manual evidence pending
-Closure rule: this document does not mark M8 complete until validated `PASS.txt` exists
+Release status: packaged MSI smoke PASS; formal 18-case evidence WAIVED for v1.4.0
+Formal evidence rule: M8 is evidence-complete only when validated `PASS.txt` exists; v1.4.0 does not claim formal evidence completion
 
 Version: 1.4.0
 Config schema: 5
 SQLite schema: 6
-UI contract: 18
+UI contract: 19
 
 ## Purpose
 
@@ -76,8 +77,8 @@ surfaces, and never reuse a stale Direct Paste target after a session boundary.
 - MSI packaging retains the fixed upgrade UUID
   `1322455b-12c4-4363-b896-12cd27ac3e3d` and per-user install mode.
 - User data remains under `%USERPROFILE%\.xclip`, outside the MSI installation
-  directory. Upgrade, uninstall, and reinstall validation must verify this
-  behavior with real packages.
+  directory. Upgrade, uninstall, and reinstall remain part of the optional formal
+  packaged lifecycle suite; v1.4.0 does not claim those unexecuted cases as PASS.
 
 ## Automated gates
 
@@ -97,7 +98,7 @@ The automated gate verifies runtime policy, single-instance acknowledgement,
 autostart command parsing, bounded exit cleanup, frozen contract, packaging
 arguments, and all previous M7/M6/C8 gates.
 
-## Manual packaged evidence
+## Optional formal packaged evidence
 
 Create a fresh evidence directory:
 
@@ -111,14 +112,16 @@ Build the MSI before package scenarios:
 .\gradlew.bat clean packageMsi --no-daemon
 ```
 
-Execute all 18 cases in `results.csv`. Set every `Status` to `PASS` and add a
-short objective note or evidence filename. Validate the completed set:
+To claim formal M8 evidence completion, execute all 18 cases in `results.csv`.
+Set every executed row to `PASS` only after observing the expected packaged-app
+behavior and add a short objective note or evidence filename. Then validate the
+completed set:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\validate_m8_windows_lifecycle_evidence.ps1 -EvidenceDirectory "<evidence-directory>"
 ```
 
-A successful validation creates `PASS.txt` in the evidence directory.
+A successful formal validation creates `PASS.txt` in the evidence directory. No such file is claimed for the v1.4.0 release decision described above.
 
 ## Safety rules
 
