@@ -247,4 +247,21 @@ class UiStylesResourceTest {
         }
     }
 
+    @Test
+    void popupHeaderUsesOnlyQuietStructuralSeparators() throws Exception {
+        try (InputStream stream = UiStyles.class.getResourceAsStream("/ui/popup.css")) {
+            assertNotNull(stream);
+            String css = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+
+            assertTrue(css.contains("M9.2.5 — header separator cleanup"));
+            assertTrue(css.contains(".popup-root .top-bar"));
+            assertTrue(css.contains("-fx-border-color: transparent;"));
+            assertTrue(css.contains("-fx-border-width: 0;"));
+            assertTrue(css.contains(".popup-root .filter-bar"));
+            assertTrue(css.contains("rgba(65, 86, 113, 0.34)"));
+            assertTrue(css.contains(".popup-root .popup-title-bar"));
+            assertTrue(css.contains("rgba(65, 86, 113, 0.44)"));
+        }
+    }
+
 }

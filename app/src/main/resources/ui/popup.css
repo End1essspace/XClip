@@ -2453,3 +2453,25 @@
 .popup-root .clip-list .list-cell:section:selected {
     -fx-padding: 11 16 7 16;
 }
+
+/* =========================================================
+   M9.2.5 — header separator cleanup
+   ========================================================= */
+
+/* Search/header and filter toolbar are one visual control surface. */
+.popup-root .top-bar {
+    -fx-border-color: transparent;
+    -fx-border-width: 0;
+}
+
+/* Keep one quiet structural boundary before the history surface. */
+.popup-root .filter-bar {
+    -fx-border-color: transparent transparent rgba(65, 86, 113, 0.34) transparent;
+    -fx-border-width: 0 0 1 0;
+}
+
+/* Title chrome still needs separation, but not a strong table-like rule. */
+.popup-root .popup-title-bar {
+    -fx-border-color: transparent transparent rgba(65, 86, 113, 0.44) transparent;
+    -fx-border-width: 0 0 1 0;
+}
