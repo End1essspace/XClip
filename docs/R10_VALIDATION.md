@@ -1,7 +1,10 @@
 # XClip R10 — Responsive and Performance Validation
 
+> **Version-line correction — 2026-08-17:** v1.3.0 is the historical release from 2026-06-05. The active development/release target is **v1.4.0**. `app/build.gradle.kts` and the inherited R11 machine-readable resource `ui-contract-v1.3.0.properties` still carry `1.3.0`; synchronizing those artifacts is a required release gate and is not performed by this documentation-only patch.
+
+
 **Milestone:** R10
-**Target version:** 1.3.0
+**Target version:** 1.4.0
 **Platform:** Windows 10/11 x64
 **Java:** 17
 **JavaFX:** 21
@@ -134,3 +137,19 @@ R10 is complete only when:
 - no overlay leaves the active monitor;
 - `git diff --check` passes;
 - the milestone is committed and pushed.
+
+## 8. 2026-08-17 post-freeze responsive addendum
+
+The following checks are mandatory for the current popup baseline even though the original R10 milestone predates them:
+
+- QHD `2560×1440` at `125%` scaling must be visually reviewed, not inferred from another scale;
+- the centered `X-SERIES` wordmark must remain optically centered across restored and maximized layouts;
+- the Actions menu must remain readable without becoming oversized;
+- Search Assist must open as an overlay without permanently increasing header height;
+- in a maximized active window, the exact physical top-right screen corner must highlight/activate Close;
+- in a restored window, no destructive close target may exist outside the real window-control area;
+- the scrollbar must keep a slim visual thumb while offering a wider logical hit lane;
+- in a maximized active window, the physical right edge at the current thumb Y-position must permit normal thumb dragging;
+- neighboring monitors and right-side system UI must not become virtual scrollbar/close targets.
+
+These checks are part of the final release regression and do not retroactively alter historical R10 evidence.

@@ -1,8 +1,9 @@
-# XClip 1.3.0 — руководство пользователя
+# XClip — руководство пользователя
+
 
 Статус: документационная база перед ручной проверкой
 Платформа: Windows 10/11 x64
-Application: 1.3.0
+Development target: v1.4.0
 Config schema: 5
 SQLite schema: 6
 UI contract: 18
@@ -368,12 +369,29 @@ config.bad-<timestamp>.json
 
 Причиной может быть неожиданный состав ZIP, неподдерживаемая schema, invalid config или failed SQLite integrity. Live data при таком отказе не должны заменяться.
 
-## 19. Статус релиза
+## 19. Текущий popup UI и edge ergonomics
+
+В текущем development baseline v1.4.0 добавлен финальный readability/ergonomics pass:
+
+- в центре title bar расположен ненавязчивый `X-SERIES` wordmark;
+- Actions menu использует немного более крупный текст и Lucide icons;
+- Search Assist появляется контекстно как overlay и не увеличивает header постоянно;
+- scrollbar визуально остаётся тонким, но имеет более широкую interactive lane.
+
+### Close в физическом правом верхнем углу
+
+В maximized-окне на Windows курсор можно бросить в самый физический правый верхний угол экрана и закрыть XClip в background без точного наведения на glyph `×`. Дополнительный edge target отключён для restored, hidden, inactive и minimized window.
+
+### Scrollbar на физическом правом краю
+
+Когда XClip maximized и vertical scrollbar виден, thumb можно захватить прямо с физического правого края на его текущей высоте. Эта зона не продолжается на соседний monitor и не перехватывает правую системную panel/taskbar.
+
+## 20. Статус релиза
 
 Документированные версии:
 
 ```text
-Application:   1.3.0
+Application:   1.4.0
 Config schema: 5
 SQLite schema: 6
 UI contract:   18

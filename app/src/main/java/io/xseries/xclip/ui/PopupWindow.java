@@ -34,6 +34,7 @@ import io.xseries.xclip.ui.components.SplitActionButton;
 import io.xseries.xclip.ui.components.SvgIcon;
 import io.xseries.xclip.ui.components.UiIcon;
 import io.xseries.xclip.system.window.WindowChromeController;
+import io.xseries.xclip.system.window.WindowsListScrollEdgeSupport;
 import io.xseries.xclip.system.window.WindowChromeController.WindowBounds;
 import io.xseries.xclip.data.dao.ClipEntryDao;
 import io.xseries.xclip.data.dao.TagDao;
@@ -120,6 +121,7 @@ public final class PopupWindow {
 
     private final Stage stage;
     private final WindowChromeController windowChrome;
+    private final WindowsListScrollEdgeSupport listScrollEdgeSupport;
     private final BorderPane root = new BorderPane();
     private final TextField searchField = new TextField();
     private SearchAssistBar searchAssistBar;
@@ -634,6 +636,14 @@ public final class PopupWindow {
         );
 
         stage.setScene(scene);
+
+        // Fitts-law scroll edge: keep the visual scrollbar slim while making
+        // the maximized physical right edge usable for thumb dragging.
+        listScrollEdgeSupport = WindowsListScrollEdgeSupport.install(
+                stage,
+                listView
+        );
+
         configureKeyboardUx(
                 scene,
                 clearSearchBtn,
@@ -1837,6 +1847,7 @@ public final class PopupWindow {
     }
 
     public void shutdown() {
+        listScrollEdgeSupport.close();
         reloadGate.invalidate();
         if (pendingSearch != null) pendingSearch.cancel(false);
         previewCache.clear();
@@ -3107,6 +3118,7 @@ public final class PopupWindow {
         updateSelectionUi();
     }
 }
+
 
 
 

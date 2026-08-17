@@ -1,16 +1,10 @@
-# XClip UI Contract v1.3.0 — inherited R11 baseline
-
-> **Historical contract bridge:** Gradle's R11 verification currently requires this file and `app/src/main/resources/ui/ui-contract-v1.3.0.properties`. v1.3.0 is already a historical release; the active development line is v1.4.0. Current human-readable behavior, including M9.2 post-freeze deltas, is documented in [UI_CONTRACT.md](UI_CONTRACT.md). Do not delete this file until the build script, machine-readable resource, tests, and version metadata are migrated together.
-
-The content below is retained as inherited R11/reference material.
-
----
+# XClip — UI Contract
 
 
 **Status:** Frozen R11 baseline, deliberately extended by Milestones 2.2–2.4, 3.2–3.3, 4.3, 5.1–5.3, M6.1–M6.5, M7.2–M7.3, and M8
 **Scope:** Popup, custom window chrome, modal surfaces, Settings styling, privacy controls, keyboard workflow, responsive behavior, database maintenance/recovery, large-data validation, Windows lifecycle recovery, and packaged UI resources.
 
-This document is the human-readable counterpart of `/ui/ui-contract-v1.3.0.properties`. Any intentional contract change must update both files and the `UiContractFreezeTest` expectations in the same reviewed milestone.
+This is the current human-readable contract for the v1.4.0 development line. It temporarily inherits the frozen R11 machine-readable baseline `/ui/ui-contract-v1.3.0.properties` until the coordinated v1.4.0 metadata/contract-resource migration is performed. Any intentional contract change must update both files and the `UiContractFreezeTest` expectations in the same reviewed milestone.
 
 **Contract revision:** 18
 **Registered Lucide UI icons:** 30
@@ -368,7 +362,7 @@ ABOUT
 - `APPEARANCE`, `SHORTCUTS`, and `ABOUT` are informational in M6.1. No
   speculative preference is persisted before runtime support exists.
 - Config schema remains `5`, SQLite schema remains `6`, and product version
-  remains `1.3.0`.
+  remains `1.4.0`.
 - Popup layout, Direct Paste, tags, advanced search, duplicate behavior,
   privacy, and retention semantics remain unchanged.
 
@@ -403,7 +397,7 @@ feature semantics.
 - A successful Apply materializes one validated Config snapshot, persists it,
   updates runtime services, then commits a new canonical draft baseline.
 - Config schema remains `5`, SQLite schema remains `6`, and product version
-  remains `1.3.0`.
+  remains `1.4.0`.
 
 
 ## 20. Data, Shortcuts, and About completion — contract revision 14
@@ -413,7 +407,7 @@ pages without changing Config schema 5 or SQLite schema 6.
 
 ### Shortcuts
 
-- The global shortcut is fixed as `Ctrl+Shift+V` for v1.3.0.
+- The global shortcut is fixed as `Ctrl+Shift+V` for v1.4.0.
 - Settings displays the live Windows registration state: not started,
   registering, active, conflict, unavailable, failed, or stopped.
 - Popup shortcut rows are rendered from the same `QuickHelpContent` contract used
@@ -490,7 +484,7 @@ product-page, responsive, and accessibility work.
   - `docs/M6_SETTINGS_VALIDATION.md`
   - `docs/M6_SETTINGS_REGRESSION_MATRIX.csv`
 - Config schema remains `5`, SQLite schema remains `6`, and product version
-  remains `1.3.0`.
+  remains `1.4.0`.
 
 ## 22. Database maintenance and recovery — contract revision 16
 
@@ -548,7 +542,7 @@ config, or SQLite schema versions.
 - Canonical assets:
   - `docs/M7_DATABASE_MAINTENANCE.md`
   - `docs/M7_DATABASE_REGRESSION_MATRIX.csv`
-- Product version remains `1.3.0`, config schema remains `5`, SQLite schema
+- Product version remains `1.4.0`, config schema remains `5`, SQLite schema
   remains `6`, and UI contract revision is `16`.
 
 ## 23. Large-data validation and responsiveness — contract revision 17
@@ -593,7 +587,7 @@ config, or SQLite schema versions.
   - `docs/M7_LARGE_DATA_VALIDATION.md`
   - `docs/M7_LARGE_DATA_MATRIX.csv`
   - `scripts/run_m7_large_data_validation.ps1`
-- Product version remains `1.3.0`, config schema remains `5`, SQLite schema
+- Product version remains `1.4.0`, config schema remains `5`, SQLite schema
   remains `6`, and UI contract revision is `17`.
 
 ## 24. Windows packaged lifecycle — contract revision 18
@@ -643,14 +637,14 @@ config, or SQLite schema versions.
   - `docs/M8_WINDOWS_LIFECYCLE_MATRIX.csv`
   - `scripts/start_m8_windows_lifecycle_validation.ps1`
   - `scripts/validate_m8_windows_lifecycle_evidence.ps1`
-- Product version remains `1.3.0`, config schema remains `5`, SQLite schema
+- Product version remains `1.4.0`, config schema remains `5`, SQLite schema
   remains `6`, and UI contract revision is `18`.
 
 ## 25. M9.2 popup polish addendum — 2026-08-17
 
 **Contract revision remains:** 18
 
-This section is a human-readable clarification of the current v1.3.0 UI tree. It does not bump `/ui/ui-contract-v1.3.0.properties`; any future machine-readable contract revision must update that resource and `UiContractFreezeTest` together.
+This section is a human-readable clarification of the current v1.4.0 UI tree. It does not bump `/ui/ui-contract-v1.3.0.properties`; any future machine-readable contract revision must update that resource and `UiContractFreezeTest` together.
 
 ### Title bar branding
 
@@ -706,4 +700,4 @@ The fallback:
 
 ### Release validation consequence
 
-Historical R11 evidence predates this addendum. Final v1.3.0 release approval therefore requires a fresh responsive/manual regression covering the new title branding, menu readability, Search Assist overlay, Close corner, and scrollbar edge behavior.
+Historical R11 evidence predates this addendum. Final v1.4.0 release approval therefore requires a fresh responsive/manual regression covering the new title branding, menu readability, Search Assist overlay, Close corner, and scrollbar edge behavior.

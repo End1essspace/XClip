@@ -6,6 +6,7 @@
 package io.xseries.xclip.ui.popup;
 
 import io.xseries.xclip.system.window.WindowChromeController;
+import io.xseries.xclip.system.window.WindowsCloseCornerSupport;
 import io.xseries.xclip.ui.components.SvgIcon;
 import io.xseries.xclip.ui.components.UiIcon;
 import javafx.geometry.Pos;
@@ -18,6 +19,7 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
 
 import java.io.InputStream;
@@ -34,11 +36,13 @@ import java.util.Objects;
 public final class PopupTitleBar extends HBox {
 
     private static final double APP_ICON_SIZE = 20.0;
+    private static final double SERIES_WATERMARK_HEIGHT = 12.0;
 
     private final WindowChromeController chrome;
     private final Button minimizeButton;
     private final Button maximizeButton;
     private final Button closeButton;
+    private final WindowsCloseCornerSupport closeCornerSupport;
 
     public PopupTitleBar(Stage stage, WindowChromeController chrome) {
         Objects.requireNonNull(stage, "stage");
@@ -69,13 +73,33 @@ public final class PopupTitleBar extends HBox {
                 "Close to tray",
                 "window-close-button"
         );
-        closeButton.setOnAction(event -> chrome.closeToBackground());
+        closeCornerSupport = WindowsCloseCornerSupport.install(
+                stage,
+                closeButton,
+                chrome::closeToBackground
+        );
+        closeButton.setOnAction(event -> closeCornerSupport.requestClose());
 
         HBox controls = new HBox(minimizeButton, maximizeButton, closeButton);
         controls.setAlignment(Pos.CENTER_RIGHT);
         controls.getStyleClass().add("window-controls");
 
-        getChildren().setAll(dragRegion, controls);
+        HBox titleRow = new HBox(dragRegion, controls);
+        titleRow.setAlignment(Pos.CENTER_LEFT);
+        titleRow.setMaxWidth(Double.MAX_VALUE);
+
+        StackPane titleSurface = new StackPane(titleRow);
+        titleSurface.setAlignment(Pos.CENTER);
+        titleSurface.setMaxWidth(Double.MAX_VALUE);
+        titleSurface.getStyleClass().add("popup-title-surface");
+
+        ImageView seriesWatermark = loadSeriesWatermark();
+        if (seriesWatermark != null) {
+            titleSurface.getChildren().add(seriesWatermark);
+        }
+
+        HBox.setHgrow(titleSurface, Priority.ALWAYS);
+        getChildren().setAll(titleSurface);
 
         stage.maximizedProperty().addListener((observable, oldValue, newValue) ->
                 updateMaximizeButton(newValue)
@@ -153,6 +177,23 @@ public final class PopupTitleBar extends HBox {
         maximizeButton.setTooltip(new Tooltip(label));
     }
 
+    private ImageView loadSeriesWatermark() {
+        try (InputStream stream = PopupTitleBar.class.getResourceAsStream("/icons/x-series.png")) {
+            if (stream == null) return null;
+
+            ImageView view = new ImageView(new Image(stream));
+            view.setFitHeight(SERIES_WATERMARK_HEIGHT);
+            view.setPreserveRatio(true);
+            view.setSmooth(true);
+            view.setMouseTransparent(true);
+            view.setFocusTraversable(false);
+            view.getStyleClass().add("title-series-watermark");
+            return view;
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
     private ImageView loadAppIcon() {
         try (InputStream stream = PopupTitleBar.class.getResourceAsStream("/icons/icon.png")) {
             if (stream == null) return null;
@@ -170,5 +211,4 @@ public final class PopupTitleBar extends HBox {
         }
     }
 }
-
 

@@ -1,6 +1,12 @@
 # XClip M7.2 Database Maintenance Validation
 
-**Application:** XClip v1.3.0
+> **Version-line correction — 2026-08-17:** v1.3.0 is the historical release from 2026-06-05. The active development/release target is **v1.4.0**. `app/build.gradle.kts` and the inherited R11 machine-readable resource `ui-contract-v1.3.0.properties` still carry `1.3.0`; synchronizing those artifacts is a required release gate and is not performed by this documentation-only patch.
+
+
+
+> **Current baseline note — 2026-08-17:** this remains the historical M7.2 database-maintenance contract. Current popup visual/edge-interaction polish does not change the backup format, database schema, restore semantics, or maintenance gates documented here.
+
+**Application:** XClip v1.4.0
 **Database schema:** 6
 **Config schema:** 5
 **UI contract:** revision 16

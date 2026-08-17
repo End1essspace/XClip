@@ -1,8 +1,9 @@
-# XClip 1.3.0 — User Guide
+# XClip — User Guide
+
 
 Status: documentation baseline for manual validation
 Platform: Windows 10/11 x64
-Application: 1.3.0
+Development target: v1.4.0
 Config schema: 5
 SQLite schema: 6
 UI contract: 18
@@ -377,9 +378,27 @@ Trigger the popup again after the display change. XClip should recover fully off
 
 The selected file may have unexpected entries, an unsupported schema, an invalid config, or failed SQLite integrity. XClip refuses replacement before changing live data.
 
-## 19. Current release status
 
-The codebase documents application version 1.3.0, config schema 5, SQLite schema 6, UI contract 18, and backup format 1.
+## 19. Current popup presentation and edge ergonomics
+
+The current v1.4.0 development tree includes a final popup readability/ergonomics pass:
+
+- the title bar carries a subtle centered `X-SERIES` wordmark;
+- the Actions menu uses slightly larger text and Lucide icons for easier scanning;
+- Search Assist appears contextually as a floating overlay instead of permanently making the header taller;
+- the vertical scrollbar keeps a slim visual appearance but has a wider interaction lane.
+
+### Maximized top-right Close
+
+On Windows, when XClip is maximized on a hard screen edge, you can throw the pointer into the exact physical top-right corner and use Close without aiming at the visible `×` glyph. The extra physical-edge behavior is disabled for restored, hidden, inactive, or minimized windows.
+
+### Maximized right-edge scrollbar
+
+When XClip is maximized and the vertical scrollbar is visible, the scrollbar thumb can be acquired from the physical right edge at the thumb's current vertical position. The feature does not extend into a neighboring monitor or a right-side system panel.
+
+## 20. Current release status
+
+The codebase documents application version 1.4.0, config schema 5, SQLite schema 6, UI contract 18, and backup format 1.
 
 Before public release, the project still requires:
 

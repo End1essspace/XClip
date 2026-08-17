@@ -1,6 +1,12 @@
 # XClip M6 Settings Validation
 
-**Product version:** v1.3.0
+> **Version-line correction — 2026-08-17:** v1.3.0 is the historical release from 2026-06-05. The active development/release target is **v1.4.0**. `app/build.gradle.kts` and the inherited R11 machine-readable resource `ui-contract-v1.3.0.properties` still carry `1.3.0`; synchronizing those artifacts is a required release gate and is not performed by this documentation-only patch.
+
+
+
+> **Current baseline note — 2026-08-17:** this remains the historical M6 Settings validation record. The application still declares v1.4.0 / config schema 5 / SQLite schema 6 / UI contract 18. Later M9.2 popup-only polish does not change Settings semantics or invalidate this milestone.
+
+**Product version:** v1.4.0
 **UI contract revision:** 15
 **Milestone:** M6.5 — Responsive, accessibility and regression gate
 

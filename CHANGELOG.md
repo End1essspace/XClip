@@ -3,14 +3,32 @@
 All notable changes to this project will be documented in this file.
 
 
-## [Unreleased] — v1.3.0 feature expansion, hardening, and release preparation
+## [Unreleased] — v1.4.0 feature expansion, hardening, and release preparation
+
+### Changed — 2026-08-17 popup polish and Windows edge ergonomics
+
+* Added a subtle centered `X-SERIES` title-bar wordmark using the packaged `/icons/x-series.png` resource.
+* Increased popup Actions-menu text/icon sizing and spacing without globally enlarging unrelated context menus.
+* Kept search assistance contextual and floating so suggestions/chips do not permanently increase header height.
+* Hardened the maximized top-right Close target with a guarded Windows physical-edge fallback that is active only for a visible, focused, non-iconified, maximized window.
+* Preserved normal close-button semantics: press must begin in the valid corner target and release must remain inside; duplicate close delivery is guarded.
+* Expanded the ListView vertical scrollbar to a wider interaction lane while keeping the visible track/thumb slim.
+* Added maximized physical-right-edge scrollbar thumb dragging so the user can acquire the scrollbar at the hard screen edge instead of aiming at a narrow visual strip.
+* Updated the product documentation, UI contract addendum, manual validation plan, release notes, and roadmap for the active v1.4.0 development line. Gradle version metadata is intentionally listed as a remaining coordinated release gate.
+
+### Validation status — 2026-08-17 UI delta
+
+* Physical top-right Close behavior was manually spot-checked after the fallback change.
+* Physical right-edge scrollbar thumb dragging was manually spot-checked after the fallback change.
+* These spot checks do not replace the final automated regression, installed-MSI, multi-monitor/DPI, or packaged lifecycle release gates.
+
 
 ### Release status
 
 * Runtime implementation and automated validation assets are present through M8.
 * Final packaged MSI validation, the 18-case Windows lifecycle evidence set, checksums, tag, and public release remain pending manual verification.
 * Documentation synchronization adds English/Russian user guides, a staged manual-validation plan, and draft release notes without claiming final release approval.
-* The repository still declares application version `1.3.0`; final tagging must resolve the existing historical `[1.3.0]` changelog entry and keep build metadata, tag, and artifacts consistent.
+* v1.3.0 is the historical 2026-06-05 release. The active development target is v1.4.0. `app/build.gradle.kts` and the inherited R11 machine-readable UI contract still carry `1.3.0`; they must be bumped/realigned together with tests, MSI naming, tag, and release artifacts before the v1.4.0 packaged gate.
 
 ### Added — Settings, data, scale, and lifecycle
 
@@ -119,7 +137,7 @@ All notable changes to this project will be documented in this file.
 
 ### R11 baseline
 
-* Added a versioned machine-readable UI contract for the v1.3.0 popup baseline.
+* Added the machine-readable UI contract that was frozen while repository metadata still declared v1.3.0; this R11 artifact is inherited as historical baseline evidence by the v1.4.0 development line.
 * Added a 38-case R11 regression matrix and a canonical screenshot evidence set.
 * Added PowerShell workflows for automated validation, manual evidence collection, and final evidence verification.
 * Added a Gradle `r11AutomatedGate` and packaged UI contract verification.

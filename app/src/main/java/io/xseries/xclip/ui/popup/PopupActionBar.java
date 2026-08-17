@@ -1,4 +1,3 @@
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)
@@ -162,8 +161,11 @@ public final class PopupActionBar extends GridPane {
             GridPane.setColumnIndex(left, 0);
             GridPane.setHalignment(left, HPos.LEFT);
 
+            // Center status/hints against the complete footer width rather
+            // than the asymmetric space left between the action groups.
             GridPane.setRowIndex(statusLabel, 0);
-            GridPane.setColumnIndex(statusLabel, 1);
+            GridPane.setColumnIndex(statusLabel, 0);
+            GridPane.setColumnSpan(statusLabel, 3);
             GridPane.setHalignment(statusLabel, HPos.CENTER);
             GridPane.setHgrow(statusLabel, Priority.ALWAYS);
 
@@ -217,3 +219,4 @@ public final class PopupActionBar extends GridPane {
         return available >= 520.0 ? FULL_HINTS : COMPACT_HINTS;
     }
 }
+

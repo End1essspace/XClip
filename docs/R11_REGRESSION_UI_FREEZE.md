@@ -1,7 +1,12 @@
+> **Version-line correction — 2026-08-17:** v1.3.0 is the historical release from 2026-06-05. The active development/release target is **v1.4.0**. `app/build.gradle.kts` and the inherited R11 machine-readable resource `ui-contract-v1.3.0.properties` still carry `1.3.0`; synchronizing those artifacts is a required release gate and is not performed by this documentation-only patch.
+
 # XClip R11 — Full Regression and UI Freeze
 
+
+> **Freeze amendment — 2026-08-17:** R11 remains the historical frozen baseline created while repository version metadata still declared `1.3.0`. The active development line is **v1.4.0**, and it contains an explicit M9.2 post-freeze UI-polish delta. That delta is documented in the UI contract addendum and must receive a fresh regression gate before release; historical R11 screenshots/evidence must not be presented as proof of the new edge-interaction behavior.
+
 **Milestone:** R11
-**Target:** freeze the v1.3.0 popup/UI baseline before returning to Tags UI
+**Historical target:** freeze the pre-v1.4.0 popup/UI baseline before returning to Tags UI
 **Platform:** Windows 10/11 x64
 
 ## 1. What R11 freezes

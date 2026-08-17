@@ -599,6 +599,7 @@
 .empty-state {
     -fx-text-fill: -x-text-muted;
     -fx-font-size: 13px;
+    -fx-alignment: center;
     -fx-text-alignment: center;
 }
 
@@ -1640,9 +1641,9 @@
     -fx-min-width: 44px;
     -fx-pref-width: 44px;
     -fx-max-width: 44px;
-    -fx-min-height: 39px;
-    -fx-pref-height: 39px;
-    -fx-max-height: 39px;
+    -fx-min-height: 40px;
+    -fx-pref-height: 40px;
+    -fx-max-height: 40px;
 }
 
 .window-control-icon {
@@ -1860,27 +1861,35 @@
     -fx-font-size: 9.5px;
 }
 
-/* Always discoverable, narrow scrollbar without JavaFX arrow buttons. */
+/*
+ * Fitts-law scrollbar:
+ * - 16px real interaction lane;
+ * - visually slim 5px track/thumb;
+ * - the hit target reaches the ListView's hard right edge.
+ */
 .clip-list .scroll-bar:vertical {
-    -fx-pref-width: 7px;
-    -fx-min-width: 7px;
-    -fx-max-width: 7px;
+    -fx-pref-width: 16px;
+    -fx-min-width: 16px;
+    -fx-max-width: 16px;
     -fx-background-color: transparent;
-    -fx-padding: 2 1 2 0;
-    -fx-opacity: 0.88;
+    -fx-padding: 2 0 2 0;
+    -fx-opacity: 0.92;
 }
 
 .clip-list .scroll-bar:vertical .track {
     -fx-background-color: rgba(255, 255, 255, 0.018);
+    -fx-background-insets: 0 4 0 7;
     -fx-background-radius: 999;
 }
 
 .clip-list .scroll-bar:vertical .thumb {
     -fx-background-color: #30455E;
+    -fx-background-insets: 0 4 0 7;
     -fx-background-radius: 999;
 }
 
-.clip-list .scroll-bar:vertical .thumb:hover {
+.clip-list .scroll-bar:vertical .thumb:hover,
+.clip-list .scroll-bar:vertical:edge-drag .thumb {
     -fx-background-color: #46617F;
 }
 
@@ -3027,4 +3036,57 @@
 .search-suggestion {
     -fx-effect: null;
 }
+
+/* X-SERIES branding: centered watermark in the custom title bar. */
+.popup-root .title-series-watermark {
+    -fx-opacity: 0.22;
+}
+
+/* =========================================================
+   Popup actions menu — readability polish
+   ========================================================= */
+
+/*
+ * Keep this density adjustment local to the clip actions menu. Other
+ * ContextMenu surfaces retain their existing compact geometry.
+ */
+.context-menu.popup-actions-menu {
+    -fx-padding: 4;
+}
+
+.context-menu.popup-actions-menu .menu-item {
+    -fx-padding: 6 12 6 12;
+}
+
+.context-menu.popup-actions-menu .menu-item .label {
+    -fx-font-size: 12.5px;
+}
+
+/* =========================================================
+   Fitts-law physical top-edge fallback
+   ========================================================= */
+
+/*
+ * JavaFX can lose the exact maximized top-row hit to the native Windows
+ * non-client edge. These pseudo-classes mirror the ordinary close-button
+ * hover/pressed feedback while the guarded corner fallback owns that row.
+ */
+.popup-root .window-close-button:corner-hover {
+    -fx-background-color: #C42B1C;
+    -fx-text-fill: white;
+}
+
+.popup-root .window-close-button:corner-hover .window-control-icon {
+    -x-icon-color: #FFFFFF;
+}
+
+.popup-root .window-close-button:corner-pressed {
+    -fx-background-color: #A5261A;
+    -fx-text-fill: white;
+}
+
+.popup-root .window-close-button:corner-pressed .window-control-icon {
+    -x-icon-color: #FFFFFF;
+}
+
 

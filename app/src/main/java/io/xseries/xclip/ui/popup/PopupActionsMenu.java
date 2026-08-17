@@ -25,6 +25,8 @@ import java.util.Objects;
  */
 public final class PopupActionsMenu {
 
+    private static final double MENU_ICON_SIZE = 14.0;
+
     public interface Actions {
         void paste();
         void copy();
@@ -56,7 +58,7 @@ public final class PopupActionsMenu {
     private final MenuItem clearTitleItem = item("Clear title", UiIcon.X);
     private final Menu movePinnedMenu = new Menu(
             "Move pinned clip",
-            SvgIcon.of(UiIcon.LIST, 13, "menu-item-icon")
+            SvgIcon.of(UiIcon.LIST, MENU_ICON_SIZE, "menu-item-icon")
     );
     private final MenuItem moveUpItem = new MenuItem("Move up");
     private final MenuItem moveDownItem = new MenuItem("Move down");
@@ -67,6 +69,7 @@ public final class PopupActionsMenu {
     public PopupActionsMenu(Actions actions) {
         this.actions = Objects.requireNonNull(actions, "actions");
 
+        contextMenu.getStyleClass().add("popup-actions-menu");
         contextMenu.setAutoHide(true);
         contextMenu.setHideOnEscape(true);
         contextMenu.setConsumeAutoHidingEvents(false);
@@ -162,14 +165,14 @@ public final class PopupActionsMenu {
                 ? primaryAction.label()
                 : "Type action");
         typeActionItem.setGraphic(typeActionAvailable
-                ? SvgIcon.of(iconFor(primaryAction), 13, "menu-item-icon", "menu-type-icon")
+                ? SvgIcon.of(iconFor(primaryAction), MENU_ICON_SIZE, "menu-item-icon", "menu-type-icon")
                 : null);
 
         boolean shouldPin = !hasSelection || safeSelection.stream().anyMatch(entry -> !entry.favorite());
         pinItem.setText(shouldPin ? "Pin selected" : "Unpin selected");
         pinItem.setGraphic(SvgIcon.of(
                 shouldPin ? UiIcon.PIN : UiIcon.PIN_OFF,
-                13,
+                MENU_ICON_SIZE,
                 "menu-item-icon",
                 shouldPin ? "menu-pin-icon" : "menu-unpin-icon"
         ));
@@ -204,7 +207,7 @@ public final class PopupActionsMenu {
     private static MenuItem item(String text, UiIcon icon) {
         return new MenuItem(
                 text,
-                SvgIcon.of(icon, 13, "menu-item-icon")
+                SvgIcon.of(icon, MENU_ICON_SIZE, "menu-item-icon")
         );
     }
 
@@ -219,7 +222,3 @@ public final class PopupActionsMenu {
         };
     }
 }
-
-
-
-
