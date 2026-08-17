@@ -1,4 +1,5 @@
-> **Version-line correction — 2026-08-17:** v1.3.0 is the historical release from 2026-06-05. The active development/release target is **v1.4.0**. `app/build.gradle.kts` and the inherited R11 machine-readable resource `ui-contract-v1.3.0.properties` still carry `1.3.0`; synchronizing those artifacts is a required release gate and is not performed by this documentation-only patch.
+
+> **Version-line status — 2026-08-17:** R11 remains historical v1.3.0 evidence. The active product/build line is v1.4.0 with a separate current machine-readable contract `ui-contract-v1.4.0.properties` revision 19. The R11 v1.3.0 resource is intentionally preserved unchanged.
 
 # XClip R11 — Full Regression and UI Freeze
 

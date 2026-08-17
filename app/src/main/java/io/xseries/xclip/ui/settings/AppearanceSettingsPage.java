@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)
@@ -21,7 +22,7 @@ public final class AppearanceSettingsPage {
     public static ScrollPane create() {
         VBox section = informationSection(
                 "Current appearance",
-                "The v1.3.0 interface uses the frozen XClip dark theme.",
+                "The v1.4.0 interface uses the XClip dark theme.",
                 List.of(
                         infoRow("Theme", "Dark"),
                         infoRow("Interface stack", "Programmatic JavaFX 21"),

@@ -1,3 +1,4 @@
+
 # XClip — Roadmap
 
 **Статус:** active development roadmap  
@@ -6,11 +7,11 @@
 **Стек:** Java 17, JavaFX 21, SQLite, Gradle, JNA, Windows 10/11  
 **SQLite schema:** 6  
 **Config schema:** 5  
-**UI contract:** 18  
+**UI contract:** 19  
 **Backup format:** 1  
 **Основная ветка:** `main`
 
-**Текущая точка:** XClip v1.4.0 / M9.2 post-freeze popup polish реализован и локально spot-checked; документация исправлена на v1.4.0; следующий обязательный этап — automated regression, затем coordinated version-metadata bump и full manual/packaged release validation.
+**Текущая точка:** Gate B pre-migration automated regression прошёл; Gate B.5 metadata migration подготовлен: Gradle/current UI contract/runtime version text переводятся на v1.4.0. Следующий обязательный шаг — повторный `clean test` + `build` после миграции; затем Git gate и полный manual/packaged validation.
 
 ---
 
@@ -19,10 +20,10 @@
 
 - **v1.3.0** is the historical release dated 2026-06-05.
 - **v1.4.0** is the active development/release target for the feature expansion and hardening cycle documented here.
-- `app/build.gradle.kts` still declares `1.3.0`.
-- the inherited R11 machine-readable UI contract is still named `ui-contract-v1.3.0.properties` and reports the old product version.
-- those build/resource values are **pending technical metadata migration**, not evidence that the roadmap is still v1.3.0.
-- before packaged v1.4.0 validation, update Gradle version, machine-readable contract versioning/test expectations, MSI metadata/artifact naming, release notes, checksums, and tag as one coordinated gate.
+- `app/build.gradle.kts` declares `1.4.0`.
+- the current machine-readable contract is `ui-contract-v1.4.0.properties`, revision `19`.
+- the old `ui-contract-v1.3.0.properties` and `UI_CONTRACT_v1.3.0.md` remain frozen only for historical R11 evidence.
+- JAR and jpackage MSI versioning are derived from `project.version`, so successful post-migration packaging must report `1.4.0`.
 
 ---
 
@@ -412,11 +413,17 @@ Also run the explicit M7/M8 gates required by the release process.
 
 ## Gate B.5 — coordinated v1.4.0 metadata gate
 
-- bump `app/build.gradle.kts` from `1.3.0` to `1.4.0`;
-- migrate or deliberately version the inherited machine-readable R11 UI-contract resource;
-- update contract/test expectations atomically;
-- verify JAR/MSI version and artifact names report `1.4.0`;
-- rerun automated gates after the bump.
+Implementation prepared:
+
+- ✅ `app/build.gradle.kts` → `1.4.0`;
+- ✅ current machine-readable contract → `ui-contract-v1.4.0.properties`, revision `19`;
+- ✅ historical R11 v1.3.0 contract retained independently;
+- ✅ `UiContractFreezeTest` and packaged/current milestone gates redirected to the v1.4.0 contract;
+- ✅ current Settings/About version text aligned to v1.4.0;
+- ⬜ rerun `clean test` and `build`;
+- ⬜ confirm generated JAR path reports `app-1.4.0.jar`;
+- ⬜ commit/push this verified metadata migration;
+- ⬜ verify MSI reports `1.4.0` during Gate D.
 
 ## Gate C — full manual UI regression
 

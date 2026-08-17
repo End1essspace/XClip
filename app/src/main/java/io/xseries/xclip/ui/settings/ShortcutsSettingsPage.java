@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)
@@ -49,7 +50,7 @@ public final class ShortcutsSettingsPage {
         statusRow.getStyleClass().add("settings-info-row");
 
         Label fixedContract = new Label(
-                "The global shortcut is fixed in v1.3.0. Rebinding is not available yet."
+                "The global shortcut is fixed in v1.4.0. Rebinding is not available yet."
         );
         fixedContract.setWrapText(true);
         fixedContract.getStyleClass().add("settings-inline-note");

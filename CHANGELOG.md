@@ -1,3 +1,4 @@
+
 # Changelog
 
 All notable changes to this project will be documented in this file.
@@ -14,7 +15,7 @@ All notable changes to this project will be documented in this file.
 * Preserved normal close-button semantics: press must begin in the valid corner target and release must remain inside; duplicate close delivery is guarded.
 * Expanded the ListView vertical scrollbar to a wider interaction lane while keeping the visible track/thumb slim.
 * Added maximized physical-right-edge scrollbar thumb dragging so the user can acquire the scrollbar at the hard screen edge instead of aiming at a narrow visual strip.
-* Updated the product documentation, UI contract addendum, manual validation plan, release notes, and roadmap for the active v1.4.0 development line. Gradle version metadata is intentionally listed as a remaining coordinated release gate.
+* Updated the product documentation, current machine-readable UI contract, release notes, and roadmap for the active v1.4.0 development line.
 
 ### Validation status — 2026-08-17 UI delta
 
@@ -28,7 +29,7 @@ All notable changes to this project will be documented in this file.
 * Runtime implementation and automated validation assets are present through M8.
 * Final packaged MSI validation, the 18-case Windows lifecycle evidence set, checksums, tag, and public release remain pending manual verification.
 * Documentation synchronization adds English/Russian user guides, a staged manual-validation plan, and draft release notes without claiming final release approval.
-* v1.3.0 is the historical 2026-06-05 release. The active development target is v1.4.0. `app/build.gradle.kts` and the inherited R11 machine-readable UI contract still carry `1.3.0`; they must be bumped/realigned together with tests, MSI naming, tag, and release artifacts before the v1.4.0 packaged gate.
+* Aligned Gradle/current JAR-jpackage metadata to v1.4.0 and introduced machine-readable UI contract revision 19 at `ui-contract-v1.4.0.properties`; the historical v1.3.0 R11 contract remains frozen separately.
 
 ### Added — Settings, data, scale, and lifecycle
 

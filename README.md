@@ -1,3 +1,4 @@
+
 <p align="center">
   <img src="assets/xclip_app.png" width="96" alt="XClip logo">
 </p>
@@ -33,7 +34,7 @@ Current development version: **v1.4.0**
   <img src="docs/screenshots/xclip-popup.png" alt="XClip main popup" width="100%">
 </p>
 
-> **Development status:** XClip **v1.4.0** is the active release line. The repository still carries `1.3.0` in Gradle and in the inherited R11 machine-readable UI-contract filename; those are pending coordinated version-metadata gates, not the product roadmap version. Final automated regression, installed-MSI validation, the packaged 18-case Windows lifecycle evidence set, upgrade/uninstall/reinstall proof, checksums, tag, and public release approval remain open.
+> **Development status:** XClip **v1.4.0** is the active release line. Gradle, JAR/MSI versioning, and the current machine-readable UI contract are aligned to v1.4.0. The historical R11 v1.3.0 contract remains preserved as frozen evidence. Post-migration automated regression, installed-MSI validation, the packaged 18-case Windows lifecycle evidence set, upgrade/uninstall/reinstall proof, checksums, tag, and public release approval remain open.
 
 ## What XClip does
 
@@ -233,7 +234,7 @@ Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)
 
 **XClip** — local-first менеджер буфера обмена для Windows: persistent history, Direct Paste, PINNED, теги, advanced search, privacy/retention и инструменты восстановления данных.
 
-> **Статус разработки:** активная release line — **XClip v1.4.0**. В Gradle и в имени унаследованного R11 machine-readable UI contract пока остаётся `1.3.0`; это незакрытый coordinated version-metadata gate, а не текущая версия roadmap. До публичного релиза остаются automated regression, installed-MSI validation, packaged M8 evidence, upgrade/uninstall/reinstall proof, checksums, tag и финальное release approval.
+> **Статус разработки:** активная release line — **XClip v1.4.0**. Gradle, JAR/MSI versioning и текущий machine-readable UI contract синхронизированы с v1.4.0. Исторический R11 contract v1.3.0 сохранён отдельно как frozen evidence. До публичного релиза остаются post-migration automated regression, installed-MSI validation, packaged M8 evidence, upgrade/uninstall/reinstall proof, checksums, tag и финальное release approval.
 
 ## Основные возможности
 

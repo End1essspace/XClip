@@ -1,10 +1,11 @@
+
 # XClip — Validation and Release Gate
 
 **Development target:** v1.4.0  
 **Platform:** Windows 10/11 x64  
 **Config schema:** 5  
 **SQLite schema:** 6  
-**UI contract:** 18  
+**UI contract:** 19  
 **Backup format:** 1  
 **Updated:** 2026-08-17
 
@@ -39,8 +40,8 @@ Implemented:
 
 Still required before v1.4.0 release:
 
-1. complete automated regression;
-2. coordinated v1.4.0 build/UI-contract metadata migration;
+1. rerun automated regression after the v1.4.0 metadata migration;
+2. confirm JAR/current UI-contract metadata reports v1.4.0 / revision 19;
 3. full manual UI regression;
 4. installed MSI validation;
 5. all 18 M8 packaged lifecycle cases;
@@ -163,7 +164,8 @@ These files intentionally remain separate:
 | Windows lifecycle | `M8_WINDOWS_LIFECYCLE.md`, `M8_WINDOWS_LIFECYCLE_MATRIX.csv` |
 | Responsive/performance | `R10_VALIDATION.md` |
 | Frozen regression | `R11_REGRESSION_UI_FREEZE.md`, `R11_REGRESSION_MATRIX.csv`, `R11_SCREENSHOT_SET.csv` |
-| Inherited machine UI contract | `UI_CONTRACT_v1.3.0.md` + `app/src/main/resources/ui/ui-contract-v1.3.0.properties` |
+| Current machine UI contract | `UI_CONTRACT.md` + `app/src/main/resources/ui/ui-contract-v1.4.0.properties` |
+| Historical R11 machine contract | `UI_CONTRACT_v1.3.0.md` + `app/src/main/resources/ui/ui-contract-v1.3.0.properties` |
 
 The R11/contract paths must not be renamed or removed casually: the current build
 uses them as frozen verification inputs. The clean current human-readable UI
@@ -396,17 +398,21 @@ The packaged gate must also cover:
 
 ## 11. Coordinated v1.4.0 metadata gate
 
-The roadmap/release line is v1.4.0, but current technical metadata still includes
-the inherited v1.3.0 values.
+The current technical metadata is aligned as follows:
 
-Before final packaged validation:
+- Gradle project version: `1.4.0`;
+- current machine-readable UI contract: `ui-contract-v1.4.0.properties`;
+- current UI contract revision: `19`;
+- historical R11 contract: preserved separately at v1.3.0;
+- JAR manifest and jpackage `--app-version`: derived from `project.version`.
 
-- bump `app/build.gradle.kts` to `1.4.0`;
-- migrate/version the machine-readable UI contract deliberately;
-- update `UiContractFreezeTest` and build expectations atomically;
-- verify JAR/MSI metadata and artifact naming;
-- rerun automated gates after the bump;
-- keep release notes, checksums, and Git tag consistent.
+Before this gate is considered closed:
+
+- rerun `clean test --no-daemon`;
+- rerun `build --no-daemon`;
+- confirm the packaged-resource line points to `app-1.4.0.jar`;
+- commit/push the verified migration;
+- verify MSI metadata/artifact version during packaged Gate D.
 
 ---
 

@@ -1,3 +1,4 @@
+
 # XClip — руководство пользователя
 
 
@@ -6,7 +7,7 @@
 Development target: v1.4.0
 Config schema: 5
 SQLite schema: 6
-UI contract: 18
+UI contract: 19
 
 ## 1. Назначение
 
@@ -394,7 +395,7 @@ config.bad-<timestamp>.json
 Application:   1.4.0
 Config schema: 5
 SQLite schema: 6
-UI contract:   18
+UI contract:   19
 Backup format: 1
 ```
 

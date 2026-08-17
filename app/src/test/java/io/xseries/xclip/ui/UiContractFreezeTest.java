@@ -1,4 +1,5 @@
 
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)
@@ -47,14 +48,14 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 class UiContractFreezeTest {
 
-    private static final String CONTRACT_RESOURCE = "/ui/ui-contract-v1.3.0.properties";
+    private static final String CONTRACT_RESOURCE = "/ui/ui-contract-v1.4.0.properties";
 
     @Test
     void frozenContractMatchesRuntimeConstantsAndEnums() throws Exception {
         Properties contract = loadContract();
 
-        assertEquals("18", contract.getProperty("contract.version"));
-        assertEquals("1.3.0", contract.getProperty("product.version"));
+        assertEquals("19", contract.getProperty("contract.version"));
+        assertEquals("1.4.0", contract.getProperty("product.version"));
         assertEquals(Config.MIN_WINDOW_W, intValue(contract, "window.minWidth"));
         assertEquals(Config.MIN_WINDOW_H, intValue(contract, "window.minHeight"));
         assertEquals(
@@ -159,7 +160,7 @@ class UiContractFreezeTest {
         );
         assertEquals("DAO_STABLE", required(contract, "search.ordering"));
         assertEquals("GENERATION", required(contract, "search.staleResultGate"));
-        assertEquals("INLINE_ASSIST", required(contract, "search.ui"));
+        assertEquals("FLOATING_ASSIST_OVERLAY", required(contract, "search.ui"));
         assertEquals(
                 "FOCUS_OR_ACTIVE_QUERY",
                 required(contract, "search.syntaxHint")
@@ -177,7 +178,7 @@ class UiContractFreezeTest {
                 intValue(contract, "search.maxSuggestions")
         );
         assertEquals(
-                "INLINE_NON_BLOCKING",
+                "OVERLAY_NON_BLOCKING",
                 required(contract, "search.errorDisplay")
         );
         assertEquals(
@@ -187,6 +188,31 @@ class UiContractFreezeTest {
         assertEquals(
                 "DEFERRED_OPTIONAL",
                 required(contract, "search.savedQueries")
+        );
+        assertEquals(
+                "X_SERIES_CENTERED_MOUSE_TRANSPARENT",
+                required(contract, "popup.titleBranding")
+        );
+        assertEquals(
+                "SCOPED_LARGER_TEXT_AND_ICONS",
+                required(contract, "popup.actionsMenuReadability")
+        );
+        assertEquals(
+                "PHYSICAL_TOP_RIGHT_GUARDED",
+                required(contract, "popup.maximizedCloseEdge")
+        );
+        assertEquals(
+                "SLIM_VISUAL_WIDE_HIT_LANE",
+                required(contract, "popup.scrollbarInteraction")
+        );
+        assertEquals(
+                "PHYSICAL_RIGHT_THUMB_DRAG_GUARDED",
+                required(contract, "popup.maximizedScrollbarEdge")
+        );
+        assertEquals("TRUE_CENTER", required(contract, "popup.emptyStateAlignment"));
+        assertEquals(
+                "FULL_WIDTH_CENTER",
+                required(contract, "popup.footerStatusAlignment")
         );
         assertEquals(
                 "DEDICATED",
@@ -695,7 +721,7 @@ class UiContractFreezeTest {
             assertNotNull(stream, "Missing frozen UI contract resource");
             Properties contract = new Properties();
             contract.load(stream);
-            assertEquals("1.3.0", contract.getProperty("product.version"));
+            assertEquals("1.4.0", contract.getProperty("product.version"));
         }
     }
 

@@ -1,3 +1,4 @@
+
 # XClip — User Guide
 
 
@@ -6,7 +7,7 @@ Platform: Windows 10/11 x64
 Development target: v1.4.0
 Config schema: 5
 SQLite schema: 6
-UI contract: 18
+UI contract: 19
 
 ## 1. What XClip does
 
@@ -398,7 +399,7 @@ When XClip is maximized and the vertical scrollbar is visible, the scrollbar thu
 
 ## 20. Current release status
 
-The codebase documents application version 1.4.0, config schema 5, SQLite schema 6, UI contract 18, and backup format 1.
+The codebase documents application version 1.4.0, config schema 5, SQLite schema 6, UI contract 19, and backup format 1.
 
 Before public release, the project still requires:
 

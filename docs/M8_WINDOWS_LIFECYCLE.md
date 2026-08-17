@@ -1,6 +1,7 @@
+
 # XClip M8 — Windows Lifecycle Hardening
 
-> **Version-line correction — 2026-08-17:** v1.3.0 is the historical release from 2026-06-05. The active development/release target is **v1.4.0**. `app/build.gradle.kts` and the inherited R11 machine-readable resource `ui-contract-v1.3.0.properties` still carry `1.3.0`; synchronizing those artifacts is a required release gate and is not performed by this documentation-only patch.
+> **Version-line status — 2026-08-17:** v1.3.0 is the historical 2026-06-05 release. The active development/release target and Gradle metadata are **v1.4.0**. The current machine-readable UI contract is `ui-contract-v1.4.0.properties` revision 19; the v1.3.0 resource remains frozen only for historical R11 evidence.
 
 
 

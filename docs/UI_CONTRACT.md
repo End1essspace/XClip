@@ -1,12 +1,13 @@
+
 # XClip — UI Contract
 
 
 **Status:** Frozen R11 baseline, deliberately extended by Milestones 2.2–2.4, 3.2–3.3, 4.3, 5.1–5.3, M6.1–M6.5, M7.2–M7.3, and M8
 **Scope:** Popup, custom window chrome, modal surfaces, Settings styling, privacy controls, keyboard workflow, responsive behavior, database maintenance/recovery, large-data validation, Windows lifecycle recovery, and packaged UI resources.
 
-This is the current human-readable contract for the v1.4.0 development line. It temporarily inherits the frozen R11 machine-readable baseline `/ui/ui-contract-v1.3.0.properties` until the coordinated v1.4.0 metadata/contract-resource migration is performed. Any intentional contract change must update both files and the `UiContractFreezeTest` expectations in the same reviewed milestone.
+This is the current human-readable contract for the v1.4.0 development line. Its machine-readable counterpart is `/ui/ui-contract-v1.4.0.properties`. The historical R11 resource `/ui/ui-contract-v1.3.0.properties` remains frozen separately as release evidence. Any intentional current-contract change must update this document, the v1.4.0 resource, and `UiContractFreezeTest` together.
 
-**Contract revision:** 18
+**Contract revision:** 19
 **Registered Lucide UI icons:** 30
 
 ## 1. Product invariants
@@ -638,13 +639,13 @@ config, or SQLite schema versions.
   - `scripts/start_m8_windows_lifecycle_validation.ps1`
   - `scripts/validate_m8_windows_lifecycle_evidence.ps1`
 - Product version remains `1.4.0`, config schema remains `5`, SQLite schema
-  remains `6`, and UI contract revision is `18`.
+  remains `6`, and UI contract revision is `19`.
 
 ## 25. M9.2 popup polish addendum — 2026-08-17
 
-**Contract revision remains:** 18
+**Contract revision:** 19
 
-This section is a human-readable clarification of the current v1.4.0 UI tree. It does not bump `/ui/ui-contract-v1.3.0.properties`; any future machine-readable contract revision must update that resource and `UiContractFreezeTest` together.
+This section is now codified by machine-readable UI contract revision 19 in `/ui/ui-contract-v1.4.0.properties`. The historical `/ui/ui-contract-v1.3.0.properties` resource remains unchanged for R11 evidence.
 
 ### Title bar branding
 

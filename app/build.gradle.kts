@@ -1,4 +1,5 @@
 
+
 import java.io.File
 import java.util.Locale
 import java.util.Properties
@@ -22,7 +23,7 @@ fun toolchainJavaHome(): File {
 }
 
 group = "io.xseries"
-version = "1.3.0"
+version = "1.4.0"
 
 repositories {
     mavenCentral()
@@ -123,7 +124,7 @@ val requiredPackagedUiResources = listOf(
     "ui/controls.css",
     "ui/popup.css",
     "ui/dialogs.css",
-    "ui/ui-contract-v1.3.0.properties",
+    "ui/ui-contract-v1.4.0.properties",
     "META-INF/THIRD-PARTY-NOTICES.txt",
     "META-INF/licenses/LUCIDE-ISC.txt"
 )
@@ -138,13 +139,20 @@ fun verifyUiResourcesInJar(jarFile: File) {
         candidate.isFile && candidate.extension.equals("svg", ignoreCase = true)
     }?.sortedBy { it.name } ?: emptyList()
 
-    val contractFile = file("src/main/resources/ui/ui-contract-v1.3.0.properties")
-    val expectedIconCount = Properties().apply {
+    val contractFile = file("src/main/resources/ui/ui-contract-v1.4.0.properties")
+    val currentContract = Properties().apply {
         contractFile.inputStream().use { stream -> load(stream) }
-    }.getProperty("popup.iconCount")?.toIntOrNull()
+    }
+    val expectedIconCount = currentContract.getProperty("popup.iconCount")?.toIntOrNull()
         ?: throw GradleException(
             "Missing or invalid popup.iconCount in ${contractFile.path}"
         )
+    val contractProductVersion = currentContract.getProperty("product.version")
+    if (contractProductVersion != project.version.toString()) {
+        throw GradleException(
+            "Current UI contract version $contractProductVersion does not match project version ${project.version}"
+        )
+    }
 
     if (iconFiles.size != expectedIconCount) {
         throw GradleException(
@@ -233,9 +241,9 @@ val verifyR11RegressionAssets = tasks.register("verifyR11RegressionAssets") {
                 .use { stream -> load(stream) }
         }
         val contractVersion = contractProperties.getProperty("product.version")
-        if (contractVersion != project.version.toString()) {
+        if (contractVersion != "1.3.0") {
             throw GradleException(
-                "Frozen UI contract version $contractVersion does not match project version ${project.version}"
+                "Historical R11 UI contract must remain at product version 1.3.0, found $contractVersion"
             )
         }
 
@@ -303,7 +311,7 @@ val verifyM6SettingsRegressionAssets = tasks.register(
         val validation = rootProject.file("docs/M6_SETTINGS_VALIDATION.md")
         val matrix = rootProject.file("docs/M6_SETTINGS_REGRESSION_MATRIX.csv")
         val contractFile = file(
-            "src/main/resources/ui/ui-contract-v1.3.0.properties"
+            "src/main/resources/ui/ui-contract-v1.4.0.properties"
         )
 
         for (required in listOf(validation, matrix, contractFile)) {
@@ -385,7 +393,7 @@ val verifyM7DatabaseRegressionAssets = tasks.register(
         val validation = rootProject.file("docs/M7_DATABASE_MAINTENANCE.md")
         val matrix = rootProject.file("docs/M7_DATABASE_REGRESSION_MATRIX.csv")
         val contractFile = file(
-            "src/main/resources/ui/ui-contract-v1.3.0.properties"
+            "src/main/resources/ui/ui-contract-v1.4.0.properties"
         )
 
         for (required in listOf(validation, matrix, contractFile)) {
@@ -472,7 +480,7 @@ val verifyM7LargeDataAssets = tasks.register(
         val matrix = rootProject.file("docs/M7_LARGE_DATA_MATRIX.csv")
         val runner = rootProject.file("scripts/run_m7_large_data_validation.ps1")
         val contractFile = file(
-            "src/main/resources/ui/ui-contract-v1.3.0.properties"
+            "src/main/resources/ui/ui-contract-v1.4.0.properties"
         )
 
         for (required in listOf(validation, matrix, runner, contractFile)) {
@@ -617,7 +625,7 @@ val verifyM8WindowsLifecycleAssets = tasks.register(
         val starter = rootProject.file("scripts/start_m8_windows_lifecycle_validation.ps1")
         val validator = rootProject.file("scripts/validate_m8_windows_lifecycle_evidence.ps1")
         val contractFile = file(
-            "src/main/resources/ui/ui-contract-v1.3.0.properties"
+            "src/main/resources/ui/ui-contract-v1.4.0.properties"
         )
 
         for (required in listOf(validation, matrix, starter, validator, contractFile)) {

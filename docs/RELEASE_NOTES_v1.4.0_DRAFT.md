@@ -1,6 +1,5 @@
-# XClip 1.4.0 — Draft Release Notes
 
-> **Version-line correction — 2026-08-17:** v1.3.0 is the historical release from 2026-06-05. The active development/release target is **v1.4.0**. `app/build.gradle.kts` and the inherited R11 machine-readable resource `ui-contract-v1.3.0.properties` still carry `1.3.0`; synchronizing those artifacts is a required release gate and is not performed by this documentation-only patch.
+# XClip 1.4.0 — Draft Release Notes
 
 
 **Status: DRAFT — NOT APPROVED FOR PUBLIC RELEASE**
@@ -133,7 +132,7 @@ Windows:       10 / 11 x64
 Application:   1.4.0
 Config schema: 5
 SQLite schema: 6
-UI contract:   18
+UI contract:   19
 Backup format: 1
 ```
 
@@ -163,4 +162,4 @@ Before these notes can become final:
 
 ## Known release-documentation constraint
 
-The product roadmap and release documentation target **v1.4.0**. The repository build metadata still declares `1.3.0`, while `[1.3.0]` is already the historical 2026-06-05 release. Before packaging/tagging v1.4.0, update Gradle metadata, the inherited machine-readable UI-contract versioning/test expectations, MSI filename/version, checksums, tag, and release artifacts as one coordinated gate.
+The product roadmap, Gradle project version, JAR manifest, jpackage app version, and current machine-readable UI contract are aligned to **v1.4.0**. The historical v1.3.0 R11 contract remains frozen separately. Final MSI validation, checksums, tag, and release artifacts must still be verified before publication.

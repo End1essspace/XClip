@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)
@@ -9,7 +10,7 @@ package io.xseries.xclip.ui.settings;
  * Stable information architecture for the multi-page Settings shell.
  *
  * Enum order is the canonical left-navigation order and is frozen in the
- * v1.3.0 UI contract.
+ * v1.4.0 UI contract.
  */
 public enum SettingsPage {
     GENERAL(
@@ -65,5 +66,3 @@ public enum SettingsPage {
         return description;
     }
 }
-
-
