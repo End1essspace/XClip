@@ -17,6 +17,7 @@ import javafx.stage.Stage;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.DoubleSupplier;
 
 /**
  * Central controller for both native and custom JavaFX window chrome.
@@ -426,11 +427,29 @@ public final class WindowChromeController {
             double minWidth,
             double minHeight
     ) {
+        installResizeSupport(
+                scene,
+                edgeThickness,
+                () -> minWidth,
+                () -> minHeight
+        );
+    }
+
+    /**
+     * Dynamic minimum-size variant used by the popup so monitor/DPI changes can
+     * update the resize floor without reinstalling JavaFX event filters.
+     */
+    public void installResizeSupport(
+            Scene scene,
+            double edgeThickness,
+            DoubleSupplier minWidthSupplier,
+            DoubleSupplier minHeightSupplier
+    ) {
         Objects.requireNonNull(scene, "scene");
+        Objects.requireNonNull(minWidthSupplier, "minWidthSupplier");
+        Objects.requireNonNull(minHeightSupplier, "minHeightSupplier");
 
         double safeThickness = Math.max(1.0, edgeThickness);
-        double safeMinWidth = normalizeMinimum(minWidth);
-        double safeMinHeight = normalizeMinimum(minHeight);
 
         scene.addEventFilter(MouseEvent.MOUSE_MOVED, event -> {
             if (resizeSuppressedFor(event.getTarget())) {
@@ -471,8 +490,8 @@ public final class WindowChromeController {
                     edge,
                     event.getScreenX(),
                     event.getScreenY(),
-                    safeMinWidth,
-                    safeMinHeight
+                    suppliedMinimum(minWidthSupplier),
+                    suppliedMinimum(minHeightSupplier)
             )) {
                 scene.setCursor(cursorFor(edge));
                 event.consume();
@@ -504,6 +523,14 @@ public final class WindowChromeController {
         scene.addEventFilter(MouseEvent.MOUSE_EXITED, event -> {
             if (!isResizing()) scene.setCursor(Cursor.DEFAULT);
         });
+    }
+
+    private static double suppliedMinimum(DoubleSupplier supplier) {
+        try {
+            return normalizeMinimum(supplier.getAsDouble());
+        } catch (RuntimeException ignored) {
+            return 1.0;
+        }
     }
 
     public void closeToBackground() {
@@ -956,3 +983,4 @@ public final class WindowChromeController {
         }
     }
 }
+

@@ -1,6 +1,3 @@
-
-
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)
@@ -31,6 +28,7 @@ import io.xseries.xclip.ui.popup.PopupRow;
 import io.xseries.xclip.ui.popup.PopupRow.ClipRow;
 import io.xseries.xclip.ui.popup.PopupRow.SectionRow;
 import io.xseries.xclip.ui.popup.PopupViewState;
+import io.xseries.xclip.ui.popup.PopupWindowSizingPolicy;
 import io.xseries.xclip.ui.components.SplitActionButton;
 import io.xseries.xclip.ui.components.SvgIcon;
 import io.xseries.xclip.ui.components.UiIcon;
@@ -265,6 +263,9 @@ public final class PopupWindow {
         // R2.2 custom chrome: the undecorated stage is controlled entirely
         // through one window-state controller and a JavaFX title bar.
         windowChrome = WindowChromeController.forStage(stage, this::hide);
+        applyAdaptiveWindowMinimum(
+                toWindowBounds(Screen.getPrimary().getVisualBounds())
+        );
 
         listView.setItems(items);
         ClipRowCell.Controller rowCellController = createRowCellController();
@@ -577,8 +578,8 @@ public final class PopupWindow {
         windowChrome.installResizeSupport(
                 scene,
                 6.0,
-                stage.getMinWidth(),
-                stage.getMinHeight()
+                stage::getMinWidth,
+                stage::getMinHeight
         );
 
         stage.setScene(scene);
@@ -1475,6 +1476,7 @@ public final class PopupWindow {
         // Capture on the next pulse so full-screen bounds are not mistaken for
         // the restored rectangle.
         Platform.runLater(() -> {
+            refreshAdaptiveWindowMinimum(windowChrome.currentBounds());
             windowChrome.captureNormalBounds();
             scheduleWindowPersist();
         });
@@ -1568,6 +1570,8 @@ public final class PopupWindow {
         WindowBounds requested = windowChrome.normalBounds()
                 .orElseGet(() -> windowChrome.persistenceBounds()
                         .orElse(windowChrome.currentBounds()));
+
+        refreshAdaptiveWindowMinimum(requested);
 
         java.util.Optional<WindowBounds> recovered =
                 WindowChromeController.recoverToVisibleScreens(
@@ -2628,6 +2632,8 @@ public final class PopupWindow {
                 screens
         ).orElseGet(() -> toWindowBounds(Screen.getPrimary().getVisualBounds()));
 
+        applyAdaptiveWindowMinimum(screen);
+
         double width = Math.min(
                 Math.max(stage.getMinWidth(), stage.getWidth()),
                 screen.width()
@@ -2648,6 +2654,41 @@ public final class PopupWindow {
         WindowBounds placed = new WindowBounds(x, y, width, height);
         windowChrome.applyRestoredBounds(placed);
         return placed;
+    }
+
+    private void refreshAdaptiveWindowMinimum(WindowBounds windowBounds) {
+        List<WindowBounds> screens = currentVisualScreens();
+        WindowBounds target = null;
+
+        if (windowBounds != null && windowBounds.isValid()) {
+            target = WindowChromeController.screenForPoint(
+                    windowBounds.x() + windowBounds.width() / 2.0,
+                    windowBounds.y() + windowBounds.height() / 2.0,
+                    screens
+            ).orElse(null);
+        }
+
+        if (target == null) {
+            target = toWindowBounds(Screen.getPrimary().getVisualBounds());
+        }
+        applyAdaptiveWindowMinimum(target);
+    }
+
+    private void applyAdaptiveWindowMinimum(WindowBounds visualBounds) {
+        if (visualBounds == null || !visualBounds.isValid()) return;
+
+        PopupWindowSizingPolicy.WindowSize minimum =
+                PopupWindowSizingPolicy.minimumForVisualBounds(
+                        visualBounds.width(),
+                        visualBounds.height()
+                );
+
+        if (Double.compare(stage.getMinWidth(), minimum.width()) != 0) {
+            stage.setMinWidth(minimum.width());
+        }
+        if (Double.compare(stage.getMinHeight(), minimum.height()) != 0) {
+            stage.setMinHeight(minimum.height());
+        }
     }
 
     private Point2D currentPointerPosition() {
@@ -2934,5 +2975,6 @@ public final class PopupWindow {
         updateSelectionUi();
     }
 }
+
 
 
