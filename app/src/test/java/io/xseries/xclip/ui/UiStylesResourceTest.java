@@ -1,6 +1,3 @@
-
-
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)
@@ -220,4 +217,22 @@ class UiStylesResourceTest {
         }
         return count;
     }
+
+    @Test
+    void popupSecondaryTextKeepsReadableTimestampAndShortcutTokens() throws Exception {
+        try (InputStream stream = UiStyles.class.getResourceAsStream("/ui/popup.css")) {
+            assertNotNull(stream);
+            String css = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+
+            assertTrue(css.contains("M9.2.3 — secondary text readability"));
+            assertTrue(css.contains(".popup-root .clip-time"));
+            assertTrue(css.contains("-fx-text-fill: #91A3BA;"));
+            assertTrue(css.contains("-fx-font-size: 12px;"));
+            assertTrue(css.contains("-fx-opacity: 1.0;"));
+            assertTrue(css.contains(".popup-root .actions-status"));
+            assertTrue(css.contains("-fx-text-fill: #91A6BF;"));
+            assertTrue(css.contains("-fx-font-size: 11.5px;"));
+        }
+    }
+
 }

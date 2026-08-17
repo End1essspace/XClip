@@ -1,6 +1,3 @@
-
-
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)
@@ -2431,3 +2428,19 @@
     -fx-pref-width: 0;
     -fx-max-width: 0;
 }
+
+/* =========================================================
+   M9.2.3 — secondary text readability
+   ========================================================= */
+
+.popup-root .clip-time {
+    -fx-text-fill: #91A3BA;
+    -fx-font-size: 12px;
+    -fx-opacity: 1.0;
+}
+
+.popup-root .actions-status {
+    -fx-text-fill: #91A6BF;
+    -fx-font-size: 11.5px;
+}
+
