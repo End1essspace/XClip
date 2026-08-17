@@ -1,6 +1,3 @@
-
-
-
 <p align="center">
   <img src="app/src/main/resources/icons/icon.png" width="96" alt="XClip logo">
 </p>
@@ -9,7 +6,7 @@
 
 <p align="center">
   <strong>A local-first clipboard workspace for Windows.</strong><br>
-  Search, pin, tag, paste, and manage persistent clipboard history without sending it to the cloud.
+  Search, pin, tag, organize, and paste persistent clipboard history — without sending it to the cloud.
 </p>
 
 <p align="center">
@@ -19,40 +16,50 @@
   <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4.svg" alt="Windows 10/11">
 </p>
 
-<p align="center"><a href="#english">English</a> · <a href="#русский">Русский</a></p>
+<p align="center">
+  <a href="https://github.com/End1essspace/XClip/releases"><strong>Download</strong></a>
+  · <a href="docs/USER_GUIDE.md">User Guide</a>
+  · <a href="docs/RELEASE_NOTES_v1.4.0.md">v1.4.0 Release Notes</a>
+  · <a href="#русский">Русский</a>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/xclip-popup.png" alt="XClip clipboard workspace" width="100%">
+</p>
 
 ---
 
 # English
 
-Current version: **v1.4.0** · Released **2026-08-17**
+**Current release:** `v1.4.0` · **2026-08-17**
 
-<p align="center">
-  <a href="https://github.com/End1essspace/XClip/releases"><strong>Download XClip</strong></a>
-  · <a href="docs/USER_GUIDE.md">User guide</a>
-  · <a href="docs/RELEASE_NOTES_v1.4.0.md">Release notes</a>
-</p>
+XClip turns `Ctrl+Shift+V` into a fast clipboard workspace for Windows. Clipboard history stays on your machine, while search, PINNED items, tags, type-aware actions, privacy controls, and data recovery make it practical for everyday use.
 
-<p align="center">
-  <img src="docs/screenshots/xclip-popup.png" alt="XClip main popup" width="100%">
-</p>
+The packaged MSI includes its own Java runtime, so a separate Java installation is not required.
 
-XClip keeps clipboard history on your machine and turns `Ctrl+Shift+V` into a searchable workspace for finding, organizing, and pasting text quickly. The packaged Windows build includes its own Java runtime.
+## Why XClip
 
-## What XClip does
+- **Find old clipboard content quickly** with text search, structured operators, scopes, types, and tags.
+- **Keep important clips organized** with PINNED items, custom titles, manual ordering, and multi-tag assignment.
+- **Paste directly back into your previous app** with foreground-target restoration and Copy fallback.
+- **Handle content safely** with type-aware actions for URLs, paths, JSON, code, and commands without auto-executing clipboard commands.
+- **Keep control of local data** with privacy exclusions, retention rules, SQLite maintenance, backup, and validated restore.
+- **Use it like a Windows utility** with tray behavior, global hotkey, autostart, multi-monitor/DPI recovery, and packaged lifecycle hardening.
 
-| Area | What it provides |
+## Core capabilities
+
+| Area | What XClip provides |
 |---|---|
-| **Persistent history** | Local SQLite clipboard history with bounded loading and previews. |
-| **Direct Paste** | Restore the previously active target and send standard `Ctrl+V`, with Copy fallback. |
-| **PINNED** | Keep important clips, assign titles, and maintain a manual order. |
-| **Tags** | Create, assign, filter, rename, delete, and batch-edit local tags. |
-| **Advanced search** | Search content, PINNED titles, and tags with type/scope/tag operators. |
+| **Persistent history** | Local SQLite WAL clipboard history with bounded loading and previews. |
+| **Direct Paste** | Restores the previously active target and sends standard `Ctrl+V`, with Copy fallback. |
+| **PINNED workspace** | Optional titles, manual ordering, and protection from ordinary RECENT cleanup. |
+| **Tags** | Create, assign, filter, rename, delete, clean up, and batch-edit local tags. |
+| **Advanced search** | Search content, PINNED titles, and tags with structured type/scope/tag operators. |
 | **Safe actions** | Open HTTP(S), reveal paths, format JSON, or copy code/commands without executing clipboard commands. |
 | **Privacy & retention** | App exclusions, optional sensitive-content suppression, age/type cleanup, and clear-on-exit policy. |
-| **Data recovery** | Integrity check, WAL checkpoint, optimize, versioned backup, and validated restore. |
+| **Data recovery** | Integrity check, WAL checkpoint, optimize, versioned backup, and rollback-protected validated restore. |
 
-## Clipboard workflow
+## How it works
 
 ```text
 Copy text anywhere in Windows
@@ -63,12 +70,12 @@ Ctrl+Shift+V
         ↓
 Search / filter / pin / tag / select
         ↓
-Paste, Copy, or a safe type-aware action
+Paste, Copy, or use a safe type-aware action
 ```
 
 The popup supports `All`, `Pinned`, and `Recent` scopes, content-type filters, tag filters, multi-selection, keyboard navigation, bounded previews, and contextual actions.
 
-## Search
+## Advanced search
 
 Supported operators include:
 
@@ -87,7 +94,7 @@ tag:"Project Work"
 -type:text
 ```
 
-Search assistance is contextual and non-blocking: operator chips, suggestions, and diagnostics appear only when useful and do not permanently increase the header height.
+Search assistance is contextual and non-blocking: operator chips, suggestions, and diagnostics appear only when useful.
 
 ## v1.4.0 highlights
 
@@ -101,20 +108,34 @@ Search assistance is contextual and non-blocking: operator chips, suggestions, a
 - General and per-type RECENT retention, scheduled cleanup, and clear-on-exit.
 - Database integrity, checkpoint, optimize, backup, and rollback-protected restore.
 - Responsive popup with bounded previews, virtualization, keyboard-first navigation, and accessible names.
-- Calm dark UI, larger readable action menus, and a subtle centered `X-SERIES` title-bar wordmark.
-- Windows Fitts-law hardening: the maximized top-right close corner remains usable at the physical screen edge.
-- Fitts-law scrollbar ergonomics: a wider interaction lane while the visible scrollbar stays slim, plus maximized right-edge thumb dragging.
+- Calm dark UI with readable action menus, Lucide icons, and a subtle centered `X-SERIES` title-bar wordmark.
+- Maximized-window Fitts-law hardening for the physical top-right Close target.
+- Wider scrollbar interaction lane while keeping the visible scrollbar slim, including right-edge thumb dragging when maximized.
 - Multi-monitor, DPI/topology recovery, tray/hotkey recovery, and ordered shutdown hardening.
 
-## Safety and privacy guarantees
+## Local-first safety and privacy
+
+XClip is designed around explicit, local behavior:
 
 - Clipboard commands are **never executed automatically**.
 - Copied executable or script paths are not launched as commands.
-- Sensitive-content detection is local-only and opt-in for suppression.
+- Sensitive-content detection is local-only and suppression is opt-in.
 - Existing history is not silently rescanned or deleted when privacy rules change.
 - PINNED clips are excluded from ordinary retention cleanup.
 - Full clipboard contents are not exposed through automatic hover tooltips.
 - No telemetry or cloud synchronization is part of the documented product contract.
+
+Local user data is stored under:
+
+```text
+%USERPROFILE%\.xclip\
+```
+
+| Purpose | File |
+|---|---|
+| Clipboard database | `xclip.db` |
+| Configuration | `config.json` |
+| SQLite sidecars | `xclip.db-wal`, `xclip.db-shm`, or `xclip.db-journal` when present |
 
 ## Windows integration
 
@@ -126,19 +147,7 @@ Search assistance is contextual and non-blocking: operator chips, suggestions, a
 - Optional per-user Start with Windows.
 - Explorer tray/hotkey recovery.
 - Sleep/resume, lock/unlock, display topology, and DPI recovery.
-- Per-user MSI packaging with a bundled runtime; no separate Java installation is required for the packaged application.
-
-Local user data:
-
-```text
-%USERPROFILE%\.xclip\
-```
-
-| Purpose | File |
-|---|---|
-| Clipboard database | `xclip.db` |
-| Configuration | `config.json` |
-| SQLite sidecars | `xclip.db-wal`, `xclip.db-shm`, or `xclip.db-journal` when present |
+- Per-user MSI packaging with a bundled runtime.
 
 ## Settings and recovery
 
@@ -160,9 +169,11 @@ Data
 About
 ```
 
-Settings → Data contains database status, integrity checking, WAL checkpoint, optimize, retention cleanup, destructive clear operations, backup, and validated restore.
+**Settings → Data** contains database status, integrity checking, WAL checkpoint, optimize, retention cleanup, destructive clear operations, backup, and validated restore.
 
 ## Build from source
+
+Requirements for development: Java 17 and Windows.
 
 ```powershell
 git clone https://github.com/End1essspace/XClip.git
@@ -187,27 +198,18 @@ The packaged build uses `jpackage` plus a bundled runtime image.
 | [Russian user guide](docs/USER_GUIDE_RU.md) | Russian user-facing guide |
 | [Roadmap](docs/roadmap.md) | v1.4.0 implementation history and current project status |
 | [UI contract](docs/UI_CONTRACT.md) | Current human-readable UI/product contract |
-| [Validation](docs/VALIDATION.md) | Current regression, manual, packaged, and release gates |
+| [Validation](docs/VALIDATION.md) | Regression, manual, packaged, and release gates |
 | [Database & backup](docs/M7_DATABASE_MAINTENANCE.md) | SQLite maintenance, backup, restore, and rollback contract |
-| [Windows lifecycle](docs/M8_WINDOWS_LIFECYCLE.md) | Packaged lifecycle hardening and required evidence |
+| [Windows lifecycle](docs/M8_WINDOWS_LIFECYCLE.md) | Packaged lifecycle hardening and validation scope |
 | [Release notes](docs/RELEASE_NOTES_v1.4.0.md) | XClip v1.4.0 release summary |
 
-> Milestone-named M6/M7/M8/R10/R11 documents, CSV matrices, and
-> `UI_CONTRACT_v1.3.0.md` remain in `docs/` as frozen build/release-gate assets.
-> They are intentionally not renamed until the corresponding Gradle/script
-> contracts are migrated.
+Milestone-named M6/M7/M8/R10/R11 documents, CSV matrices, and `UI_CONTRACT_v1.3.0.md` remain in `docs/` as frozen build/release-gate assets.
 
-### README image paths
+## Contributing and security
 
-The README references the packaged application icon and repository screenshots:
-
-```text
-app/src/main/resources/icons/icon.png
-docs/screenshots/xclip-popup.png
-docs/screenshots/xclip-settings.png
-```
-
-The screenshots are documentation assets only. The icon is also used by the XClip runtime.
+- [Contributing guide](CONTRIBUTING.md)
+- [Security policy](SECURITY.md)
+- [Issue tracker](https://github.com/End1essspace/XClip/issues)
 
 ## Author
 
@@ -227,7 +229,7 @@ Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)
 
 # Русский
 
-Текущая версия: **v1.4.0** · Выпущена **17.08.2026**
+**Текущий релиз:** `v1.4.0` · **17.08.2026**
 
 <p align="center">
   <a href="https://github.com/End1essspace/XClip/releases"><strong>Скачать XClip</strong></a>
@@ -235,52 +237,136 @@ Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)
   · <a href="docs/RELEASE_NOTES_v1.4.0.md">Описание релиза</a>
 </p>
 
-**XClip** — local-first менеджер буфера обмена для Windows: persistent history, Direct Paste, PINNED, теги, advanced search, privacy/retention и инструменты восстановления данных.
+**XClip** превращает `Ctrl+Shift+V` в полноценное локальное рабочее пространство для буфера обмена Windows. История остаётся на компьютере, а поиск, PINNED, теги, безопасные действия, privacy controls и инструменты восстановления помогают быстро находить и повторно использовать нужный контент.
 
-**XClip v1.4.0 опубликован 17 августа 2026 года.** Готовая Windows-сборка распространяется через GitHub Releases и включает собственный Java runtime. Формальный M8-набор из 18 lifecycle-кейсов для этого релиза был waived и не заявляется как PASS.
+Готовая MSI-сборка включает собственный Java runtime — отдельно устанавливать Java не нужно.
+
+## Зачем XClip
+
+- **Быстро находить старые записи** через обычный поиск, structured operators, scopes, content types и теги.
+- **Хранить важное отдельно** через PINNED, titles, ручной порядок и несколько тегов на запись.
+- **Вставлять напрямую в предыдущее приложение** через восстановление foreground target и Copy fallback.
+- **Безопасно работать с разными типами контента**: URL, PATH, JSON, CODE и COMMAND не выполняются автоматически.
+- **Контролировать локальные данные** через exclusions, retention, SQLite maintenance, backup и validated restore.
+- **Использовать как нормальную Windows utility**: tray, global hotkey, autostart, multi-monitor/DPI recovery и packaged lifecycle hardening.
 
 ## Основные возможности
 
-- локальная SQLite WAL history;
-- `Ctrl+Shift+V` для быстрого открытия popup;
-- Direct Paste и Copy fallback;
-- PINNED-записи с ручным порядком и titles;
-- теги и batch editing;
-- фильтры All/Pinned/Recent, типов и тегов;
-- advanced search с `type:`, `is:`, `tag:` и negative operators;
-- safe actions для URL/PATH/JSON/CODE/COMMAND без выполнения команд;
+| Область | Что предоставляет XClip |
+|---|---|
+| **Persistent history** | Локальная SQLite WAL history с bounded loading и previews. |
+| **Direct Paste** | Восстановление предыдущего target window и стандартный `Ctrl+V`, с Copy fallback. |
+| **PINNED workspace** | Titles, ручной порядок и защита от обычной RECENT cleanup. |
+| **Tags** | Создание, назначение, фильтрация, rename/delete, cleanup и batch editing. |
+| **Advanced search** | Поиск по content, PINNED titles и tags с type/scope/tag operators. |
+| **Safe actions** | HTTP(S), Explorer, JSON formatting, code/command copy без выполнения clipboard-команд. |
+| **Privacy & retention** | App exclusions, optional sensitive suppression, age/type cleanup и clear-on-exit. |
+| **Data recovery** | Integrity check, WAL checkpoint, optimize, versioned backup и validated restore. |
+
+## Как это работает
+
+```text
+Копируешь текст в Windows
+        ↓
+XClip сохраняет его локально
+        ↓
+Ctrl+Shift+V
+        ↓
+Ищешь / фильтруешь / закрепляешь / тегируешь
+        ↓
+Paste, Copy или безопасное type-aware действие
+```
+
+Popup поддерживает `All`, `Pinned`, `Recent`, фильтры типов и тегов, multi-selection, keyboard navigation, bounded previews и contextual actions.
+
+## Advanced Search
+
+Примеры операторов:
+
+```text
+type:url
+type:code
+type:path
+type:json
+type:command
+type:text
+is:pinned
+is:recent
+tag:work
+tag:"Project Work"
+-tag:private
+-type:text
+```
+
+Подсказки поиска появляются только когда нужны и не занимают постоянное место в header.
+
+## Что вошло в v1.4.0
+
+- configurable duplicate behavior;
+- PINNED titles и manual ordering;
+- tags и batch organization;
+- TEXT / CODE / URL / PATH / JSON / COMMAND classification;
+- structured Advanced Search;
+- девятистраничные Settings с Apply/Cancel и validation;
 - privacy exclusions и optional sensitive-content suppression;
-- retention по возрасту и типу;
+- общий и per-type retention;
+- scheduled cleanup и clear-on-exit;
 - integrity/checkpoint/optimize/backup/restore;
-- responsive keyboard-first popup и девятистраничные Settings;
-- восстановление tray/hotkey и Windows lifecycle state.
-
-## UI и эргономика
-
-- спокойная dark navy/graphite palette;
-- ненавязчивый `X-SERIES` wordmark по центру title bar;
-- увеличенные и более читаемые action menu items и Lucide icons;
-- search assist отображается как contextual overlay и не раздвигает header постоянно;
-- в maximized-окне физический правый верхний угол остаётся полноценной Close-target;
-- scrollbar визуально остаётся тонким, но имеет увеличенную interactive lane;
-- thumb можно захватывать с физического правого края maximized-экрана.
+- responsive и keyboard-first popup;
+- virtualization и bounded previews;
+- multi-monitor/DPI/topology recovery;
+- tray/hotkey recovery;
+- Windows lifecycle hardening;
+- bundled-runtime MSI.
 
 ## Безопасность и приватность
 
-- XClip не выполняет clipboard commands;
-- executable/script paths не запускаются как команды;
-- sensitive detection выполняется локально;
-- privacy rules не удаляют старую history автоматически;
-- PINNED не участвуют в обычном retention cleanup;
-- telemetry/cloud sync не входят в documented product contract.
+- XClip **никогда автоматически не выполняет clipboard commands**.
+- Пути к executable/script не запускаются как команды.
+- Sensitive-content detection выполняется локально и включается пользователем.
+- Изменение privacy rules не приводит к скрытому пересканированию или удалению существующей history.
+- PINNED не участвуют в обычном retention cleanup.
+- Полное содержимое clipboard не показывается через автоматические hover tooltips.
+- Telemetry и cloud sync не входят в documented product contract.
 
-## Локальные данные
+Локальные данные:
 
 ```text
 %USERPROFILE%\.xclip\
 ```
 
-## Сборка
+## Windows integration
+
+- Windows 10/11 x64;
+- tray и close-to-background;
+- global `Ctrl+Shift+V`;
+- single-instance activation;
+- optional Start with Windows;
+- Explorer tray/hotkey recovery;
+- sleep/resume, lock/unlock, topology и DPI recovery;
+- per-user MSI с bundled runtime.
+
+## Settings
+
+<p align="center">
+  <img src="docs/screenshots/xclip-settings.png" alt="XClip Settings" width="100%">
+</p>
+
+```text
+General
+Capture
+History
+Duplicate behavior
+Privacy
+Appearance
+Shortcuts
+Data
+About
+```
+
+**Settings → Data** содержит database status, integrity check, WAL checkpoint, optimize, retention cleanup, destructive clear operations, backup и validated restore.
+
+## Сборка из исходников
 
 ```powershell
 git clone https://github.com/End1essspace/XClip.git
@@ -305,10 +391,10 @@ MSI:
 - [Database & backup](docs/M7_DATABASE_MAINTENANCE.md)
 - [Windows lifecycle](docs/M8_WINDOWS_LIFECYCLE.md)
 - [Release notes v1.4.0](docs/RELEASE_NOTES_v1.4.0.md)
+- [Contributing](CONTRIBUTING.md)
+- [Security policy](SECURITY.md)
 
-Технические M6/M7/M8/R10/R11 документы, CSV-матрицы и
-`UI_CONTRACT_v1.3.0.md` остаются отдельными frozen build/release-gate assets,
-пока соответствующие Gradle/script contracts не будут мигрированы.
+Технические M6/M7/M8/R10/R11 документы, CSV-матрицы и `UI_CONTRACT_v1.3.0.md` остаются отдельными frozen build/release-gate assets.
 
 ## Автор и лицензия
 
