@@ -1,4 +1,3 @@
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)
@@ -35,7 +34,10 @@ class PasteServiceTest {
             assertTrue(executor.awaitTermination(2, TimeUnit.SECONDS));
         }
         Thread thread = executorThread.get();
-        assertTrue(thread == null || !thread.isAlive());
+        if (thread != null) {
+            thread.join(2_000);
+            assertFalse(thread.isAlive());
+        }
     }
 
     @Test
@@ -177,5 +179,6 @@ class PasteServiceTest {
         }
     }
 }
+
 
 

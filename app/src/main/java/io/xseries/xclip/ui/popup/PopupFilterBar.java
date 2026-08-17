@@ -1,4 +1,5 @@
 
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)
@@ -139,6 +140,7 @@ public final class PopupFilterBar extends GridPane {
         StackPane control = new StackPane();
         control.setAlignment(Pos.CENTER_LEFT);
         control.getStyleClass().add(wrapStyleClass);
+        control.disableProperty().bind(combo.disableProperty());
 
         combo.setMaxWidth(Double.MAX_VALUE);
         StackPane.setAlignment(combo, Pos.CENTER_LEFT);
@@ -180,3 +182,4 @@ public final class PopupFilterBar extends GridPane {
         control.setMaxWidth(maxWidth);
     }
 }
+

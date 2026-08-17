@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)
@@ -991,7 +992,7 @@
 }
 
 .settings-status-value.status-neutral {
-    -fx-text-fill: -fx-text-muted;
+    -fx-text-fill: -x-text-muted;
     -fx-background-color: rgba(255, 255, 255, 0.05);
     -fx-border-color: -fx-border-subtle;
 }
@@ -1004,7 +1005,7 @@
 
 .settings-inline-note,
 .settings-privacy-statement {
-    -fx-text-fill: -fx-text-muted;
+    -fx-text-fill: -x-text-muted;
     -fx-line-spacing: 2px;
 }
 
@@ -1015,7 +1016,7 @@
 .settings-path-label {
     -fx-min-width: 104px;
     -fx-font-weight: 600;
-    -fx-text-fill: -fx-text-secondary;
+    -fx-text-fill: -x-text-secondary;
 }
 
 .button-danger-subtle {
@@ -1119,3 +1120,4 @@
 .settings-root.settings-wide .settings-info-value {
     -fx-max-width: 460px;
 }
+

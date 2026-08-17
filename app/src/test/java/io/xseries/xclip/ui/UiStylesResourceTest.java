@@ -1,4 +1,5 @@
 
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)
@@ -156,13 +157,45 @@ class UiStylesResourceTest {
     }
 
     @Test
-    void windowControlsExposeFocusRingOnlyForKeyboardNavigation() throws Exception {
+    void windowControlsExposeQuietKeyboardFocusWithoutYellowGlow() throws Exception {
         try (InputStream stream = UiStyles.class.getResourceAsStream("/ui/popup.css")) {
             assertNotNull(stream);
             String css = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
 
             assertTrue(css.contains(".popup-root .window-control-button:focus-visible"));
+            assertTrue(css.contains("/* Mouse/programmatic focus must not leave a yellow glow on the custom window chrome. */"));
             assertFalse(css.contains(".popup-root .window-control-button:focused"));
+            assertFalse(css.contains(".popup-root .window-control-button:focus-visible {\n    -fx-border-color: -x-accent;"));
+        }
+    }
+
+    @Test
+    void scopeTogglesUseSubtleBlueFocusAndReducedHoverIntensity() throws Exception {
+        try (InputStream stream = UiStyles.class.getResourceAsStream("/ui/popup.css")) {
+            assertNotNull(stream);
+            String css = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+
+            assertTrue(css.contains(".popup-root .filter-toggle:focus-visible"));
+            assertTrue(css.contains("rgba(102, 141, 196, 0.88)"));
+            assertTrue(css.contains(".popup-root .filter-toggle:selected:hover"));
+            assertTrue(css.contains("rgba(59, 130, 246, 0.16)"));
+            assertTrue(css.contains(".popup-root .filter-toggle:hover"));
+            assertTrue(css.contains("rgba(255, 255, 255, 0.030)"));
+        }
+    }
+
+
+    @Test
+    void emptyTagFilterIsReadableAndCannotOpenAnEmptyMenu() throws Exception {
+        try (InputStream stream = UiStyles.class.getResourceAsStream("/ui/popup.css")) {
+            assertNotNull(stream);
+            String css = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+
+            assertTrue(css.contains(".filter-tag-wrap:disabled"));
+            assertTrue(css.contains(".filter-tag-combo:disabled .list-cell"));
+            assertTrue(css.contains(".filter-tag-combo:disabled .arrow-button"));
+            assertTrue(css.contains(".popup-root .filter-tag-combo:focus-visible"));
+            assertTrue(css.contains(".popup-root .filter-tag-combo:showing"));
         }
     }
 
@@ -174,3 +207,4 @@ class UiStylesResourceTest {
         return count;
     }
 }
+

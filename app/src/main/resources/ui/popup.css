@@ -1,4 +1,5 @@
 
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)
@@ -2187,7 +2188,6 @@
    ========================================================= */
 
 .popup-root .topbar-btn:focused,
-.popup-root .filter-toggle:focused,
 .popup-root .filter-reset:focused,
 .popup-root .action-btn:focused,
 .popup-root .search-clear:focused,
@@ -2200,13 +2200,33 @@
     -fx-effect: dropshadow(gaussian, rgba(245, 197, 66, 0.62), 7, 0.28, 0, 0);
 }
 
-/* Mouse/programmatic focus must not leave a false active state on window chrome. */
+/* Scope toggles need a quieter focus treatment than the global yellow accent ring. */
+.popup-root .filter-toggle:focused,
+.popup-root .filter-toggle:focus-visible {
+    -fx-border-color: rgba(102, 141, 196, 0.88);
+    -fx-border-width: 1;
+    -fx-border-insets: -1;
+    -fx-border-radius: 7;
+    -fx-effect: null;
+}
+
+.popup-root .filter-toggle:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.030);
+    -fx-text-fill: #D9E7F8;
+}
+
+.popup-root .filter-toggle:selected:hover {
+    -fx-background-color: rgba(59, 130, 246, 0.16);
+    -fx-text-fill: #90BCFF;
+}
+
+/* Mouse/programmatic focus must not leave a yellow glow on the custom window chrome. */
 .popup-root .window-control-button:focus-visible {
-    -fx-border-color: -x-accent;
+    -fx-border-color: rgba(92, 124, 171, 0.70);
     -fx-border-width: 1;
     -fx-border-insets: -2;
     -fx-border-radius: 7;
-    -fx-effect: dropshadow(gaussian, rgba(245, 197, 66, 0.62), 7, 0.28, 0, 0);
+    -fx-effect: null;
 }
 
 .popup-root .clip-list:focused,
@@ -2348,4 +2368,52 @@
 
 .combo-box-popup > .list-view .scroll-bar {
     -fx-background-color: transparent;
+}
+
+/* =========================================================
+   Empty tag filter and non-blurred ComboBox focus states
+   ========================================================= */
+
+.popup-root .filter-type-combo:focused,
+.popup-root .filter-tag-combo:focused {
+    -fx-effect: null;
+}
+
+.popup-root .filter-type-combo:focus-visible,
+.popup-root .filter-tag-combo:focus-visible {
+    -fx-border-color: -x-accent;
+    -fx-border-width: 1;
+}
+
+.popup-root .filter-type-combo:showing,
+.popup-root .filter-tag-combo:showing {
+    -fx-border-color: -x-primary-border;
+    -fx-border-width: 1;
+}
+
+.filter-tag-wrap:disabled {
+    -fx-opacity: 1;
+    -fx-background-color: #0B1624;
+    -fx-border-color: #223247;
+}
+
+.filter-tag-wrap:disabled .filter-tag-icon {
+    -x-icon-color: #657990;
+}
+
+.filter-tag-combo:disabled {
+    -fx-opacity: 1;
+    -fx-effect: null;
+}
+
+.filter-tag-combo:disabled .list-cell {
+    -fx-opacity: 1;
+    -fx-text-fill: #7F91A6;
+}
+
+.filter-tag-combo:disabled .arrow-button {
+    -fx-opacity: 0;
+    -fx-padding: 0;
+    -fx-pref-width: 0;
+    -fx-max-width: 0;
 }

@@ -1,5 +1,6 @@
 
 
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)
@@ -23,6 +24,7 @@ import io.xseries.xclip.ui.popup.PopupRows;
 import io.xseries.xclip.ui.popup.ReloadRequestGate;
 import io.xseries.xclip.ui.popup.SearchAssistBar;
 import io.xseries.xclip.ui.popup.TagEditorModel.EditPlan;
+import io.xseries.xclip.ui.popup.TagFilterModel;
 import io.xseries.xclip.ui.popup.BoundedLruCache;
 import io.xseries.xclip.ui.popup.PopupTitleBar;
 import io.xseries.xclip.ui.popup.PopupRow;
@@ -130,7 +132,7 @@ public final class PopupWindow {
     private final ToggleButton filterPinnedBtn = new ToggleButton("Pinned");
     private final ToggleButton filterRecentBtn = new ToggleButton("Recent");
     private final ComboBox<ContentTypeOption> typeFilterCombo = new ComboBox<>();
-    private final ComboBox<TagFilterOption> tagFilterCombo = new ComboBox<>();
+    private final ComboBox<TagFilterModel.Option> tagFilterCombo = new ComboBox<>();
     private final Button resetFiltersBtn = new Button("Reset filters");
 
     private volatile PopupViewState viewState = PopupViewState.defaults();
@@ -195,13 +197,6 @@ public final class PopupWindow {
     private final PauseTransition autoHideDelay = new PauseTransition(Duration.millis(160));
 
     private record ContentTypeOption(ClipContentType type, String label) {
-        @Override
-        public String toString() {
-            return label;
-        }
-    }
-
-    private record TagFilterOption(Long tagId, String label) {
         @Override
         public String toString() {
             return label;
@@ -1290,13 +1285,12 @@ public final class PopupWindow {
             setFilterState(viewState.scope(), type, viewState.tagId(), true);
         });
 
+        TagFilterModel.Snapshot initialTagFilter = TagFilterModel.build(List.of(), null);
         tagFilterCombo.setItems(FXCollections.observableArrayList(
-                new TagFilterOption(null, "Tag: All tags")
+                initialTagFilter.options()
         ));
-        tagFilterCombo.getSelectionModel().selectFirst();
-        tagFilterCombo.setFocusTraversable(true);
-        tagFilterCombo.setAccessibleText("Clipboard tag filter");
-        tagFilterCombo.setAccessibleHelp("Choose a tag or show clips with any tag.");
+        tagFilterCombo.getSelectionModel().select(initialTagFilter.selectedOption());
+        applyTagFilterAvailability(initialTagFilter.available());
         tagFilterCombo.setPrefWidth(180);
         tagFilterCombo.setMinWidth(150);
         tagFilterCombo.getStyleClass().add("filter-tag-combo");
@@ -1361,7 +1355,7 @@ public final class PopupWindow {
                         : typeFilterCombo.getItems().get(0));
         typeFilterCombo.getSelectionModel().select(targetType);
 
-        TagFilterOption targetTag = tagFilterCombo.getItems().stream()
+        TagFilterModel.Option targetTag = tagFilterCombo.getItems().stream()
                 .filter(option -> java.util.Objects.equals(option.tagId(), tagId))
                 .findFirst()
                 .orElseGet(() -> tagFilterCombo.getItems().isEmpty()
@@ -1379,38 +1373,45 @@ public final class PopupWindow {
     }
 
     private void syncTagFilterOptions(List<ClipTag> tags) {
-        Long selectedTagId = viewState.tagId();
-
-        ObservableList<TagFilterOption> options = FXCollections.observableArrayList();
-        options.add(new TagFilterOption(null, "Tag: All tags"));
-        if (tags != null) {
-            for (ClipTag tag : tags) {
-                if (tag != null) {
-                    options.add(new TagFilterOption(tag.id(), "Tag: " + tag.name()));
-                }
-            }
-        }
+        Long requestedTagId = viewState.tagId();
+        TagFilterModel.Snapshot snapshot = TagFilterModel.build(tags, requestedTagId);
+        ObservableList<TagFilterModel.Option> options =
+                FXCollections.observableArrayList(snapshot.options());
 
         filterUiSync = true;
         if (!tagFilterCombo.getItems().equals(options)) {
             tagFilterCombo.setItems(options);
         }
-        TagFilterOption target = tagFilterCombo.getItems().stream()
-                .filter(option -> java.util.Objects.equals(option.tagId(), selectedTagId))
-                .findFirst()
-                .orElse(tagFilterCombo.getItems().get(0));
+        applyTagFilterAvailability(snapshot.available());
+
+        TagFilterModel.Option target = snapshot.selectedOption();
         if (!java.util.Objects.equals(tagFilterCombo.getValue(), target)) {
             tagFilterCombo.getSelectionModel().select(target);
         }
         filterUiSync = false;
 
-        if (selectedTagId != null && target.tagId() == null) {
+        if (!java.util.Objects.equals(requestedTagId, snapshot.selectedTagId())) {
             viewState = new PopupViewState(
                     viewState.scope(),
                     viewState.contentType(),
-                    null
+                    snapshot.selectedTagId()
             );
+            updateFilterControlState();
+            updateEmptyStateText();
         }
+    }
+
+    private void applyTagFilterAvailability(boolean available) {
+        tagFilterCombo.setDisable(!available);
+        tagFilterCombo.setFocusTraversable(available);
+        tagFilterCombo.setAccessibleText(
+                available ? "Clipboard tag filter" : "No clipboard tags available"
+        );
+        tagFilterCombo.setAccessibleHelp(
+                available
+                        ? "Choose a tag or show clips with any tag."
+                        : "Create or assign a tag from Actions to enable this filter."
+        );
     }
 
     private void updateFilterControlState() {
@@ -2933,4 +2934,5 @@ public final class PopupWindow {
         updateSelectionUi();
     }
 }
+
 
