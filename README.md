@@ -14,6 +14,7 @@
 
 <p align="center">
   <a href="https://github.com/End1essspace/XClip/releases"><img src="https://img.shields.io/github/v/release/End1essspace/XClip?display_name=tag" alt="Latest Release"></a>
+  <a href="https://github.com/End1essspace/XClip/actions/workflows/ci.yml"><img src="https://github.com/End1essspace/XClip/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-blue.svg" alt="GPL-3.0"></a>
   <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4.svg" alt="Windows 10/11">
 </p>

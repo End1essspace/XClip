@@ -1,0 +1,46 @@
+name: Feature request
+description: Propose a focused improvement to XClip.
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        XClip is local-first and intentionally conservative around clipboard execution, privacy, and destructive behavior. Requests should preserve those guarantees.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user problem or workflow limitation are you trying to solve?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: Describe the smallest useful change.
+    validations:
+      required: true
+
+  - type: textarea
+    id: workflow
+    attributes:
+      label: Example workflow
+      description: Show how the feature would be used in practice.
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+
+  - type: checkboxes
+    id: principles
+    attributes:
+      label: Product constraints
+      options:
+        - label: This request can preserve local-first storage and processing.
+          required: true
+        - label: This request does not require automatic execution of clipboard commands.
+          required: true
