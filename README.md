@@ -1,6 +1,6 @@
 
 <p align="center">
-  <img src="assets/xclip_app.png" width="96" alt="XClip logo">
+  <img src="app/src/main/resources/icons/icon.png" width="96" alt="XClip logo">
 </p>
 
 <h1 align="center">XClip</h1>
