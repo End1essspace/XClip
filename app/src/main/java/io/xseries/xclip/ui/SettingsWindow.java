@@ -555,13 +555,19 @@ public final class SettingsWindow {
         cancelBtn.setAccessibleHelp(
                 "Close Settings and discard unapplied changes."
         );
-        cancelBtn.getStyleClass().add("btn-subtle");
+        cancelBtn.getStyleClass().addAll(
+                "btn-subtle",
+                "settings-footer-cancel"
+        );
         cancelBtn.setCancelButton(true);
 
         applyBtn.setDefaultButton(true);
         applyBtn.setAccessibleText("Apply Settings changes");
         applyBtn.setAccessibleHelp("Save and apply the current settings.");
-        applyBtn.getStyleClass().add("btn-apply");
+        applyBtn.getStyleClass().addAll(
+                "btn-apply",
+                "settings-footer-apply"
+        );
         applyBtn.setDisable(true);
 
         applyBtn.setOnAction(event -> apply());
@@ -572,7 +578,7 @@ public final class SettingsWindow {
         HBox.setHgrow(feedback, Priority.ALWAYS);
         feedback.getStyleClass().add("settings-feedback");
 
-        HBox footerActions = new HBox(10, applyBtn, cancelBtn);
+        HBox footerActions = new HBox(10, cancelBtn, applyBtn);
         footerActions.setAlignment(Pos.CENTER_RIGHT);
         footerActions.getStyleClass().add("settings-footer-actions");
 
@@ -2040,4 +2046,5 @@ public final class SettingsWindow {
 
 
 }
+
 

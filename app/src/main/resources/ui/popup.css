@@ -2818,3 +2818,213 @@
     -fx-pref-width: 56px;
     -fx-max-width: 56px;
 }
+
+
+
+
+/* =========================================================
+   M9.2.12 — stable search assist lane + calmer popup accents
+   ========================================================= */
+
+.search-field:focused {
+    -fx-background-color: #122033;
+    -fx-border-color: rgba(102, 139, 190, 0.58);
+    -fx-effect: dropshadow(gaussian, rgba(67, 103, 149, 0.14), 10, 0.18, 0, 0);
+}
+
+.search-assist {
+    -fx-min-height: 28px;
+    -fx-padding: 2 2 0 2;
+}
+
+.search-assist-message {
+    -fx-font-size: 10px;
+    -fx-padding: 2 2 2 0;
+}
+
+.search-assist-hint {
+    -fx-text-fill: #6F8197;
+}
+
+.search-assist-error {
+    -fx-text-fill: #C99292;
+}
+
+.search-query-chip {
+    -fx-text-fill: #B9C8D9;
+    -fx-background-color: rgba(34, 50, 70, 0.48);
+    -fx-border-color: rgba(68, 91, 118, 0.54);
+}
+
+.search-query-chip-type {
+    -fx-text-fill: #B5CDEF;
+    -fx-background-color: rgba(49, 83, 126, 0.22);
+    -fx-border-color: rgba(87, 122, 168, 0.42);
+}
+
+.search-query-chip-scope {
+    -fx-text-fill: #D2C19A;
+    -fx-background-color: rgba(88, 72, 34, 0.20);
+    -fx-border-color: rgba(156, 127, 66, 0.40);
+}
+
+.search-query-chip-tag {
+    -fx-text-fill: #B5D7C4;
+    -fx-background-color: rgba(41, 92, 72, 0.20);
+    -fx-border-color: rgba(76, 133, 108, 0.42);
+}
+
+.search-query-chip-negative {
+    -fx-text-fill: #D9B0B0;
+    -fx-background-color: rgba(104, 56, 56, 0.18);
+    -fx-border-color: rgba(165, 92, 92, 0.42);
+}
+
+.search-suggestion {
+    -fx-background-color: rgba(18, 32, 49, 0.92);
+    -fx-border-color: rgba(52, 71, 97, 0.72);
+    -fx-text-fill: #B6C6D8;
+}
+
+.search-suggestion:hover,
+.search-suggestion:focused {
+    -fx-background-color: rgba(28, 44, 66, 0.96);
+    -fx-border-color: rgba(97, 127, 167, 0.56);
+    -fx-text-fill: #E7EEF8;
+}
+
+.topbar-btn:hover {
+    -fx-background-color: #202734;
+    -fx-border-color: rgba(95, 122, 159, 0.44);
+    -fx-text-fill: #E8EDF5;
+}
+
+.filter-toggle:selected {
+    -fx-background-color: rgba(73, 105, 150, 0.18);
+    -fx-text-fill: #C6D8F0;
+    -fx-font-weight: 700;
+}
+
+.filter-toggle:selected .filter-glyph,
+.filter-toggle:selected .filter-icon {
+    -fx-text-fill: #C6D8F0;
+}
+
+.filter-type-combo:hover,
+.filter-type-combo:focused {
+    -fx-border-color: rgba(95, 122, 159, 0.50);
+}
+
+.filter-reset:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.04);
+    -fx-text-fill: #D7E0EC;
+}
+
+/* =========================================================
+   M9.2.12.2 — floating search assist + calm interaction palette
+   ========================================================= */
+
+/* Search assistance is a floating autocomplete surface, never a layout row. */
+.search-assist.search-assist-popover {
+    -fx-min-height: 0;
+    -fx-max-height: 190px;
+    -fx-padding: 8;
+    -fx-spacing: 6;
+    -fx-background-color: #101824;
+    -fx-border-color: #2A3A4E;
+    -fx-border-width: 1;
+    -fx-background-radius: 10;
+    -fx-border-radius: 10;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.30), 16, 0.16, 0, 5);
+}
+
+.search-assist.search-assist-popover .search-chip-pane,
+.search-assist.search-assist-popover .search-detail-pane {
+    -fx-pref-wrap-length: 680px;
+}
+
+/* Calm steel-blue owns ordinary focus/selection. Amber is reserved for capture state. */
+.popup-root {
+    -x-primary: #56779F;
+    -x-primary-hover: #6385AE;
+    -x-primary-soft: rgba(86, 119, 159, 0.13);
+    -x-primary-border: rgba(99, 132, 174, 0.46);
+}
+
+.popup-root .search-field:focused {
+    -fx-background-color: #111C2A;
+    -fx-border-color: rgba(94, 124, 162, 0.54);
+    -fx-effect: null;
+}
+
+.popup-root .filter-toggle:selected {
+    -fx-background-color: rgba(67, 88, 116, 0.22);
+    -fx-text-fill: #D5DFEB;
+    -fx-font-weight: 700;
+}
+
+.popup-root .filter-toggle:selected:hover {
+    -fx-background-color: rgba(72, 95, 126, 0.26);
+    -fx-text-fill: #E1E8F1;
+}
+
+.popup-root .filter-toggle:selected .filter-glyph,
+.popup-root .filter-toggle:selected .filter-icon {
+    -fx-text-fill: #C8D5E5;
+    -x-icon-color: #C8D5E5;
+}
+
+.popup-root .filter-toggle:focused,
+.popup-root .filter-toggle:focus-visible {
+    -fx-border-color: rgba(98, 128, 166, 0.52);
+    -fx-effect: null;
+}
+
+.popup-root .topbar-btn:focused,
+.popup-root .filter-reset:focused,
+.popup-root .action-btn:focused,
+.popup-root .search-clear:focused,
+.popup-root .search-suggestion:focused,
+.quick-help-menu .quick-help-close:focused {
+    -fx-border-color: rgba(98, 128, 166, 0.50);
+    -fx-border-width: 1;
+    -fx-border-insets: -1;
+    -fx-border-radius: 7;
+    -fx-effect: null;
+}
+
+.popup-root .pause-button {
+    -fx-text-fill: #C9AA58;
+    -fx-border-color: rgba(190, 153, 65, 0.34);
+}
+
+.popup-root .pause-button .pause-icon,
+.popup-root .pause-button .resume-icon {
+    -x-icon-color: #C5A552;
+}
+
+.popup-root .pause-button:paused {
+    -fx-background-color: rgba(177, 139, 49, 0.075);
+    -fx-border-color: rgba(194, 157, 63, 0.40);
+}
+
+.popup-root .pause-button:focused {
+    -fx-border-color: rgba(194, 157, 63, 0.48);
+    -fx-effect: null;
+}
+
+.popup-root .topbar-btn:hover {
+    -fx-background-color: #202733;
+    -fx-border-color: rgba(89, 115, 149, 0.36);
+    -fx-text-fill: #E4E9F0;
+}
+
+.popup-root .clear-history-button:hover {
+    -fx-border-color: rgba(190, 91, 91, 0.38);
+}
+
+.search-query-chip,
+.search-suggestion {
+    -fx-effect: null;
+}
+

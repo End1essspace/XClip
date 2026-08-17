@@ -20,6 +20,7 @@ import io.xseries.xclip.ui.popup.PopupReloadCache;
 import io.xseries.xclip.ui.popup.PopupRows;
 import io.xseries.xclip.ui.popup.ReloadRequestGate;
 import io.xseries.xclip.ui.popup.SearchAssistBar;
+import io.xseries.xclip.ui.popup.SearchAssistOverlayPolicy;
 import io.xseries.xclip.ui.popup.TagEditorModel.EditPlan;
 import io.xseries.xclip.ui.popup.TagFilterModel;
 import io.xseries.xclip.ui.popup.BoundedLruCache;
@@ -70,6 +71,7 @@ import javafx.scene.input.MouseEvent;
 import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.*;
 import javafx.scene.robot.Robot;
+import javafx.stage.Popup;
 import javafx.stage.Screen;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
@@ -121,6 +123,8 @@ public final class PopupWindow {
     private final BorderPane root = new BorderPane();
     private final TextField searchField = new TextField();
     private SearchAssistBar searchAssistBar;
+    private final Popup searchAssistPopup;
+    private Region searchAssistAnchor;
     private List<ClipTag> searchSuggestionTags = List.of();
     private final ListView<PopupRow> listView = new ListView<>();
     private final ObservableList<PopupRow> items = FXCollections.observableArrayList();
@@ -249,6 +253,10 @@ public final class PopupWindow {
         this.onTogglePaused = (onTogglePaused != null) ? onTogglePaused : (() -> {});
         this.actionsMenu = createPopupActionsMenu();
         this.quickHelp = new QuickHelpPopover();
+        this.searchAssistPopup = new Popup();
+        this.searchAssistPopup.setAutoFix(true);
+        this.searchAssistPopup.setAutoHide(false);
+        this.searchAssistPopup.setHideOnEscape(false);
 
         stage = new Stage(StageStyle.UNDECORATED);
         stage.setTitle("XClip");
@@ -322,6 +330,7 @@ public final class PopupWindow {
                 }
         );
         searchAssistBar.setOnSuggestionFocusExited(this::updateSearchAssist);
+        searchAssistPopup.getContent().setAll(searchAssistBar);
 
         Button clearSearchBtn = new Button();
         clearSearchBtn.setGraphic(SvgIcon.of(UiIcon.X, 12, "search-clear-icon"));
@@ -455,7 +464,9 @@ public final class PopupWindow {
         searchWrap.setPrefWidth(0);
         searchWrap.setMaxWidth(Double.MAX_VALUE);
 
-        VBox searchArea = new VBox(5, searchWrap, searchAssistBar);
+        this.searchAssistAnchor = searchWrap;
+
+        VBox searchArea = new VBox(searchWrap);
         searchArea.setMinWidth(0);
         searchArea.setPrefWidth(0);
         searchArea.setMaxWidth(Double.MAX_VALUE);
@@ -597,6 +608,23 @@ public final class PopupWindow {
         scene.addEventFilter(ScrollEvent.SCROLL, event -> actionsMenu.hide());
 
         UiStyles.applyPopup(scene);
+        searchAssistBar.getStylesheets().setAll(scene.getStylesheets());
+
+        stage.xProperty().addListener((obs, oldValue, newValue) ->
+                repositionSearchAssistOverlay()
+        );
+        stage.yProperty().addListener((obs, oldValue, newValue) ->
+                repositionSearchAssistOverlay()
+        );
+        stage.widthProperty().addListener((obs, oldValue, newValue) ->
+                repositionSearchAssistOverlay()
+        );
+        stage.heightProperty().addListener((obs, oldValue, newValue) ->
+                repositionSearchAssistOverlay()
+        );
+        stage.showingProperty().addListener((obs, oldValue, showing) -> {
+            if (!showing) searchAssistPopup.hide();
+        });
 
         windowChrome.installResizeSupport(
                 scene,
@@ -641,6 +669,10 @@ public final class PopupWindow {
             // Check on the next pulse because iconified can update after focus.
             Platform.runLater(() -> {
                 if (suppressAutoHide || windowChrome.isIconified()) return;
+                if (searchAssistPopup.isShowing()
+                        && searchAssistBar.hasFocusedSuggestion()) {
+                    return;
+                }
                 autoHideDelay.playFromStart();
             });
         });
@@ -1762,6 +1794,7 @@ public final class PopupWindow {
         autoHideDelay.stop();
         actionsMenu.hide();
         quickHelp.hide();
+        searchAssistPopup.hide();
         pasteService.clearTarget();
     }
 
@@ -1776,6 +1809,7 @@ public final class PopupWindow {
     private void openSettings() {
         actionsMenu.hide();
         quickHelp.hide();
+        searchAssistPopup.hide();
         pasteService.clearTarget();
         this.onOpenSettings.run();
     }
@@ -1798,6 +1832,7 @@ public final class PopupWindow {
     private void hideWindowOnly() {
         actionsMenu.hide();
         quickHelp.hide();
+        searchAssistPopup.hide();
         stage.hide();
     }
 
@@ -1865,11 +1900,79 @@ public final class PopupWindow {
 
     private void updateSearchAssist() {
         if (searchAssistBar == null) return;
-        searchAssistBar.update(
+        boolean active = searchAssistBar.update(
                 searchField.getText(),
                 searchField.getCaretPosition(),
                 searchSuggestionTags,
                 searchField.isFocused() || searchAssistBar.hasFocusedSuggestion()
+        );
+        syncSearchAssistOverlay(active);
+    }
+
+    private void syncSearchAssistOverlay(boolean active) {
+        if (!active
+                || searchAssistAnchor == null
+                || !stage.isShowing()
+                || searchAssistAnchor.getScene() == null) {
+            searchAssistPopup.hide();
+            return;
+        }
+
+        Platform.runLater(() -> {
+            if (!stage.isShowing() || searchAssistAnchor.getScene() == null) {
+                searchAssistPopup.hide();
+                return;
+            }
+
+            double width = SearchAssistOverlayPolicy.widthFor(
+                    searchAssistAnchor.getWidth(),
+                    stage.getWidth()
+            );
+            if (width <= 0.0) {
+                searchAssistPopup.hide();
+                return;
+            }
+
+            searchAssistBar.setMinWidth(width);
+            searchAssistBar.setPrefWidth(width);
+            searchAssistBar.setMaxWidth(width);
+            searchAssistBar.applyCss();
+            searchAssistBar.autosize();
+
+            Point2D anchor = searchAssistAnchor.localToScreen(
+                    0.0,
+                    searchAssistAnchor.getHeight()
+            );
+            if (anchor == null) {
+                searchAssistPopup.hide();
+                return;
+            }
+
+            double x = anchor.getX();
+            double y = anchor.getY() + SearchAssistOverlayPolicy.VERTICAL_GAP;
+            if (searchAssistPopup.isShowing()) {
+                searchAssistPopup.setX(x);
+                searchAssistPopup.setY(y);
+            } else {
+                searchAssistPopup.show(stage, x, y);
+            }
+        });
+    }
+
+    private void repositionSearchAssistOverlay() {
+        if (!searchAssistPopup.isShowing() || searchAssistAnchor == null) return;
+        Point2D anchor = searchAssistAnchor.localToScreen(
+                0.0,
+                searchAssistAnchor.getHeight()
+        );
+        if (anchor == null) {
+            searchAssistPopup.hide();
+            return;
+        }
+
+        searchAssistPopup.setX(anchor.getX());
+        searchAssistPopup.setY(
+                anchor.getY() + SearchAssistOverlayPolicy.VERTICAL_GAP
         );
     }
 
@@ -3004,6 +3107,8 @@ public final class PopupWindow {
         updateSelectionUi();
     }
 }
+
+
 
 
 

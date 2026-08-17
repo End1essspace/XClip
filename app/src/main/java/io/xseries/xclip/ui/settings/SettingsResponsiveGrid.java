@@ -116,13 +116,23 @@ final class SettingsResponsiveGrid extends GridPane {
         }
 
         ColumnConstraints textColumn = new ColumnConstraints();
-        textColumn.setMinWidth(250);
-        textColumn.setHgrow(Priority.ALWAYS);
+        textColumn.setMinWidth(
+                SettingsResponsivePolicy.FORM_TEXT_COLUMN_MIN_WIDTH
+        );
+        textColumn.setPrefWidth(
+                SettingsResponsivePolicy.FORM_TEXT_COLUMN_PREF_WIDTH
+        );
+        textColumn.setMaxWidth(
+                SettingsResponsivePolicy.FORM_TEXT_COLUMN_MAX_WIDTH
+        );
+        textColumn.setHgrow(Priority.NEVER);
         textColumn.setFillWidth(true);
 
         ColumnConstraints controlColumn = new ColumnConstraints();
-        controlColumn.setMinWidth(250);
-        controlColumn.setHgrow(Priority.SOMETIMES);
+        controlColumn.setMinWidth(
+                SettingsResponsivePolicy.FORM_CONTROL_COLUMN_MIN_WIDTH
+        );
+        controlColumn.setHgrow(Priority.ALWAYS);
         controlColumn.setFillWidth(true);
 
         getColumnConstraints().addAll(textColumn, controlColumn);
@@ -138,3 +148,4 @@ final class SettingsResponsiveGrid extends GridPane {
 
     private record Entry(Node text, Node control) {}
 }
+

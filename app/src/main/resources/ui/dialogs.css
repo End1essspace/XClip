@@ -1194,3 +1194,168 @@
 .settings-navigation {
     -fx-cursor: default;
 }
+
+/* =========================================================
+   M9.2.11 — Settings wide composition and footer hierarchy
+   ========================================================= */
+
+/*
+ * The page canvas fills the viewport, while the actual form stops at a stable
+ * working measure. On QHD/4K maximized windows the extra room stays as calm
+ * background instead of stretching every card and form row.
+ */
+.settings-page-canvas {
+    -fx-background-color: -x-bg;
+    -fx-alignment: top-left;
+}
+
+/*
+ * A page ScrollPane is transport, not an actionable form control. The generic
+ * R9 ScrollPane focus halo produced a giant yellow outline around the page.
+ */
+.settings-root .settings-page-scroll:focused {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-border-width: 0;
+    -fx-effect: null;
+}
+
+/* Keep the footer visually substantial and the primary action at the far right. */
+.settings-root .settings-bottom-bar {
+    -fx-min-height: 62px;
+    -fx-pref-height: 62px;
+    -fx-padding: 10 16 10 16;
+}
+
+.settings-root .settings-footer-actions .button {
+    -fx-min-height: 40px;
+    -fx-pref-height: 40px;
+    -fx-max-height: 40px;
+    -fx-font-size: 12px;
+}
+
+.settings-root .settings-footer-cancel {
+    -fx-min-width: 104px;
+    -fx-pref-width: 104px;
+    -fx-max-width: 104px;
+}
+
+.settings-root .settings-footer-apply {
+    -fx-min-width: 112px;
+    -fx-pref-width: 112px;
+    -fx-max-width: 112px;
+}
+
+.settings-root .settings-footer-apply:disabled {
+    -fx-opacity: 1;
+    -fx-background-color: #2A3442;
+    -fx-text-fill: #8D9AAC;
+    -fx-border-color: #3A4657;
+    -fx-border-width: 1;
+}
+
+/*
+ * Compact windows preserve the same action hierarchy; only the widths tighten
+ * slightly so validation feedback retains useful room.
+ */
+.settings-root.settings-compact .settings-footer-cancel {
+    -fx-min-width: 92px;
+    -fx-pref-width: 92px;
+    -fx-max-width: 92px;
+}
+
+.settings-root.settings-compact .settings-footer-apply {
+    -fx-min-width: 100px;
+    -fx-pref-width: 100px;
+    -fx-max-width: 100px;
+}
+
+/* =========================================================
+   M9.2.12 — calmer Settings chrome and navigation accents
+   ========================================================= */
+
+.settings-title-product {
+    -fx-text-fill: #E8EDF5;
+}
+
+.settings-title-context {
+    -fx-text-fill: #95A3B5;
+}
+
+.settings-nav-button:hover {
+    -fx-background-color: #17202A;
+    -fx-text-fill: #E4EAF2;
+}
+
+.settings-nav-button:selected {
+    -fx-background-color: rgba(71, 101, 145, 0.18);
+    -fx-text-fill: #E2EAF4;
+    -fx-border-color: rgba(96, 124, 163, 0.34);
+}
+
+.settings-nav-button:focused {
+    -fx-border-color: rgba(96, 124, 163, 0.56);
+    -fx-effect: dropshadow(gaussian, rgba(73, 100, 139, 0.16), 6, 0.18, 0, 0);
+}
+
+.settings-window-control:hover {
+    -fx-background-color: #232B37;
+    -fx-text-fill: #F1F4F8;
+}
+
+.btn-subtle:hover {
+    -fx-border-color: rgba(96, 124, 163, 0.38);
+}
+
+/* =========================================================
+   M9.2.12.2 — calm Settings selection and primary-action palette
+   ========================================================= */
+
+.settings-title-product {
+    -fx-text-fill: #E7ECF3;
+}
+
+.settings-title-context {
+    -fx-text-fill: #A7B2C0;
+}
+
+.settings-nav-button:hover {
+    -fx-background-color: #17202A;
+    -fx-text-fill: #DCE3EC;
+}
+
+.settings-nav-button:selected {
+    -fx-background-color: rgba(66, 86, 112, 0.20);
+    -fx-text-fill: #DCE5EF;
+    -fx-border-color: rgba(91, 118, 152, 0.34);
+}
+
+.settings-nav-button:focused {
+    -fx-border-color: rgba(94, 121, 156, 0.50);
+    -fx-effect: null;
+}
+
+.settings-root .btn-apply {
+    -fx-background-color: #506F96;
+    -fx-text-fill: #EEF3F8;
+    -fx-border-color: #607FA5;
+    -fx-border-width: 1;
+}
+
+.settings-root .btn-apply:hover {
+    -fx-background-color: #5A7BA4;
+    -fx-border-color: #6B8CB3;
+}
+
+.settings-root .btn-apply:disabled {
+    -fx-background-color: #2A3442;
+    -fx-text-fill: #8D9AAC;
+    -fx-border-color: #3A4657;
+}
+
+.settings-root .btn-subtle:hover {
+    -fx-background-color: #202733;
+    -fx-border-color: rgba(91, 118, 152, 0.34);
+    -fx-text-fill: #DDE5EE;
+}
+

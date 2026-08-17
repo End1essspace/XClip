@@ -17,15 +17,28 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class SearchUiModelTest {
 
     @Test
-    void focusedEmptySearchShowsSyntaxHintAndStarterSuggestions() {
+    void focusedEmptySearchStaysQuietUntilOperatorIntentExists() {
         SearchUiModel.State state = SearchUiModel.build("", 0, List.of(), true);
 
-        assertTrue(state.visible());
+        assertFalse(state.visible());
         assertTrue(state.chips().isEmpty());
-        assertEquals(SearchUiModel.MessageTone.HINT, state.messageTone());
-        assertTrue(state.message().contains("type:"));
+        assertTrue(state.message().isBlank());
+        assertTrue(state.suggestions().isEmpty());
+    }
+
+    @Test
+    void operatorPrefixOpensAutocompleteWithoutRequiringAColon() {
+        SearchUiModel.State state = SearchUiModel.build("ty", 2, List.of(), true);
+
+        assertTrue(state.visible());
         assertEquals(
-                List.of("type:url", "type:code", "is:pinned", "-type:text"),
+                List.of(
+                        "type:text",
+                        "type:code",
+                        "type:url",
+                        "type:path",
+                        "type:json"
+                ),
                 state.suggestions().stream().map(SearchUiModel.Suggestion::label).toList()
         );
     }
@@ -62,7 +75,7 @@ class SearchUiModelTest {
                 false
         );
 
-        assertTrue(state.visible());
+        assertFalse(state.visible());
         assertEquals("release", state.textRemainder());
         assertEquals(
                 List.of(
@@ -159,3 +172,5 @@ class SearchUiModelTest {
         assertEquals("ordinary text", state.textRemainder());
     }
 }
+
+

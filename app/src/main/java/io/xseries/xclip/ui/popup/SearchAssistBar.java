@@ -70,11 +70,10 @@ public final class SearchAssistBar extends VBox {
         messageLabel.getStyleClass().add("search-assist-message");
 
         getChildren().setAll(chipPane, detailPane);
-        setVisible(false);
-        setManaged(false);
+        getStyleClass().add("search-assist-popover");
     }
 
-    public void update(
+    public boolean update(
             String rawQuery,
             int caretPosition,
             List<ClipTag> availableTags,
@@ -90,9 +89,9 @@ public final class SearchAssistBar extends VBox {
         rebuildChips(state);
         rebuildDetails(rawQuery, state);
 
-        setVisible(state.visible());
-        setManaged(state.visible());
-        setAccessibleText(accessibleSummary(state));
+        boolean active = state.visible();
+        setAccessibleText(active ? accessibleSummary(state) : "");
+        return active;
     }
 
     public boolean focusFirstSuggestion() {
@@ -250,3 +249,5 @@ public final class SearchAssistBar extends VBox {
         return summary.toString();
     }
 }
+
+

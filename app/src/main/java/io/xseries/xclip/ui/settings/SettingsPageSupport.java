@@ -14,6 +14,7 @@ import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 
 import java.util.List;
@@ -26,10 +27,25 @@ final class SettingsPageSupport {
         VBox content = new VBox(14);
         content.getChildren().addAll(cards);
         content.getStyleClass().add("settings-page-content");
+        content.setMinWidth(0);
+        content.setMaxWidth(SettingsResponsivePolicy.PAGE_CONTENT_MAX_WIDTH);
 
-        ScrollPane scroll = new ScrollPane(content);
+        StackPane canvas = new StackPane(content);
+        canvas.setMinWidth(0);
+        canvas.setMaxWidth(Double.MAX_VALUE);
+        canvas.getStyleClass().add("settings-page-canvas");
+        StackPane.setAlignment(content, Pos.TOP_LEFT);
+
+        /*
+         * The canvas follows the viewport; the form follows the canvas until
+         * PAGE_CONTENT_MAX_WIDTH and then stops growing.
+         */
+        content.prefWidthProperty().bind(canvas.widthProperty());
+
+        ScrollPane scroll = new ScrollPane(canvas);
         scroll.setFitToWidth(true);
         scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        scroll.setFocusTraversable(false);
         scroll.getStyleClass().add("settings-page-scroll");
         return scroll;
     }

@@ -1,4 +1,3 @@
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)
@@ -140,7 +139,15 @@ public final class SearchUiModel {
         int hiddenChipCount = allChips.size() - visibleChipCount;
 
         boolean completionPending = isCompletionPending(raw, caret, parsed);
-        List<Suggestion> suggestions = focused && (!parsed.hasIssues() || completionPending)
+        boolean operatorPrefix = looksLikeOperatorPrefix(raw, caret);
+        boolean assistContext = focused && (
+                completionPending
+                        || parsed.hasOperators()
+                        || parsed.hasIssues()
+                        || operatorPrefix
+        );
+        List<Suggestion> suggestions = assistContext
+                && (!parsed.hasIssues() || completionPending)
                 ? suggestions(raw, caret, availableTags, parsed)
                 : List.of();
 
@@ -149,25 +156,26 @@ public final class SearchUiModel {
         if (completionPending) {
             message = "Choose a value for the current search operator.";
             tone = MessageTone.HINT;
-        } else if (parsed.hasIssues()) {
+        } else if (focused && parsed.hasIssues()) {
             SearchQueryIssue issue = parsed.issues().get(0);
             message = issue.message() + " — this fragment is treated as ordinary text.";
             tone = MessageTone.ERROR;
-        } else if (focused && raw.isBlank()) {
-            message = "Use type:, is:, tag:, -type:, or -tag:. Quote tag names that contain spaces.";
-            tone = MessageTone.HINT;
         } else if (focused && parsed.hasOperators()) {
             message = parsed.text().isEmpty()
                     ? "Operators filter results. Add ordinary words to search clip text, titles, and tag names."
                     : "Only the ordinary text part is highlighted in matching clips.";
             tone = MessageTone.HINT;
-        } else if (focused) {
-            message = "Add operators such as type:url, is:pinned, or tag:work.";
-            tone = MessageTone.HINT;
         } else {
             message = "";
             tone = MessageTone.HINT;
         }
+
+        boolean visible = focused && (
+                completionPending
+                        || parsed.hasOperators()
+                        || parsed.hasIssues()
+                        || !suggestions.isEmpty()
+        );
 
         return new State(
                 parsed.text(),
@@ -176,8 +184,26 @@ public final class SearchUiModel {
                 suggestions,
                 message,
                 tone,
-                focused || parsed.hasOperators() || parsed.hasIssues()
+                visible
         );
+    }
+
+    private static boolean looksLikeOperatorPrefix(String raw, int caret) {
+        TokenRange range = currentTokenRange(raw, caret);
+        if (range.start() == range.end()) return false;
+
+        String token = raw.substring(
+                        range.start(),
+                        Math.min(caret, range.end())
+                )
+                .toLowerCase(Locale.ROOT);
+        if (token.length() < 2) return false;
+
+        return "type:".startsWith(token)
+                || "-type:".startsWith(token)
+                || "is:".startsWith(token)
+                || "tag:".startsWith(token)
+                || "-tag:".startsWith(token);
     }
 
     private static boolean isCompletionPending(
@@ -431,3 +457,5 @@ public final class SearchUiModel {
 
     private record TokenRange(int start, int end) {}
 }
+
+

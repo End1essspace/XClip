@@ -356,5 +356,31 @@ class UiStylesResourceTest {
             assertTrue(dialogs.contains("-fx-pref-width: 56px;"));
         }
     }
+    @Test
+    void floatingSearchAssistAndCalmAccentOverridesArePackaged() throws Exception {
+        try (InputStream popupStream = UiStyles.class.getResourceAsStream("/ui/popup.css");
+             InputStream dialogsStream = UiStyles.class.getResourceAsStream("/ui/dialogs.css");
+             InputStream themeStream = UiStyles.class.getResourceAsStream("/ui/theme.css")) {
+            assertNotNull(popupStream);
+            assertNotNull(dialogsStream);
+            assertNotNull(themeStream);
+
+            String popup = new String(popupStream.readAllBytes(), StandardCharsets.UTF_8);
+            String dialogs = new String(dialogsStream.readAllBytes(), StandardCharsets.UTF_8);
+            String theme = new String(themeStream.readAllBytes(), StandardCharsets.UTF_8);
+
+            assertTrue(popup.contains(
+                    "M9.2.12.2 — floating search assist + calm interaction palette"
+            ));
+            assertTrue(popup.contains(".search-assist.search-assist-popover"));
+            assertTrue(popup.contains("-fx-max-height: 190px;"));
+            assertTrue(popup.contains(".popup-root .pause-button:focused"));
+            assertTrue(dialogs.contains(
+                    "M9.2.12.2 — calm Settings selection and primary-action palette"
+            ));
+            assertTrue(dialogs.contains(".settings-root .btn-apply"));
+            assertTrue(theme.contains("-x-accent: #D2AD4B;"));
+        }
+    }
 
 }

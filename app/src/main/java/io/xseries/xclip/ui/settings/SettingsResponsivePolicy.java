@@ -23,6 +23,17 @@ public final class SettingsResponsivePolicy {
     public static final double COMPACT_MAX_WIDTH = 919;
     public static final double WIDE_MIN_WIDTH = 1180;
 
+    /*
+     * Settings is a form surface, not a dashboard. Very wide monitors should
+     * add breathing room after the form rather than stretch label/control
+     * relationships across the complete viewport.
+     */
+    public static final double PAGE_CONTENT_MAX_WIDTH = 1120;
+    public static final double FORM_TEXT_COLUMN_MIN_WIDTH = 280;
+    public static final double FORM_TEXT_COLUMN_PREF_WIDTH = 420;
+    public static final double FORM_TEXT_COLUMN_MAX_WIDTH = 460;
+    public static final double FORM_CONTROL_COLUMN_MIN_WIDTH = 270;
+
     private static final double VISUAL_WIDTH_MARGIN = 32;
     private static final double VISUAL_HEIGHT_MARGIN = 24;
 
@@ -104,3 +115,4 @@ public final class SettingsResponsivePolicy {
         }
     }
 }
+

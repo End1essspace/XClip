@@ -91,4 +91,30 @@ class SettingsResponsivePolicyTest {
                 ).size()
         );
     }
+
+    @Test
+    void wideSettingsUsesBoundedWorkingMeasureAndStableFormColumns() {
+        assertEquals(1120.0, SettingsResponsivePolicy.PAGE_CONTENT_MAX_WIDTH);
+        assertEquals(
+                280.0,
+                SettingsResponsivePolicy.FORM_TEXT_COLUMN_MIN_WIDTH
+        );
+        assertEquals(
+                420.0,
+                SettingsResponsivePolicy.FORM_TEXT_COLUMN_PREF_WIDTH
+        );
+        assertEquals(
+                460.0,
+                SettingsResponsivePolicy.FORM_TEXT_COLUMN_MAX_WIDTH
+        );
+        assertEquals(
+                270.0,
+                SettingsResponsivePolicy.FORM_CONTROL_COLUMN_MIN_WIDTH
+        );
+        assertTrue(
+                SettingsResponsivePolicy.FORM_TEXT_COLUMN_PREF_WIDTH
+                        < SettingsResponsivePolicy.PAGE_CONTENT_MAX_WIDTH / 2.0
+        );
+    }
+
 }
