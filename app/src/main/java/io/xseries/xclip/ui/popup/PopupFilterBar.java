@@ -1,5 +1,6 @@
 
 
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)
@@ -20,6 +21,7 @@ import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 
 import java.util.Objects;
@@ -54,6 +56,7 @@ public final class PopupFilterBar extends GridPane {
 
         scopeButtons = new HBox(allButton, pinnedButton, recentButton);
         scopeButtons.getStyleClass().add("filter-segment");
+        scopeButtons.setMaxWidth(Region.USE_PREF_SIZE);
 
         typeControl = createComboControl(
                 typeCombo,
@@ -115,17 +118,28 @@ public final class PopupFilterBar extends GridPane {
             GridPane.setColumnIndex(resetButton, 1);
             GridPane.setHalignment(resetButton, HPos.RIGHT);
         } else {
-            getColumnConstraints().setAll(flexible, content, content, content);
+            /*
+             * Keep the scope segment content-sized. The flexible spacer owns
+             * surplus width so QHD/XL windows do not stretch the scope border
+             * across the toolbar while the filter controls remain grouped.
+             */
+            getColumnConstraints().setAll(
+                    content,
+                    flexible,
+                    content,
+                    content,
+                    content
+            );
 
             GridPane.setRowIndex(scopeButtons, 0);
             GridPane.setColumnIndex(scopeButtons, 0);
             GridPane.setHalignment(scopeButtons, HPos.LEFT);
 
-            configureWideCombo(typeControl, 1, 180, 200, 220);
-            configureWideCombo(tagControl, 2, 170, 190, 220);
+            configureWideCombo(typeControl, 2, 180, 200, 220);
+            configureWideCombo(tagControl, 3, 170, 190, 220);
 
             GridPane.setRowIndex(resetButton, 0);
-            GridPane.setColumnIndex(resetButton, 3);
+            GridPane.setColumnIndex(resetButton, 4);
             GridPane.setHalignment(resetButton, HPos.RIGHT);
         }
         PopupLayoutSupport.applyResponsiveClass(this, mode);
@@ -182,4 +196,3 @@ public final class PopupFilterBar extends GridPane {
         control.setMaxWidth(maxWidth);
     }
 }
-
