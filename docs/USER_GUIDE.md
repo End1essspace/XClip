@@ -1,5 +1,6 @@
 
 
+
 # XClip — User Guide
 
 
@@ -402,7 +403,7 @@ When XClip is maximized and the vertical scrollbar is visible, the scrollbar thu
 
 The codebase documents application version 1.4.0, config schema 5, SQLite schema 6, UI contract 19, and backup format 1.
 
-Current v1.4.0 release preparation status:
+Current v1.4.0 release status:
 
 - automated regression — PASS;
 - Gate C manual UI coverage — accepted from iterative validation;
@@ -411,4 +412,4 @@ Current v1.4.0 release preparation status:
 - formal M8 18-case evidence — WAIVED for v1.4.0; not claimed as PASS;
 - individual unexecuted upgrade/uninstall/reinstall formal cases — not claimed;
 - final screenshots — present;
-- remaining: release commit, fresh MSI checksum, tag, and GitHub Release.
+- GitHub Release `v1.4.0` — published on 2026-08-17.

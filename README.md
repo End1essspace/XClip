@@ -1,5 +1,6 @@
 
 
+
 <p align="center">
   <img src="app/src/main/resources/icons/icon.png" width="96" alt="XClip logo">
 </p>
@@ -23,7 +24,7 @@
 
 # English
 
-Current version: **v1.4.0**
+Current version: **v1.4.0** · Released **2026-08-17**
 
 <p align="center">
   <a href="https://github.com/End1essspace/XClip/releases"><strong>Download XClip</strong></a>
@@ -35,7 +36,7 @@ Current version: **v1.4.0**
   <img src="docs/screenshots/xclip-popup.png" alt="XClip main popup" width="100%">
 </p>
 
-> **Release preparation:** XClip **v1.4.0** is version-aligned across Gradle, JAR/MSI packaging, and UI contract revision 19. Post-migration `clean test` and `build` passed, `XClip-1.4.0.msi` was built successfully, and the installed packaged application passed the release-owner smoke check. Gate C was accepted from the manual checks already performed throughout the final UI-polish cycle. The optional formal 18-case M8 evidence suite was **waived for v1.4.0** and is not claimed as PASS. Remaining publication steps are the final release commit, fresh artifact checksum, `v1.4.0` tag, and GitHub Release.
+XClip keeps clipboard history on your machine and turns `Ctrl+Shift+V` into a searchable workspace for finding, organizing, and pasting text quickly. The packaged Windows build includes its own Java runtime.
 
 ## What XClip does
 
@@ -87,7 +88,7 @@ tag:"Project Work"
 
 Search assistance is contextual and non-blocking: operator chips, suggestions, and diagnostics appear only when useful and do not permanently increase the header height.
 
-## v1.4.0 development highlights
+## v1.4.0 highlights
 
 - Persistent SQLite WAL history with configurable duplicate handling.
 - Direct Paste with foreground-target restoration and Copy fallback.
@@ -183,12 +184,12 @@ The packaged build uses `jpackage` plus a bundled runtime image.
 |---|---|
 | [User guide](docs/USER_GUIDE.md) | Complete user-facing behavior and troubleshooting |
 | [Russian user guide](docs/USER_GUIDE_RU.md) | Russian user-facing guide |
-| [Roadmap](docs/roadmap.md) | Current v1.4.0 implementation status and release path |
+| [Roadmap](docs/roadmap.md) | v1.4.0 implementation history and current project status |
 | [UI contract](docs/UI_CONTRACT.md) | Current human-readable UI/product contract |
 | [Validation](docs/VALIDATION.md) | Current regression, manual, packaged, and release gates |
 | [Database & backup](docs/M7_DATABASE_MAINTENANCE.md) | SQLite maintenance, backup, restore, and rollback contract |
 | [Windows lifecycle](docs/M8_WINDOWS_LIFECYCLE.md) | Packaged lifecycle hardening and required evidence |
-| [Draft release notes](docs/RELEASE_NOTES_v1.4.0.md) | Current v1.4.0 release summary |
+| [Release notes](docs/RELEASE_NOTES_v1.4.0.md) | XClip v1.4.0 release summary |
 
 > Milestone-named M6/M7/M8/R10/R11 documents, CSV matrices, and
 > `UI_CONTRACT_v1.3.0.md` remain in `docs/` as frozen build/release-gate assets.
@@ -225,7 +226,7 @@ Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)
 
 # Русский
 
-Текущая версия: **v1.4.0**
+Текущая версия: **v1.4.0** · Выпущена **17.08.2026**
 
 <p align="center">
   <a href="https://github.com/End1essspace/XClip/releases"><strong>Скачать XClip</strong></a>
@@ -235,7 +236,7 @@ Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)
 
 **XClip** — local-first менеджер буфера обмена для Windows: persistent history, Direct Paste, PINNED, теги, advanced search, privacy/retention и инструменты восстановления данных.
 
-> **Подготовка релиза:** XClip **v1.4.0** синхронизирован по Gradle, JAR/MSI packaging и UI contract revision 19. Post-migration `clean test` и `build` прошли, `XClip-1.4.0.msi` успешно собран, а установленная packaged-версия прошла smoke check. Gate C принят по ручным проверкам, уже выполненным по ходу финального UI-polish. Формальный M8-набор из 18 кейсов **waived для v1.4.0** и не заявляется как PASS. До публикации остаются final release commit, свежий checksum артефакта, tag `v1.4.0` и GitHub Release.
+**XClip v1.4.0 опубликован 17 августа 2026 года.** Готовая Windows-сборка распространяется через GitHub Releases и включает собственный Java runtime. Формальный M8-набор из 18 lifecycle-кейсов для этого релиза был waived и не заявляется как PASS.
 
 ## Основные возможности
 
@@ -302,7 +303,7 @@ MSI:
 - [Validation / release gate](docs/VALIDATION.md)
 - [Database & backup](docs/M7_DATABASE_MAINTENANCE.md)
 - [Windows lifecycle](docs/M8_WINDOWS_LIFECYCLE.md)
-- [Draft release notes v1.4.0](docs/RELEASE_NOTES_v1.4.0.md)
+- [Release notes v1.4.0](docs/RELEASE_NOTES_v1.4.0.md)
 
 Технические M6/M7/M8/R10/R11 документы, CSV-матрицы и
 `UI_CONTRACT_v1.3.0.md` остаются отдельными frozen build/release-gate assets,

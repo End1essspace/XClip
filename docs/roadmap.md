@@ -1,18 +1,19 @@
 
 
+
 # XClip — Roadmap
 
-**Статус:** v1.4.0 release candidate / publication stage  
-**Актуализировано:** 2026-08-17  
-**Текущая development/release target:** v1.4.0  
-**Стек:** Java 17, JavaFX 21, SQLite, Gradle, JNA, Windows 10/11  
-**SQLite schema:** 6  
-**Config schema:** 5  
-**UI contract:** 19  
-**Backup format:** 1  
+**Статус:** v1.4.0 released / maintenance baseline
+**Актуализировано:** 2026-08-17
+**Текущая released baseline:** v1.4.0
+**Стек:** Java 17, JavaFX 21, SQLite, Gradle, JNA, Windows 10/11
+**SQLite schema:** 6
+**Config schema:** 5
+**UI contract:** 19
+**Backup format:** 1
 **Основная ветка:** `main`
 
-**Текущая точка:** automated regression, v1.4.0 metadata migration, clean MSI packaging и installed packaged smoke check прошли. Gate C принят по уже выполненным итеративным ручным UI-проверкам. Формальный M8 18-case evidence run waived для v1.4.0 и не заявляется как PASS. Остался Gate E: final release commit → fresh MSI/checksum → tag `v1.4.0` → GitHub Release.
+**Текущая точка:** XClip v1.4.0 опубликован на GitHub 2026-08-17. Automated regression, clean MSI packaging и installed packaged smoke check прошли; Gate C принят по итеративным ручным UI-проверкам. Формальный M8 18-case evidence run был waived для v1.4.0 и не заявляется как PASS. Релизная линия v1.4.0 закрыта; дальнейшая работа относится к post-release maintenance и OSS/repository hardening.
 
 ---
 
@@ -20,7 +21,7 @@
 ## Version-line rule
 
 - **v1.3.0** is the historical release dated 2026-06-05.
-- **v1.4.0** is the active development/release target for the feature expansion and hardening cycle documented here.
+- **v1.4.0** is the current published baseline for the feature expansion and hardening cycle documented here.
 - `app/build.gradle.kts` declares `1.4.0`.
 - the current machine-readable contract is `ui-contract-v1.4.0.properties`, revision `19`.
 - the old `ui-contract-v1.3.0.properties` and `UI_CONTRACT_v1.3.0.md` remain frozen only for historical R11 evidence.
@@ -76,7 +77,7 @@ XClip — local-first Windows clipboard manager с persistent history, Direct Pa
 | Formal M8 18-case evidence set | ⚪ WAIVED for v1.4.0; not executed/not PASS |
 | Upgrade/uninstall/reinstall formal proof | ⚪ Not claimed; part of waived formal M8 suite |
 | Final screenshots | ✅ Present in repository |
-| Final checksum/tag/GitHub Release | ⬜ Pending |
+| Tag / GitHub Release publication | ✅ Complete |
 
 ---
 
@@ -234,7 +235,7 @@ R11 remains historical evidence; changes after it must be treated as explicit po
 
 ## M9.2 — post-freeze popup polish
 
-**Status:** ✅ implemented, final regression pending
+**Status:** ✅ complete and accepted for v1.4.0
 
 Implemented on 2026-08-17 baseline:
 
@@ -401,7 +402,7 @@ documentation entry points.
 
 ## Gate A — documentation review
 
-Status: ✅ Complete for release preparation.
+Status: ✅ Complete for v1.4.0.
 
 - stable docs structure is in place;
 - README uses repository-backed image paths;
@@ -471,19 +472,11 @@ Release decision:
 
 ## Gate E — release
 
-Status: ⬜ In progress.
+Status: ✅ Complete.
 
-Remaining:
+Published on **2026-08-17** as GitHub Release `v1.4.0`. The release page is the source of truth for the final distributed artifacts and release notes.
 
-1. apply this final release-documentation update;
-2. `git diff --check`;
-3. final release commit and push;
-4. rebuild `XClip-1.4.0.msi` from the release commit;
-5. generate SHA-256;
-6. create/push tag `v1.4.0`;
-7. publish the GitHub Release with final notes and MSI.
-
-No additional M8-001 → M8-018 run is required by the selected v1.4.0 release policy.
+No additional M8-001 → M8-018 run was required by the selected v1.4.0 release policy; those cases remain explicitly unclaimed rather than represented as PASS.
 
 ---
 

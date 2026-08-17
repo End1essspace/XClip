@@ -1,5 +1,6 @@
 
 
+
 # XClip — руководство пользователя
 
 
@@ -400,7 +401,7 @@ UI contract:   19
 Backup format: 1
 ```
 
-Текущий статус подготовки v1.4.0:
+Текущий статус релиза v1.4.0:
 
 - automated regression — PASS;
 - Gate C manual UI coverage — принят по итеративным ручным проверкам;
@@ -409,4 +410,4 @@ Backup format: 1
 - formal M8 18-case evidence — WAIVED для v1.4.0, не заявляется как PASS;
 - невыполненные formal upgrade/uninstall/reinstall cases — не заявляются как проверенные;
 - финальные screenshots — присутствуют;
-- остаются release commit, свежий MSI checksum, tag и GitHub Release.
+- GitHub Release `v1.4.0` — опубликован 17.08.2026.

@@ -1,13 +1,14 @@
 
 
+
 # XClip — Validation and Release Gate
 
-**Development target:** v1.4.0  
-**Platform:** Windows 10/11 x64  
-**Config schema:** 5  
-**SQLite schema:** 6  
-**UI contract:** 19  
-**Backup format:** 1  
+**Released baseline:** v1.4.0
+**Platform:** Windows 10/11 x64
+**Config schema:** 5
+**SQLite schema:** 6
+**UI contract:** 19
+**Backup format:** 1
 **Updated:** 2026-08-17
 
 This document is the primary validation entry point for the current XClip
@@ -48,7 +49,7 @@ Current v1.4.0 release-validation status:
 5. installed packaged smoke validation — **PASS**;
 6. formal M8 18-case packaged evidence — **WAIVED for v1.4.0; not executed/not PASS**;
 7. individual upgrade/uninstall/reinstall formal evidence — **not claimed**;
-8. final release commit, fresh MSI checksum, tag, and GitHub Release — **pending**.
+8. tag `v1.4.0` and GitHub Release publication — **complete on 2026-08-17**.
 
 ---
 
@@ -440,15 +441,8 @@ The v1.4.0 validation basis accepted by the release owner is:
 The formal M8 scripts and matrices remain useful for future lifecycle validation,
 but they are not release-blocking for v1.4.0 under this explicit release decision.
 
-Remaining publication checklist:
+Publication status:
 
-- `git diff --check`;
-- final release commit/push;
-- rebuild the MSI from the release commit;
-- generate SHA-256 for `XClip-1.4.0.msi`;
-- ensure release notes match the artifact;
-- create and push tag `v1.4.0`;
-- publish the GitHub Release.
-
-Until tag/publication are complete, v1.4.0 is a release candidate rather than a
-published release.
+- `v1.4.0` was published on GitHub on 2026-08-17;
+- the GitHub Release is now the source of truth for distributed release artifacts and public release notes;
+- the formal M8 18-case suite remains waived and must not be retroactively represented as PASS.

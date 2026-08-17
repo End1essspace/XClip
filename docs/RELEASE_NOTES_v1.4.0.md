@@ -1,5 +1,6 @@
 
 
+
 # XClip 1.4.0
 
 
@@ -169,13 +170,11 @@ Explicit waiver:
 - no M8 `PASS.txt` is claimed;
 - unexecuted formal upgrade/uninstall/reinstall cases are not represented as PASS.
 
-Publication steps remaining:
+Publication status:
 
-- final release commit/push;
-- rebuild the MSI from that release commit;
-- generate SHA-256;
-- create/push tag `v1.4.0`;
-- publish the GitHub Release.
+- GitHub Release `v1.4.0` published on **2026-08-17**;
+- the release page is the source of truth for the final distributed artifacts;
+- the formal M8 18-case waiver remains part of the release record and is not represented as PASS.
 
 ## Version consistency
 
