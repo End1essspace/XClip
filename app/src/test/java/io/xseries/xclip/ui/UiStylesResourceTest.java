@@ -235,4 +235,16 @@ class UiStylesResourceTest {
         }
     }
 
+    @Test
+    void popupSectionHeadersKeepBalancedVerticalRhythm() throws Exception {
+        try (InputStream stream = UiStyles.class.getResourceAsStream("/ui/popup.css")) {
+            assertNotNull(stream);
+            String css = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+
+            assertTrue(css.contains("M9.2.4 — section vertical rhythm"));
+            assertTrue(css.contains(".popup-root .clip-list .list-cell:section"));
+            assertTrue(css.contains("-fx-padding: 11 16 7 16;"));
+        }
+    }
+
 }

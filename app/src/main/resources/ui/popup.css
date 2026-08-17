@@ -2444,3 +2444,12 @@
     -fx-font-size: 11.5px;
 }
 
+/* =========================================================
+   M9.2.4 — section vertical rhythm
+   ========================================================= */
+
+.popup-root .clip-list .list-cell:section,
+.popup-root .clip-list .list-cell:section:hover,
+.popup-root .clip-list .list-cell:section:selected {
+    -fx-padding: 11 16 7 16;
+}
