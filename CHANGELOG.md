@@ -1,295 +1,214 @@
-
-
 # Changelog
 
-All notable changes to this project will be documented in this file.
+All notable changes to XClip are documented in this file.
 
+For detailed release notes, see [`docs/RELEASE_NOTES_v1.4.0.md`](docs/RELEASE_NOTES_v1.4.0.md).
+
+---
 
 ## [1.4.0] — 2026-08-17
 
-### Changed — 2026-08-17 popup polish and Windows edge ergonomics
-
-* Added a subtle centered `X-SERIES` title-bar wordmark using the packaged `/icons/x-series.png` resource.
-* Increased popup Actions-menu text/icon sizing and spacing without globally enlarging unrelated context menus.
-* Kept search assistance contextual and floating so suggestions/chips do not permanently increase header height.
-* Hardened the maximized top-right Close target with a guarded Windows physical-edge fallback that is active only for a visible, focused, non-iconified, maximized window.
-* Preserved normal close-button semantics: press must begin in the valid corner target and release must remain inside; duplicate close delivery is guarded.
-* Expanded the ListView vertical scrollbar to a wider interaction lane while keeping the visible track/thumb slim.
-* Added maximized physical-right-edge scrollbar thumb dragging so the user can acquire the scrollbar at the hard screen edge instead of aiming at a narrow visual strip.
-* Updated the product documentation, current machine-readable UI contract, release notes, and roadmap for the active v1.4.0 development line.
-
-### Validation status — 2026-08-17
-
-* Post-migration `clean test --no-daemon` passed.
-* Full `build --no-daemon` passed with M6/M7/M8 assets on UI contract revision 19 and historical R11 regression assets intact.
-* Packaging produced `app-1.4.0.jar`, runtime image `1.4.0`, and `XClip-1.4.0.msi`.
-* The installed packaged application passed the release-owner smoke check.
-* Gate C was accepted from the manual checks performed iteratively throughout the final UI-polish cycle.
-* The formal 18-case M8 packaged evidence suite was waived for v1.4.0; unexecuted cases are not represented as PASS and no `PASS.txt` is claimed.
-
-### Release status
-
-* Runtime implementation and automated validation assets are present through M8.
-* Gradle/JAR/jpackage metadata and machine-readable UI contract revision 19 are aligned to v1.4.0; historical v1.3.0 R11 evidence remains frozen separately.
-* The release candidate has passed automated regression, clean MSI packaging, and installed packaged smoke validation.
-* Remaining publication work is the final release commit, fresh MSI checksum, `v1.4.0` tag, and GitHub Release.
-
-### Added — Settings, data, scale, and lifecycle
-
-* Added a nine-page Settings architecture with draft-state tracking, Apply/Cancel, scoped reset, inline validation, persistent navigation, and compact/standard/wide responsive layouts.
-* Added dedicated Shortcuts, Data, and About pages with global-hotkey status, local data paths, license/privacy information, and asynchronous maintenance actions.
-* Added SQLite status, `PRAGMA integrity_check`, explicit WAL checkpoint, `VACUUM`, `PRAGMA optimize`, and reclaimable-space reporting.
-* Added versioned `.xclip-backup` creation through `VACUUM INTO`, strict archive/schema/config/integrity validation, staged restore, rollback protection, and exit-after-restore behavior.
-* Added transactional migration rollback/retry behavior and future-schema rejection before mutation.
-* Added an explicit 1k/10k/50k large-data harness with a 500k-character clip, 1,000 PINNED entries, 256 tags, 2,000 duplicate candidates, 25,000 retention deletions, JavaFX responsiveness evidence, and bounded heap/SQLite budgets.
-* Added acknowledged single-instance activation, explicit unrelated-port failure, Explorer tray/hotkey recovery, sleep/resume and lock/unlock watcher recovery, display/DPI recovery, stale autostart repair, and ordered bounded shutdown.
-* Added M6 Settings, M7 database, M7 large-data, and M8 Windows lifecycle validation assets and gates.
-* Added complete English and Russian user guides, a manual validation plan, and release notes.
-
-### Changed — Release documentation
-
-* Updated README to describe Direct Paste, search operators, tags, Settings, database maintenance, backup/restore, Windows lifecycle recovery, local data, and current validation status.
-* Updated the roadmap to record completed automated/MSI validation and the explicit v1.4.0 M8 formal-evidence waiver.
-* Expanded consolidated validation history through M8 while preserving the frozen R10/R11/UI-contract evidence.
-* Kept formal M8 lifecycle evidence available as an optional validation suite without claiming unexecuted upgrade/uninstall/reinstall cases as PASS.
-
+A major update that turns XClip from a clipboard history popup into a more complete local-first clipboard workspace for Windows.
 
 ### Added
 
-* Added opt-in age-based cleanup for RECENT history with a general 1–3,650 day policy and independent TEXT, CODE, URL, PATH, JSON, and COMMAND overrides.
-* Added deterministic rule composition: PINNED clips are always preserved and the shortest applicable general/type age wins.
-* Added explicit clear-RECENT-on-exit behavior, startup/Apply/manual/periodic cleanup triggers, and a runtime last-result status in Settings.
-* Added config v5 persistence and backward-compatible migration from v4; database schema remains v6 because content type stays derived metadata.
-* Added batched multi-id deletion, retention candidate loading, cleanup service tests, config migration tests, CSS coverage, and UI contract revision 10.
-* Added explicit opt-in sensitive-content rules for payment-card-like values and contextual one-time codes.
-* Added local-only payment-card detection with bounded 13–19 digit candidates, safe token boundaries, common separators, and Luhn verification.
-* Added low-false-positive OTP detection for 4–8 digit values near explicit English, Russian, or Uzbek verification context; standalone numbers remain capturable.
-* Added config v4 persistence, backward-compatible migration from v3, dedicated Settings controls, scoped reset, and immediate runtime application.
-* Extended the clipboard privacy gate to inspect the exact changed content while preserving fail-open behavior and the watcher last-seen barrier.
-* Extended the frozen UI contract to revision 9 and added domain, migration, runtime-gate, CSS, and contract tests for sensitive-content rules.
-* Added process-based foreground application exclusions with a dedicated Privacy section in Settings.
-* Added config v3 persistence for a normalized, case-insensitive executable-basename exclusion list with backward-compatible migration from config v2.
-* Added a best-effort Windows foreground resolver that records process id, executable name, and window title without blocking capture on resolver failure.
-* Added a fail-open clipboard privacy gate: only a positive foreground executable match suppresses ingest.
-* Added strict UI validation, safe persisted-value sanitization, deterministic normalization, and one-click clearing for excluded applications.
-* Extended the frozen UI contract to revision 8 and added privacy policy, resolver parsing, runtime gate, config migration, and CSS resource tests.
-* Added a dedicated Duplicate behavior section to Settings with product-facing controls for RECENT/PINNED positioning, whitespace, letter case, duplicate windows, and exact-content mode.
-* Added stable duplicate-window presets plus lossless custom millisecond input for non-preset persisted values.
-* Added an exact-mode override state that visibly disables whitespace and case controls while their values remain preserved.
-* Added Reset duplicate defaults, scoped only to duplicate preferences and backed by `DuplicateBehaviorPolicy.defaults()`.
-* Added a scrollable Settings content surface with a fixed Apply/Close action bar so all controls remain reachable on smaller displays.
-* Extended the frozen UI contract to revision 7 and added pure Settings mapping/validation tests.
-* Added config v2 persistence for duplicate position, whitespace, case, time-window, and exact-content preferences with backward-compatible migration from v1.
-* Added four policy-independent SHA-256 lookup keys per clip so duplicate settings can change without rewriting history.
-* Added schema v6 migration that removes the legacy unique-hash restriction while preserving legacy rows, tags, titles, and pinned order.
-* Connected duplicate policy decisions to runtime ingestion, including finite-window row creation and optional PINNED move-to-top behavior.
-* Added config migration, alternate-key, database migration, and runtime policy integration tests.
-* Added a pure-Java duplicate behavior policy covering recent positioning, pinned positioning, whitespace normalization, case sensitivity, duplicate time windows, and exact-content matching.
-* Added a deterministic duplicate decision engine that returns persistence-neutral mutation intents without touching Config, SQLite, or JavaFX.
-* Added defaults that formally preserve current XClip behavior: RECENT duplicates move to the top, PINNED duplicates keep manual order, whitespace is normalized, matching is case-sensitive, and the duplicate window is unlimited.
-* Added domain contract tests for every duplicate-policy axis and boundary condition.
-* Added a responsive inline advanced-search assistance surface beneath the popup search field.
-* Added contextual operator completions for `type:`, `is:`, `tag:`, `-type:`, and `-tag:` with tag-name quoting.
-* Added bounded active-operator chips with deterministic `+N` overflow.
-* Added non-blocking inline parser diagnostics and a complete Search syntax section in Quick Help.
-* Connected parsed `type:`, `is:`, `tag:`, `-type:`, and `-tag:` operators to the popup query pipeline.
-* Added immutable search execution plans that combine advanced operators with toolbar scope, type, and tag filters.
-* Added exact tag-identity `EXISTS`/`NOT EXISTS` constraints with deterministic AND/exclusion semantics.
-* Added bounded derived-type execution that preserves DAO ordering and the existing 5,000-candidate safety budget.
-* Added stale-generation checkpoints between count, query, derived filtering, tag loading, and JavaFX publication.
-* Added a deterministic pure-Java advanced-search parser foundation for `type:`, `is:`, and `tag:` operators.
-* Added quoted values, negative type/tag clauses, pure-text remainder extraction, and non-fatal invalid-query fallback diagnostics.
-* Added parser, execution-plan, ordering, conflict, and advanced tag-query contract tests.
-* Added a global `Manage tags…` dialog that remains available even when clipboard history is empty.
-* Added deterministic tag usage counts based on current clip assignments.
-* Added inline tag rename with shared validation and case-insensitive collision reporting.
-* Added confirmed single-tag deletion with the affected assignment count shown before removal.
-* Added confirmed cleanup for tags with zero assignments only.
-* Added compact tag chips under clip previews with a strict three-chip budget and `+N` overflow.
-* Added a `Tag: All tags` popup filter with deterministic tag ordering.
-* Added tag-name matching to the existing popup search without changing content/title search behavior.
-* Added batch assignment loading so virtualized rows never issue one database query per cell.
-* Added a single-clip and multi-selection tag editor available from Actions and row context menus.
-* Added inline tag creation, validation, case-insensitive duplicate resolution, and assignment removal.
-* Added tri-state multi-selection semantics: assign to all, remove from all, or preserve mixed assignments.
-* Added one-transaction tag creation and batch assignment through `TagDao.applyEdit`.
-* Extended the machine-readable UI contract for the Milestone 2.2 Tags surface.
-* Extended the frozen UI contract to revision 3 for Milestone 2.3 tag chips and filtering.
-* Added deterministic tests for tag-name normalization, editor planning, atomic saves, and rollback.
+- Added custom titles for PINNED clips.
+- Added manual PINNED ordering with Move Up, Move Down, Move to Top, and Move to Bottom.
+- Added persistent local tags with create, assign, batch edit, filter, rename, delete, usage count, and unused-tag cleanup.
+- Added advanced search operators for content type, scope, required tags, excluded tags, and negative type filters.
+- Added quoted tag values, active operator chips, contextual suggestions, and non-blocking search diagnostics.
+- Added content classification for `TEXT`, `CODE`, `URL`, `PATH`, `JSON`, and `COMMAND`.
+- Added type-aware safe actions for opening HTTP(S) URLs, revealing paths, formatting JSON, and copying code or commands without executing clipboard commands.
+- Added configurable duplicate behavior for RECENT and PINNED clips.
+- Added whitespace, case-sensitivity, duplicate-window, and exact-content matching options.
+- Added foreground application exclusions for clipboard capture.
+- Added optional local-only suppression for payment-card-like values and contextual one-time codes.
+- Added general and per-content-type age retention for RECENT history.
+- Added startup, Apply-triggered, manual, periodic, and clear-on-exit cleanup.
+- Added a nine-page Settings architecture:
+  - General
+  - Capture
+  - History
+  - Duplicate behavior
+  - Privacy
+  - Appearance
+  - Shortcuts
+  - Data
+  - About
+- Added Settings draft state with Apply, Cancel, scoped reset, and inline validation.
+- Added database status and storage metrics.
+- Added SQLite integrity checking, WAL checkpoint, `VACUUM`, and `PRAGMA optimize`.
+- Added versioned `.xclip-backup` creation.
+- Added strict backup validation and rollback-protected restore.
+- Added large-data validation coverage for histories up to 50,000 clips and very large clipboard entries.
+- Added a subtle centered `X-SERIES` title-bar wordmark.
 
 ### Changed
 
-* Automatic retention remains disabled by default; no existing history is deleted until the user explicitly enables an age rule or clear on exit.
-* `ClipEntryDao.deleteByIds` now deletes atomically in bounded 500-id batches to remain below SQLite parameter limits during cleanup.
-* Duplicate behavior, application exclusions, and sensitive-content actions remain preserved in config v5 alongside retention settings.
-* Clipboard capture gates now receive the exact capped changed text, allowing content-aware privacy rules without moving detection into persistence.
-* Clipboard watcher now evaluates the foreground privacy gate after marking a changed value as observed, preventing excluded content from being captured later after a window switch without another clipboard change.
-* Clipboard watching now forwards exact capped text to the domain layer so case- and whitespace-only changes can be evaluated by the selected duplicate policy.
-* `content_hash` is no longer unique in schema v6 because finite duplicate windows can intentionally retain multiple equal clips.
-* Extended the frozen UI contract to revision 6 for Milestone 3.3 Search UI.
-* Search suggestions replace only the token at the caret and preserve the remainder of the query.
-* Valid operator syntax remains excluded from clip-content highlighting; only the pure-text remainder is highlighted.
-* Extended the frozen UI contract to revision 5 for Milestone 3.2 advanced-search execution.
-* Search highlighting now uses only the parsed pure-text remainder instead of valid operator syntax.
-* Removed the redundant UI-side resort so query results retain the exact deterministic DAO order.
-* Extended the frozen UI contract to revision 4 for Milestone 2.4 tag management.
-* Tag-management database work now runs through the popup's existing serialized database executor.
-* Popup reload now combines scope, content type, text search, tag-name search, and selected-tag filtering in one deterministic pipeline.
-* Popup rows now carry immutable tag metadata prepared off the JavaFX Application Thread.
-* The popup now receives the existing schema-v5 `TagDao` and exposes visible Tags UI without changing clipboard content.
-* The R11 shell remains frozen; Milestone 2.2 is an explicit contract revision rather than a popup redesign.
+- Redesigned the popup into a responsive, keyboard-first workspace with `All`, `Pinned`, and `Recent` scopes.
+- Improved Direct Paste target restoration while preserving Copy fallback behavior.
+- Search now covers clipboard content, PINNED titles, and assigned tag names.
+- Popup rows now use bounded previews and virtualization to keep large histories responsive.
+- Search Assist now appears contextually as a floating surface instead of permanently increasing header height.
+- Improved Actions-menu readability with larger scoped text, icons, and spacing.
+- Improved selection, batch actions, filtering, empty states, and keyboard navigation.
+- Improved Settings responsiveness across constrained, standard, and wide layouts.
+- Automatic retention remains opt-in; existing history is not deleted unless the user enables a cleanup rule.
+- PINNED clips remain protected from ordinary RECENT retention cleanup.
+- Duplicate-policy changes no longer require rewriting existing clipboard history.
+- The packaged MSI continues to include its own Java runtime.
 
-### R11 baseline
+### Privacy and safety
 
-* Added the machine-readable UI contract that was frozen while repository metadata still declared v1.3.0; this R11 artifact is inherited as historical baseline evidence by the v1.4.0 development line.
-* Added a 38-case R11 regression matrix and a canonical screenshot evidence set.
-* Added PowerShell workflows for automated validation, manual evidence collection, and final evidence verification.
-* Added a Gradle `r11AutomatedGate` and packaged UI contract verification.
+- Clipboard commands are never executed automatically.
+- Executable or script paths copied to the clipboard are not launched as commands.
+- Sensitive-content detection remains local-only and opt-in.
+- Foreground application resolution fails open instead of silently dropping clipboard data.
+- Existing history is not silently rescanned or deleted when privacy settings change.
+- Full clipboard contents are not exposed through automatic hover tooltips.
 
-### Internal
+### Data and reliability
 
-* Frozen responsive breakpoints, preview/performance budgets, keyboard bindings, content types, status tones, dialog tones, icon count, and stylesheet cascade through automated tests.
-* Excluded local `artifacts/` regression evidence from version control.
+- Added four indexed duplicate lookup hashes so matching policy can change without rewriting history.
+- Updated the SQLite schema to version `6` and configuration schema to version `5`.
+- Added transactional database migration with rollback and retry support.
+- Added future-schema rejection before database mutation.
+- Added bounded batch deletion for large retention cleanups.
+- Added acknowledged single-instance activation and explicit unrelated-port conflict handling.
+- Added tray and global-hotkey recovery after Explorer restart.
+- Added clipboard watcher recovery after sleep/resume and lock/unlock.
+- Added stale Direct Paste target invalidation across lifecycle boundaries.
+- Added window recovery after monitor, work-area, topology, and DPI changes.
+- Added stale autostart launcher repair.
+- Hardened ordered and idempotent shutdown behavior.
+- Improved the maximized top-right Close target for physical screen-edge acquisition.
+- Widened the scrollbar interaction lane while keeping the visible scrollbar slim.
+- Added guarded physical-right-edge scrollbar thumb dragging while maximized.
 
+### Release
 
-## [1.3.0] — Dark UI & Tray Polish Update — 2026-06-05
+- Released as `v1.4.0` on GitHub on 2026-08-17.
+- Gradle, JAR, jpackage, MSI, and the current machine-readable UI contract are aligned to version `1.4.0`.
+- Clean automated tests and the full Gradle build passed before release.
+- `XClip-1.4.0.msi` was built successfully and the installed packaged application passed smoke validation.
+- The separate formal 18-case M8 packaged lifecycle evidence run was waived for this release; unexecuted cases are not represented as PASS.
+
+---
+
+## [1.3.0] — 2026-06-05
 
 ### Added
 
-* Added full dark production UI theme for Popup and Settings windows.
-* Added native dark Windows title bar support through DWM integration.
-* Added dark styling for confirmation, information, and error dialogs.
-* Added custom dark tray context menu instead of the default native white AWT menu.
-* Added tray menu outside-click handling for more natural context menu behavior.
+- Added a full dark production theme for the Popup and Settings windows.
+- Added native dark Windows title-bar support through DWM integration.
+- Added dark styling for confirmation, information, and error dialogs.
+- Added a custom dark tray context menu.
+- Added reliable outside-click dismissal for the tray menu.
 
-### Improvements
+### Changed
 
-* Improved popup visual hierarchy with clearer `PINNED` and `RECENT` section headers.
-* Improved pinned clip row styling with subtle amber accent indication.
-* Improved selected row styling to avoid heavy yellow/brown selection blocks.
-* Improved popup footer spacing and action button sizing.
-* Improved Settings window visual consistency with the rest of the application.
-* Improved tray menu hover, separator, and accent styling.
+- Improved visual hierarchy between `PINNED` and `RECENT`.
+- Added a subtle amber accent for PINNED rows.
+- Refined selected-row styling.
+- Improved popup footer spacing and action-button sizing.
+- Improved Settings visual consistency.
+- Improved tray-menu hover, separator, and accent styling.
 
 ### Fixed
 
-* Fixed white Windows title bars breaking the dark UI appearance.
-* Fixed Settings confirmation dialogs remaining light-themed.
-* Fixed tray menu staying open after clicking outside.
-* Fixed tray menu item interaction issues caused by unstable `JPopupMenu` anchoring.
-* Fixed muted section headers caused by disabled section cells.
+- Fixed white Windows title bars breaking the dark appearance.
+- Fixed light-themed Settings dialogs.
+- Fixed the tray menu remaining open after clicking outside.
+- Fixed tray-menu interaction instability.
+- Fixed muted section headers caused by disabled section cells.
+- Fixed popup reopening behavior after native minimize.
 
-### Internal
+---
 
-* Added `WindowsTitleBar` helper for Windows DWM title bar styling.
-* Reworked tray menu implementation to use a custom Swing `JWindow` menu.
-* Added native mouse-state watcher for reliable outside-click tray menu closing.
-* Kept database schema unchanged.
-* Kept config schema version unchanged.
-
-
-## [1.2.0] — Clipboard Safety & UI Limit Update — 2026-03-15
-
-### Behavior Changes
-
-* Redesigned **Clear** button behavior to prevent accidental history loss.
-* Clear now removes **only clips currently visible in the popup** instead of wiping the entire database.
-* Pinned clips remain protected during Clear operations.
+## [1.2.0] — 2026-03-15
 
 ### Added
 
-* New configurable **UI clip limit** setting (default: `200`).
-* Allows adjusting how many recent clips are loaded into the popup interface.
-* Setting available directly in **Settings → UI clip limit**.
+- Added a configurable UI clip limit with a default of `200`.
+- Added runtime application of the popup history limit without requiring restart.
 
-### Improvements
+### Changed
 
-* Popup clip loading limit is now driven by configuration instead of hardcoded value.
-* Runtime update of popup limit without restarting the application.
+- Changed **Clear** to remove only clips currently visible in the popup instead of wiping the entire database.
+- PINNED clips remain protected during Clear operations.
+- Popup clip loading is now configuration-driven instead of hardcoded.
 
-### Internal
+---
 
-* Extended `Config` system with `uiClipLimit` parameter.
-* Updated Settings window with new spinner control.
-* Refactored Clear operation to delete only visible clip IDs.
+## [1.1.0] — 2026-02-24
 
+### Changed
 
+- Switched the popup from `StageStyle.UTILITY` to `StageStyle.DECORATED`.
+- Restored native Windows Minimize, Maximize / Restore, and Close buttons.
+- Enabled normal window resizing.
+- Added the application icon to the native title bar.
+- Improved window-state restoration and focus behavior.
 
+### Fixed
 
-## [1.1.0] — Window System & Licensing Update — 2026-02-24
-
-### Window & UI Improvements
-
-* Switched from `StageStyle.UTILITY` to `StageStyle.DECORATED`
-* Restored native Windows title bar buttons:
-
-  * Minimize
-  * Maximize / Restore
-  * Close
-* Enabled proper window resizing for popup window
-* Added application icon to window title bar
-* Fixed tray reopening issue after native minimize (de-iconify fix)
-* Improved window state restoration behavior
-
-### Stability Improvements
-
-* Fixed bug where popup could not reopen after native minimize
-* Improved stage focus behavior when restored from tray
-* Ensured consistent window state handling (iconified/maximized)
+- Fixed popup reopening after native minimize.
+- Improved restoration from the system tray.
+- Improved handling of iconified and maximized window states.
 
 ### Licensing
 
-* License changed from **MIT** to **GNU General Public License v3.0**
-* Added proper GPL v3 license file
-* Updated README license section
+- Changed the project license from MIT to GNU General Public License v3.0.
+- Added the GPL v3 license file and updated repository documentation.
 
-### Internal
-
-* Refined window initialization logic
-* Improved stage lifecycle handling
-* Cleaned up title bar behavior for production-grade experience
-
-
-
+---
 
 ## [1.0.1] — 2026-02-18
 
+### Added
+
+- Added configurable `maxClipChars` with a default of `500,000`.
+- Added bounded previews for very large clipboard entries.
+- Added `E` to expand or collapse the bounded clip preview.
+- Updated Quick Help with the new preview shortcut.
+
 ### Fixed
 
-* Fixed UI freeze when displaying very large clipboard entries (e.g. 5000+ lines).
-* Replaced hard drop (`50_000` chars) with configurable truncation logic.
-* Fixed `withStartOnBoot()` constructor bug in `Config` (incorrect argument mapping).
-* Fixed `Apply` behavior for numeric settings (digits-only input enforced).
-* Fixed inconsistent spinner validation state after reopening Settings.
+- Fixed UI freezes when displaying very large clipboard entries.
+- Replaced the previous hard `50,000`-character drop with configurable truncation.
+- Fixed incorrect argument mapping in `Config.withStartOnBoot()`.
+- Fixed numeric Settings Apply behavior.
+- Fixed inconsistent spinner validation state after reopening Settings.
 
+---
+
+## [1.0.0] — 2026-02-18
+
+Initial public release.
 
 ### Added
 
-* **Configurable `maxClipChars` setting** (default: 500,000).
-* Bounded UI preview for large clips (prevents JavaFX layout explosion).
-* Expand / Collapse hotkey:
+- Clipboard monitoring.
+- Persistent SQLite history in WAL mode.
+- Search.
+- Pin and unpin.
+- System tray integration.
+- Global hotkey support.
+- Single-instance protection.
+- Windows autostart support.
+- MSI packaging with a stable upgrade UUID.
 
-  * `E` → Toggle expanded preview (UI-only, bounded).
-* Extended preview limits for expanded mode (safe rendering).
-* Updated Quick Help tooltip with new hotkey.
+### Improved
 
+- Clipboard polling backoff.
+- SQLite connection reuse.
+- Preview rendering performance.
 
+---
 
-
-## [1.0.0] - 2026-02-18
-
-### Added
-- Clipboard monitoring service
-- System tray integration
-- Global hotkey support
-- Search functionality
-- Pin / unpin clips
-- SQLite persistence (WAL mode)
-- Single-instance protection
-- Windows autostart support
-- MSI packaging with upgrade UUID
-
-### Fixed
-- Clipboard polling backoff improvements
-- Connection reuse for SQLite
-- Preview rendering optimization
+[1.4.0]: https://github.com/End1essspace/XClip/releases/tag/v1.4.0
+[1.3.0]: https://github.com/End1essspace/XClip/releases/tag/v1.3.0
+[1.2.0]: https://github.com/End1essspace/XClip/releases/tag/v1.2.0
+[1.1.0]: https://github.com/End1essspace/XClip/releases/tag/v1.1.0
+[1.0.1]: https://github.com/End1essspace/XClip/releases/tag/v1.0.1
+[1.0.0]: https://github.com/End1essspace/XClip/releases/tag/v1.0.0
