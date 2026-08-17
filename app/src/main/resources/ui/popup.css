@@ -1,5 +1,6 @@
 
 
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)
@@ -2229,7 +2230,20 @@
     -fx-effect: null;
 }
 
+/* Keyboard focus belongs to the active row, not to the entire history canvas. */
 .popup-root .clip-list:focused,
+.popup-root .clip-list:focus-visible {
+    -fx-border-color: transparent;
+    -fx-border-width: 0;
+    -fx-effect: null;
+}
+
+.popup-root .clip-list:focus-visible .list-cell:selected .clip-row-card {
+    -fx-border-color: rgba(102, 160, 236, 0.62);
+    -fx-border-width: 1;
+    -fx-effect: none;
+}
+
 .quick-help-menu .quick-help-scroll:focused {
     -fx-border-color: -x-accent-border;
     -fx-border-width: 1;

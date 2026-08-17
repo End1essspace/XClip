@@ -1,5 +1,6 @@
 
 
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)
@@ -186,6 +187,19 @@ class UiStylesResourceTest {
 
 
     @Test
+    void clipListFocusIsLocalizedToTheSelectedRow() throws Exception {
+        try (InputStream stream = UiStyles.class.getResourceAsStream("/ui/popup.css")) {
+            assertNotNull(stream);
+            String css = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+
+            assertTrue(css.contains("/* Keyboard focus belongs to the active row, not to the entire history canvas. */"));
+            assertTrue(css.contains(".popup-root .clip-list:focus-visible .list-cell:selected .clip-row-card"));
+            assertTrue(css.contains("rgba(102, 160, 236, 0.62)"));
+            assertFalse(css.contains(".popup-root .clip-list:focused,\n.quick-help-menu .quick-help-scroll:focused"));
+        }
+    }
+
+    @Test
     void emptyTagFilterIsReadableAndCannotOpenAnEmptyMenu() throws Exception {
         try (InputStream stream = UiStyles.class.getResourceAsStream("/ui/popup.css")) {
             assertNotNull(stream);
@@ -207,4 +221,3 @@ class UiStylesResourceTest {
         return count;
     }
 }
-
