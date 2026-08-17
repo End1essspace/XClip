@@ -2761,3 +2761,60 @@
     -fx-opacity: 1;
     -fx-text-fill: #8FA3BA;
 }
+
+/* =========================================================
+   M9.2.9 — clip metadata readability
+   ========================================================= */
+
+/*
+ * Metadata stays secondary to clip content, but must remain scannable on
+ * QHD/HiDPI. Increase only the semantic badge/time roles; row density and the
+ * overflow action keep their existing geometry.
+ */
+.popup-root .clip-type-badge {
+    -fx-font-size: 10.5px;
+    -fx-font-weight: 700;
+    -fx-padding: 3 8 3 8;
+    -fx-background-radius: 6;
+    -fx-border-radius: 6;
+}
+
+.popup-root .clip-time {
+    -fx-text-fill: #9AAFC6;
+    -fx-font-size: 12.5px;
+    -fx-opacity: 1.0;
+}
+
+/* TEXT was the weakest badge and disappeared first at 100% QHD scaling. */
+.popup-root .clip-type-text {
+    -fx-text-fill: #B6C2D0;
+    -fx-background-color: rgba(154, 164, 179, 0.10);
+    -fx-border-color: rgba(154, 164, 179, 0.32);
+}
+
+/* =========================================================
+   M9.2.10 — ComboBox popup geometry + wider window controls
+   ========================================================= */
+
+/*
+ * 13.5px filter typography plus the old 28px popup row height clipped glyphs.
+ * Give the popup a real fixed row height and balanced vertical padding.
+ */
+.combo-box-popup > .list-view {
+    -fx-fixed-cell-size: 36px;
+}
+
+.combo-box-popup > .list-view .list-cell {
+    -fx-min-height: 36px;
+    -fx-pref-height: 36px;
+    -fx-max-height: 36px;
+    -fx-padding: 6 11 6 11;
+    -fx-font-size: 13.5px;
+}
+
+/* Windows-style caption targets should be wider than their title-bar height. */
+.popup-root .window-control-button {
+    -fx-min-width: 56px;
+    -fx-pref-width: 56px;
+    -fx-max-width: 56px;
+}

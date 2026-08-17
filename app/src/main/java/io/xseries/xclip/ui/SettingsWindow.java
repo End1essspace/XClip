@@ -1,4 +1,3 @@
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)
@@ -22,6 +21,8 @@ import io.xseries.xclip.system.WindowsAutoStartService;
 import io.xseries.xclip.system.clipboard.WatcherController;
 import io.xseries.xclip.system.tray.TrayController;
 import io.xseries.xclip.system.window.WindowChromeController;
+import io.xseries.xclip.ui.components.SvgIcon;
+import io.xseries.xclip.ui.components.UiIcon;
 import io.xseries.xclip.ui.settings.AboutSettingsContent;
 import io.xseries.xclip.ui.settings.AboutSettingsPage;
 import io.xseries.xclip.ui.settings.AppearanceSettingsPage;
@@ -41,6 +42,7 @@ import io.xseries.xclip.ui.settings.SettingsDraftValidation;
 import io.xseries.xclip.ui.settings.SettingsField;
 import io.xseries.xclip.ui.settings.SettingsPage;
 import io.xseries.xclip.ui.settings.SettingsResponsivePolicy;
+import io.xseries.xclip.ui.settings.SettingsSidebarNavigationPolicy;
 import io.xseries.xclip.ui.settings.SettingsValidationIssue;
 import io.xseries.xclip.ui.settings.ShortcutsSettingsPage;
 import javafx.animation.PauseTransition;
@@ -63,12 +65,14 @@ import javafx.scene.control.TextField;
 import javafx.scene.control.TextFormatter;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
+import javafx.scene.control.Tooltip;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.input.ScrollEvent;
 import javafx.stage.FileChooser;
 import javafx.stage.Modality;
 import javafx.stage.Screen;
@@ -1764,17 +1768,28 @@ public final class SettingsWindow {
             }
         });
 
-        Button minimize = windowButton("—", "Minimize Settings");
+        Button minimize = windowButton(
+                UiIcon.MINUS,
+                "Minimize Settings",
+                "window-minimize-button"
+        );
         minimize.setOnAction(event -> chromeController.minimize());
 
-        maximizeWindowBtn = windowButton("□", "Maximize Settings");
+        maximizeWindowBtn = windowButton(
+                UiIcon.SQUARE,
+                "Maximize Settings",
+                "window-maximize-button"
+        );
         maximizeWindowBtn.setOnAction(event -> {
             chromeController.toggleMaximized();
             syncMaximizeButton();
         });
 
-        Button close = windowButton("×", "Close Settings");
-        close.getStyleClass().add("close");
+        Button close = windowButton(
+                UiIcon.X,
+                "Close Settings",
+                "window-close-button"
+        );
         close.setOnAction(event -> chromeController.closeToBackground());
 
         HBox windowControls = new HBox(minimize, maximizeWindowBtn, close);
@@ -1786,12 +1801,22 @@ public final class SettingsWindow {
         return titleBar;
     }
 
-    private Button windowButton(String text, String accessibleText) {
-        Button button = new Button(text);
+    private Button windowButton(
+            UiIcon icon,
+            String accessibleText,
+            String extraStyleClass
+    ) {
+        Button button = new Button();
+        button.setGraphic(SvgIcon.of(icon, 13, "window-control-icon"));
+        button.setFocusTraversable(true);
         button.setAccessibleText(accessibleText);
+        button.setAccessibleHelp("Window control: " + accessibleText + ".");
+        button.setTooltip(new Tooltip(accessibleText));
         button.getStyleClass().addAll(
                 "settings-window-control",
-                "window-control-hit-target"
+                "window-control-button",
+                "window-control-hit-target",
+                extraStyleClass
         );
         return button;
     }
@@ -1799,10 +1824,15 @@ public final class SettingsWindow {
     private void syncMaximizeButton() {
         if (maximizeWindowBtn == null) return;
         boolean maximized = chromeController.isMaximized();
-        maximizeWindowBtn.setText(maximized ? "❐" : "□");
-        maximizeWindowBtn.setAccessibleText(
-                maximized ? "Restore Settings" : "Maximize Settings"
+        UiIcon icon = maximized ? UiIcon.COPY : UiIcon.SQUARE;
+        String label = maximized ? "Restore Settings" : "Maximize Settings";
+
+        maximizeWindowBtn.setGraphic(
+                SvgIcon.of(icon, 12, "window-control-icon")
         );
+        maximizeWindowBtn.setAccessibleText(label);
+        maximizeWindowBtn.setAccessibleHelp("Window control: " + label + ".");
+        maximizeWindowBtn.setTooltip(new Tooltip(label));
     }
 
     private VBox buildNavigation() {
@@ -1869,7 +1899,30 @@ public final class SettingsWindow {
 
         VBox sidebar = new VBox(14, title, buttons, spacer, localOnly);
         sidebar.getStyleClass().add("settings-navigation");
+        sidebar.addEventFilter(
+                ScrollEvent.SCROLL,
+                event -> navigateSidebarByScroll(pages, event)
+        );
         return sidebar;
+    }
+
+    private void navigateSidebarByScroll(
+            SettingsPage[] pages,
+            ScrollEvent event
+    ) {
+        int currentIndex = selectedPage == null ? 0 : selectedPage.ordinal();
+        int targetIndex = SettingsSidebarNavigationPolicy.targetIndex(
+                currentIndex,
+                pages.length,
+                event.getDeltaY()
+        );
+        if (targetIndex != currentIndex) {
+            focusNavigationButton(pages, targetIndex);
+        }
+        if (Math.abs(event.getDeltaY())
+                >= SettingsSidebarNavigationPolicy.MIN_SCROLL_DELTA) {
+            event.consume();
+        }
     }
 
     private void focusNavigationButton(
@@ -1987,3 +2040,4 @@ public final class SettingsWindow {
 
 
 }
+

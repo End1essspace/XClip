@@ -11,6 +11,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SettingsResponsiveResourceTest {
@@ -33,4 +34,21 @@ class SettingsResponsiveResourceTest {
             assertTrue(css.contains(".settings-grid"));
         }
     }
+
+    @Test
+    void settingsSidebarWheelKeepsSelectionAndKeyboardFocusSynchronized() throws Exception {
+        String source = java.nio.file.Files.readString(
+                java.nio.file.Path.of(
+                        "src/main/java/io/xseries/xclip/ui/SettingsWindow.java"
+                )
+        );
+
+        assertTrue(source.contains(
+                "focusNavigationButton(pages, targetIndex);"
+        ));
+        assertFalse(source.contains(
+                "if (targetIndex != currentIndex) {\n            selectPage(pages[targetIndex]);"
+        ));
+    }
+
 }

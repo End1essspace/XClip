@@ -303,4 +303,58 @@ class UiStylesResourceTest {
         }
     }
 
+    @Test
+    void popupClipMetadataRemainsReadableWithoutIncreasingRowDensity() throws Exception {
+        try (InputStream stream = UiStyles.class.getResourceAsStream("/ui/popup.css")) {
+            assertNotNull(stream);
+            String css = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+
+            assertTrue(css.contains("M9.2.9 — clip metadata readability"));
+            assertTrue(css.contains(".popup-root .clip-type-badge"));
+            assertTrue(css.contains("-fx-font-size: 10.5px;"));
+            assertTrue(css.contains("-fx-padding: 3 8 3 8;"));
+            assertTrue(css.contains(".popup-root .clip-time"));
+            assertTrue(css.contains("-fx-text-fill: #9AAFC6;"));
+            assertTrue(css.contains("-fx-font-size: 12.5px;"));
+            assertTrue(css.contains(".popup-root .clip-type-text"));
+            assertTrue(css.contains("-fx-text-fill: #B6C2D0;"));
+            assertTrue(css.contains("rgba(154, 164, 179, 0.32)"));
+        }
+    }
+
+    @Test
+    void popupComboGeometryAndSettingsChromeShareReadableWindowTargets() throws Exception {
+        try (InputStream popupStream = UiStyles.class.getResourceAsStream("/ui/popup.css");
+             InputStream dialogsStream = UiStyles.class.getResourceAsStream("/ui/dialogs.css")) {
+            assertNotNull(popupStream);
+            assertNotNull(dialogsStream);
+
+            String popup = new String(
+                    popupStream.readAllBytes(),
+                    StandardCharsets.UTF_8
+            );
+            String dialogs = new String(
+                    dialogsStream.readAllBytes(),
+                    StandardCharsets.UTF_8
+            );
+
+            assertTrue(popup.contains(
+                    "M9.2.10 — ComboBox popup geometry + wider window controls"
+            ));
+            assertTrue(popup.contains("-fx-fixed-cell-size: 36px;"));
+            assertTrue(popup.contains("-fx-pref-height: 36px;"));
+            assertTrue(popup.contains("-fx-padding: 6 11 6 11;"));
+            assertTrue(popup.contains(".popup-root .window-control-button"));
+            assertTrue(popup.contains("-fx-pref-width: 56px;"));
+
+            assertTrue(dialogs.contains(
+                    "M9.2.10 — Settings chrome parity + sidebar wheel affordance"
+            ));
+            assertTrue(dialogs.contains(".settings-root .window-control-button"));
+            assertTrue(dialogs.contains(".settings-root .window-control-icon"));
+            assertTrue(dialogs.contains(".settings-root .window-close-button:hover"));
+            assertTrue(dialogs.contains("-fx-pref-width: 56px;"));
+        }
+    }
+
 }

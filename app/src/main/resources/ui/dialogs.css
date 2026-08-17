@@ -1,4 +1,3 @@
-
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)
@@ -1121,3 +1120,77 @@
     -fx-max-width: 460px;
 }
 
+/* =========================================================
+   M9.2.10 — Settings chrome parity + sidebar wheel affordance
+   ========================================================= */
+
+/*
+ * Settings uses the same Lucide minimize / maximize-or-restore / close family
+ * and the same horizontal hit target as the main popup.
+ */
+.settings-root .settings-window-control,
+.settings-root .window-control-button {
+    -fx-min-width: 56px;
+    -fx-pref-width: 56px;
+    -fx-max-width: 56px;
+    -fx-min-height: 42px;
+    -fx-pref-height: 42px;
+    -fx-max-height: 42px;
+    -fx-padding: 0;
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-border-width: 0;
+    -fx-border-radius: 0;
+    -fx-background-radius: 0;
+    -fx-effect: null;
+}
+
+.settings-root .window-control-icon {
+    -x-icon-color: #C9D4E3;
+}
+
+.settings-root .window-control-button:hover {
+    -fx-background-color: #27303D;
+}
+
+.settings-root .window-control-button:hover .window-control-icon {
+    -x-icon-color: #F4F7FA;
+}
+
+.settings-root .window-close-button:hover {
+    -fx-background-color: #C42B1C;
+}
+
+.settings-root .window-close-button:hover .window-control-icon,
+.settings-root .window-close-button:pressed .window-control-icon {
+    -x-icon-color: #FFFFFF;
+}
+
+/* Mouse focus stays quiet; keyboard traversal still has a visible blue ring. */
+.settings-root .window-control-button:focused {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-border-width: 0;
+    -fx-effect: null;
+}
+
+.settings-root .window-control-button:focused:hover {
+    -fx-background-color: #27303D;
+}
+
+.settings-root .window-close-button:focused:hover {
+    -fx-background-color: #C42B1C;
+}
+
+.settings-root .window-control-button:focus-visible {
+    -fx-border-color: rgba(92, 124, 171, 0.70);
+    -fx-border-width: 1;
+    -fx-border-insets: -2;
+    -fx-border-radius: 7;
+    -fx-effect: null;
+}
+
+/* Wheel navigation is active only while the pointer is over this surface. */
+.settings-navigation {
+    -fx-cursor: default;
+}
