@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)
@@ -160,9 +161,13 @@ class UiStylesResourceTest {
             assertNotNull(stream);
             String css = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
 
+            assertTrue(css.contains(".popup-root .window-control-button:focused"));
+            assertTrue(css.contains("/* Mouse/programmatic focus must not inherit JavaFX's default focus halo. */"));
+            assertTrue(css.contains(".popup-root .window-control-button:focused {\n    -fx-background-color: transparent;"));
+            assertTrue(css.contains(".popup-root .window-control-button:focused:hover"));
+            assertTrue(css.contains(".popup-root .window-close-button:focused:hover"));
             assertTrue(css.contains(".popup-root .window-control-button:focus-visible"));
-            assertTrue(css.contains("/* Mouse/programmatic focus must not leave a yellow glow on the custom window chrome. */"));
-            assertFalse(css.contains(".popup-root .window-control-button:focused"));
+            assertTrue(css.contains("/* Keyboard traversal still receives a quiet, non-accent focus indicator. */"));
             assertFalse(css.contains(".popup-root .window-control-button:focus-visible {\n    -fx-border-color: -x-accent;"));
         }
     }

@@ -1,3 +1,4 @@
+
 /*
  * XClip — Windows Clipboard Manager
  * Copyright (C) 2026 Rafael Xudoynazarov (End1essspace | RX)
@@ -2218,7 +2219,34 @@
     -fx-text-fill: #90BCFF;
 }
 
-/* Mouse/programmatic focus must not leave a yellow glow on the custom window chrome. */
+/* Mouse/programmatic focus must not inherit JavaFX's default focus halo. */
+.popup-root .window-control-button:focused {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-border-color: transparent;
+    -fx-border-width: 0;
+    -fx-effect: null;
+}
+
+.popup-root .window-control-button:focused:hover {
+    -fx-background-color: -x-surface-3;
+}
+
+.popup-root .window-control-button:focused:pressed {
+    -fx-background-color: #303746;
+}
+
+.popup-root .window-close-button:focused:hover {
+    -fx-background-color: #C42B1C;
+    -fx-text-fill: white;
+}
+
+.popup-root .window-close-button:focused:pressed {
+    -fx-background-color: #A5261A;
+    -fx-text-fill: white;
+}
+
+/* Keyboard traversal still receives a quiet, non-accent focus indicator. */
 .popup-root .window-control-button:focus-visible {
     -fx-border-color: rgba(92, 124, 171, 0.70);
     -fx-border-width: 1;
